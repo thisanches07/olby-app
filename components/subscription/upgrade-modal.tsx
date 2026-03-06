@@ -21,12 +21,24 @@ interface UpgradeModalProps {
   /** Mensagem vinda do backend (erro 403). Se não passada, usa texto padrão. */
   backendMessage?: string;
   onClose: () => void;
+  /**
+   * Post-create: usuário acabou de criar a última obra permitida.
+   * Quando definido, exibe variante de sucesso com CTA "Ver obra criada".
+   */
+  onViewObra?: () => void;
+  /**
+   * Error: plano não pôde ser carregado.
+   * Quando definido, exibe variante de erro com CTA "Tentar novamente".
+   */
+  onRetry?: () => void;
 }
 
 export function UpgradeModal({
   visible,
   backendMessage,
   onClose,
+  onViewObra,
+  onRetry,
 }: UpgradeModalProps) {
   const { plan } = useSubscription();
 
@@ -75,7 +87,130 @@ export function UpgradeModal({
     dismiss(() => router.push("/subscription/plans"));
   }
 
-  // ── Build message ──────────────────────────────────────────────────────────
+  const cardStyle = [styles.card, { transform: [{ translateY: slideAnim }] }];
+
+  // ── Shared overlay + wrapper ────────────────────────────────────────────
+  function ModalShell({ children }: { children: React.ReactNode }) {
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => dismiss()}
+      >
+        <View style={styles.root}>
+          <Animated.View
+            style={[styles.overlay, { opacity: overlayAnim }]}
+            pointerEvents="box-none"
+          >
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => dismiss()}
+            />
+          </Animated.View>
+
+          <Animated.View style={cardStyle}>
+            <View style={styles.handle} />
+            {children}
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ── Variante: erro de plano (sem conexão / indisponível) ────────────────
+  if (onRetry) {
+    return (
+      <ModalShell>
+        <View style={[styles.iconWrap, styles.iconWrapWarning]}>
+          <MaterialIcons name="wifi-off" size={32} color="#D97706" />
+        </View>
+        <Text style={styles.title}>Assinatura indisponível</Text>
+        <Text style={styles.body}>
+          Não foi possível validar seu plano agora. Verifique sua conexão e
+          tente novamente.
+        </Text>
+        <View style={styles.spacer} />
+        <TouchableOpacity
+          style={styles.ctaButton}
+          onPress={() => dismiss(onRetry)}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons
+            name="refresh"
+            size={18}
+            color={colors.white}
+            style={{ marginRight: spacing[6] }}
+          />
+          <Text style={styles.ctaText}>Tentar novamente</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => dismiss()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.cancelText}>Cancelar</Text>
+        </TouchableOpacity>
+      </ModalShell>
+    );
+  }
+
+  // ── Variante: limite atingido após criação (sucesso + upsell) ──────────
+  if (onViewObra) {
+    const planName = plan?.name ?? "Básico";
+    const limit = plan?.projectLimit ?? 0;
+    return (
+      <ModalShell>
+        <View style={[styles.iconWrap, styles.iconWrapSuccess]}>
+          <MaterialIcons name="check-circle" size={36} color="#16A34A" />
+        </View>
+        <Text style={styles.title}>Obra criada com sucesso!</Text>
+        <Text style={styles.body}>
+          {`Você atingiu o limite de ${limit} obra${limit !== 1 ? "s" : ""} do plano ${planName}. Para criar mais, faça upgrade para o plano Profissional.`}
+        </Text>
+        <Text style={styles.upgradeNote}>
+          Obras ilimitadas por R$ 129,90/mês.
+        </Text>
+        <TouchableOpacity
+          style={styles.ctaButton}
+          onPress={() => dismiss(onViewObra)}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons
+            name="arrow-forward"
+            size={18}
+            color={colors.white}
+            style={{ marginRight: spacing[6] }}
+          />
+          <Text style={styles.ctaText}>Ver obra criada</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.outlinedButton}
+          onPress={handleViewPlans}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons
+            name="workspace-premium"
+            size={16}
+            color={colors.primary}
+            style={{ marginRight: spacing[6] }}
+          />
+          <Text style={styles.outlinedButtonText}>Fazer upgrade</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => dismiss()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.cancelText}>Agora não</Text>
+        </TouchableOpacity>
+      </ModalShell>
+    );
+  }
+
+  // ── Variante padrão: upgrade / desbloqueio ──────────────────────────────
   const isFree = !plan || plan.code === "FREE";
   const planName = plan?.name ?? "Gratuito";
   const limit = plan?.projectLimit ?? 0;
@@ -102,66 +237,36 @@ export function UpgradeModal({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={() => dismiss()}
-    >
-      <View style={styles.root}>
-        {/* Overlay */}
-        <Animated.View
-          style={[styles.overlay, { opacity: overlayAnim }]}
-          pointerEvents="box-none"
-        >
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            activeOpacity={1}
-            onPress={() => dismiss()}
-          />
-        </Animated.View>
-
-        {/* Card */}
-        <Animated.View
-          style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
-        >
-          <View style={styles.handle} />
-
-          <View style={styles.iconWrap}>
-            <Text style={styles.iconEmoji}>🏗️</Text>
-          </View>
-
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.body}>{body}</Text>
-          {!!upgradeNote && (
-            <Text style={styles.upgradeNote}>{upgradeNote}</Text>
-          )}
-
-          <TouchableOpacity
-            style={styles.ctaButton}
-            onPress={handleViewPlans}
-            activeOpacity={0.85}
-          >
-            <MaterialIcons
-              name="workspace-premium"
-              size={18}
-              color={colors.white}
-              style={{ marginRight: spacing[6] }}
-            />
-            <Text style={styles.ctaText}>Ver planos de assinatura</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => dismiss()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelText}>Agora não</Text>
-          </TouchableOpacity>
-        </Animated.View>
+    <ModalShell>
+      <View style={styles.iconWrap}>
+        <Text style={styles.iconEmoji}>🏗️</Text>
       </View>
-    </Modal>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.body}>{body}</Text>
+      {!!upgradeNote && (
+        <Text style={styles.upgradeNote}>{upgradeNote}</Text>
+      )}
+      <TouchableOpacity
+        style={styles.ctaButton}
+        onPress={handleViewPlans}
+        activeOpacity={0.85}
+      >
+        <MaterialIcons
+          name="workspace-premium"
+          size={18}
+          color={colors.white}
+          style={{ marginRight: spacing[6] }}
+        />
+        <Text style={styles.ctaText}>Ver planos de assinatura</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.cancelButton}
+        onPress={() => dismiss()}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.cancelText}>Agora não</Text>
+      </TouchableOpacity>
+    </ModalShell>
   );
 }
 
@@ -199,6 +304,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing[20],
   },
+  iconWrapWarning: {
+    backgroundColor: "#FFFBEB",
+  },
+  iconWrapSuccess: {
+    backgroundColor: "#F0FDF4",
+  },
   iconEmoji: {
     fontSize: 32,
   },
@@ -224,6 +335,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing[28],
   },
+  spacer: {
+    height: spacing[20],
+  },
   ctaButton: {
     width: "100%",
     height: 52,
@@ -239,6 +353,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: colors.white,
+  },
+  outlinedButton: {
+    width: "100%",
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing[6],
+  },
+  outlinedButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.primary,
   },
   cancelButton: {
     width: "100%",

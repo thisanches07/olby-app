@@ -17,6 +17,7 @@ import {
   Animated,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -33,6 +34,7 @@ import { useSubscription } from "@/contexts/subscription-context";
 import { getStatusBadge } from "@/services/subscription.service";
 import { api } from "@/services/api";
 import { firebaseAuth } from "@/services/firebase";
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
@@ -603,6 +605,14 @@ export default function ProfileScreen() {
     setAvatarImageError(false);
   }, [photoUrl]);
 
+  const openPrivacy = useCallback(() => {
+    void Linking.openURL(PRIVACY_POLICY_URL);
+  }, []);
+
+  const openTerms = useCallback(() => {
+    void Linking.openURL(TERMS_OF_USE_URL);
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="light" />
@@ -748,6 +758,30 @@ export default function ProfileScreen() {
               onPress={handleDeleteAccount}
               isLast
               labelColor={colors.danger}
+            />
+          </View>
+
+          {/* Legal */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Legal</Text>
+          </View>
+          <View style={styles.card}>
+            <ActionRow
+              icon="policy"
+              iconBg={colors.tintBlue}
+              iconColor={colors.primary}
+              label="Política de Privacidade"
+              sublabel="Como tratamos seus dados no Obly App"
+              onPress={openPrivacy}
+            />
+            <ActionRow
+              icon="description"
+              iconBg="#EEF2FF"
+              iconColor={colors.primary}
+              label="Termos de Uso"
+              sublabel="Regras de uso e responsabilidades"
+              onPress={openTerms}
+              isLast
             />
           </View>
 

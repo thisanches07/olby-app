@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
@@ -21,6 +22,7 @@ import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 
 const PLANS = [
   {
@@ -386,6 +388,14 @@ function SubscriptionPlansIapEnabled() {
     }
   }, [isVerifyingPurchase]);
 
+  const openPrivacy = React.useCallback(() => {
+    void WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL);
+  }, []);
+
+  const openTerms = React.useCallback(() => {
+    void WebBrowser.openBrowserAsync(TERMS_OF_USE_URL);
+  }, []);
+
   const currentCode = plan?.code ?? "FREE";
   const disableAllActions =
     isRequestingPurchase || isVerifyingPurchase || isLoadingStoreProducts;
@@ -669,6 +679,15 @@ function SubscriptionPlansIapEnabled() {
           </Text>
         </View>
         <Text style={styles.footerSub}>Cancele quando quiser</Text>
+        <View style={styles.legalLinksRow}>
+          <Text style={styles.legalLinkText} onPress={openPrivacy}>
+            Política de Privacidade
+          </Text>
+          <Text style={styles.legalLinkSeparator}>•</Text>
+          <Text style={styles.legalLinkText} onPress={openTerms}>
+            Termos de Uso
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -945,5 +964,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.subtext,
     textAlign: "center",
+  },
+  legalLinksRow: {
+    marginTop: spacing[6],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[6],
+  },
+  legalLinkText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  legalLinkSeparator: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
 });

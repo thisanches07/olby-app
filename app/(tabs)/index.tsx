@@ -5,7 +5,6 @@ import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -21,6 +20,7 @@ import { HomeHeader } from "@/components/home/home-header";
 import { HomeSearchBar } from "@/components/home/home-search-bar";
 import { ObraCard, StatusType } from "@/components/obra-card";
 import { CreateProjectModal } from "@/components/projeto/create-project-modal";
+import { UpgradeModal } from "@/components/subscription/upgrade-modal";
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
 import type { ObraDetalhe } from "@/data/obras";
@@ -41,6 +41,12 @@ export default function MinhasObrasScreen() {
   const [filtroAtivo, setFiltroAtivo] = useState<StatusType | "todas">("todas");
   const [mode, setMode] = useState<"cliente" | "engenheiro">("cliente");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  type ModalMode =
+    | null
+    | "plan_error"
+    | "blocked_upgrade"
+    | { type: "post_create"; obraId: string };
+  const [modalMode, setModalMode] = useState<ModalMode>(null);
 
   const { obras, isLoading, isRefreshing, addObra, loadInitial, refresh } =
     useProjects();
@@ -111,91 +117,22 @@ export default function MinhasObrasScreen() {
         ownedCount + 1 >= planLimit;
 
       if (willReachLimitNow) {
-        Alert.alert(
-          "Você atingiu o limite do plano Básico",
-          `Agora você tem ${planLimit} obra(s) ativa(s). Para criar mais obras, faça upgrade para o plano Premium (Profissional).`,
-          [
-            {
-              text: "Ver obra",
-              onPress: () => {
-                router.push({
-                  pathname: "/obra/[id]",
-                  params: { id: novaObra.id },
-                });
-              },
-            },
-            {
-              text: "Fazer upgrade",
-              onPress: openPlansForBlockedCreation,
-            },
-          ],
-        );
+        setModalMode({ type: "post_create", obraId: novaObra.id });
         return;
       }
 
       router.push({ pathname: "/obra/[id]", params: { id: novaObra.id } });
     },
-    [
-      addObra,
-      openPlansForBlockedCreation,
-      ownedCount,
-      plan?.code,
-      planLimit,
-      refreshSubscription,
-    ],
+    [addObra, ownedCount, plan?.code, planLimit, refreshSubscription],
   );
 
   const showBlockedCreateAlert = useCallback(() => {
     if (!isPlanKnown) {
-      Alert.alert(
-        "Assinatura indisponível",
-        "Não foi possível validar seu plano agora. Verifique sua conexão e tente novamente.",
-        [
-          { text: "Cancelar", style: "cancel" },
-          {
-            text: "Tentar novamente",
-            onPress: () => {
-              void refreshSubscription();
-            },
-          },
-        ],
-      );
+      setModalMode("plan_error");
       return;
     }
-
-    if (isFreePlan) {
-      Alert.alert(
-        "Plano Gratuito",
-        "No plano atual você pode acompanhar obras, mas não pode criar novas. Assine um plano para criar suas obras.",
-        [
-          { text: "Agora não", style: "cancel" },
-          { text: "Ver planos", onPress: openPlansForBlockedCreation },
-        ],
-      );
-      return;
-    }
-
-    const limitText =
-      typeof planLimit === "number" && typeof ownedCount === "number"
-        ? `Seu plano atual permite até ${planLimit} obra(s) ativa(s). Você já tem ${ownedCount}.`
-        : "Você atingiu o limite do seu plano atual para obras ativas.";
-
-    Alert.alert(
-      "Limite de obras atingido",
-      `${limitText}\n\nFaça upgrade para o plano Premium (Profissional) para criar mais obras.`,
-      [
-        { text: "Entendi", style: "cancel" },
-        { text: "Fazer upgrade", onPress: openPlansForBlockedCreation },
-      ],
-    );
-  }, [
-    isFreePlan,
-    isPlanKnown,
-    openPlansForBlockedCreation,
-    ownedCount,
-    planLimit,
-    refreshSubscription,
-  ]);
+    setModalMode("blocked_upgrade");
+  }, [isPlanKnown]);
 
   const handlePressCreate = useCallback(() => {
     if (canCreate) {
@@ -212,6 +149,11 @@ export default function MinhasObrasScreen() {
     setShowCreateModal(false);
     showBlockedCreateAlert();
   }, [showBlockedCreateAlert]);
+
+  const postCreateObraId =
+    typeof modalMode === "object" && modalMode.type === "post_create"
+      ? modalMode.obraId
+      : null;
 
   return (
     <SafeAreaView style={styles.safeTop} edges={["top"]}>
@@ -312,6 +254,24 @@ export default function MinhasObrasScreen() {
           onClose={() => setShowCreateModal(false)}
           onSave={handleCreateProject}
           onRequireUpgrade={handleRequireUpgrade}
+        />
+
+        <UpgradeModal
+          visible={modalMode !== null}
+          onClose={() => setModalMode(null)}
+          onRetry={
+            modalMode === "plan_error"
+              ? () => void refreshSubscription()
+              : undefined
+          }
+          onViewObra={
+            postCreateObraId
+              ? () => {
+                  router.push({ pathname: "/obra/[id]", params: { id: postCreateObraId } });
+                  setModalMode(null);
+                }
+              : undefined
+          }
         />
       </View>
     </SafeAreaView>

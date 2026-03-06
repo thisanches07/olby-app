@@ -2,6 +2,7 @@ import {
   GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
@@ -87,6 +88,10 @@ export async function loginWithGoogleIdToken(idToken: string) {
   const result = await signInWithCredential(firebaseAuth, credential);
   await ensureUserRegistered(result.user);
   return result;
+}
+
+export async function requestPasswordReset(email: string) {
+  return sendPasswordResetEmail(firebaseAuth, email);
 }
 
 export async function logout() {

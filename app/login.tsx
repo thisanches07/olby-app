@@ -1,9 +1,9 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Constants from "expo-constants";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import * as Google from "expo-auth-session/providers/google";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -28,6 +28,7 @@ import {
   registerWithEmail,
 } from "@/services/auth.service";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -440,6 +441,14 @@ export default function LoginScreen() {
     }
   };
 
+  const openPrivacy = useCallback(() => {
+    void WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL);
+  }, []);
+
+  const openTerms = useCallback(() => {
+    void WebBrowser.openBrowserAsync(TERMS_OF_USE_URL);
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -564,6 +573,16 @@ export default function LoginScreen() {
                 }
               />
 
+              {mode === "login" && (
+                <TouchableOpacity
+                  style={styles.forgotLink}
+                  onPress={() => router.push("/forgot-password")}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.forgotLinkText}>Esqueceu sua senha?</Text>
+                </TouchableOpacity>
+              )}
+
               {mode === "register" && (
                 <>
                   <PasswordRules password={senha} />
@@ -603,6 +622,22 @@ export default function LoginScreen() {
                   </>
                 )}
               </TouchableOpacity>
+
+              <View style={styles.legalTextContainer}>
+                <Text style={styles.legalText}>
+                  Ao continuar, você concorda com nossos
+                  <Text style={styles.legalLink} onPress={openTerms}>
+                    {" "}
+                    Termos de Uso
+                  </Text>{" "}
+                  e
+                  <Text style={styles.legalLink} onPress={openPrivacy}>
+                    {" "}
+                    Política de Privacidade
+                  </Text>
+                  .
+                </Text>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -754,6 +789,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  legalTextContainer: {
+    marginTop: 10,
+  },
+  legalText: {
+    fontSize: 11,
+    color: "#64748B",
+    textAlign: "center",
+  },
+  legalLink: {
+    color: PRIMARY,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  forgotLink: {
+    alignSelf: "flex-end",
+    marginTop: -6,
+  },
+  forgotLinkText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: PRIMARY,
   },
 });
 
