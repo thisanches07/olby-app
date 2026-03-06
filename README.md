@@ -1,50 +1,73 @@
-# Welcome to your Expo app 👋
+# Obly App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# Páginas legais (Política de Privacidade / Termos)
 
-## Get started
+As lojas (App Store / Google Play) exigem uma **URL pública (HTTPS)** para a Política de Privacidade.
 
-1. Install dependencies
+- Arquivos: `legal/index.html`, `legal/privacy.html`, `legal/terms.html`
+- Suporte: `oblyapp.contact@gmail.com`
 
-   ```bash
-   npm install
-   ```
+## Publicar (recomendado: Vercel ou Netlify)
 
-2. Start the app
+1. Publique a pasta `legal/` como site estático.
+2. Use as URLs públicas nas consoles:
+   - Política de Privacidade: `https://<seu-dominio-ou-host>/privacy.html`
+   - Termos de Uso (opcional, recomendado): `https://<seu-dominio-ou-host>/terms.html`
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## iOS local development (without rebuilding on every change)
 
-## Learn more
+This app uses native modules (for example `expo-iap`), so Expo Go is not enough for full testing.
+Use a Development Build (Dev Client):
 
-To learn more about developing your project with Expo, look at the following resources:
+1. Build and install the iOS Dev Client once:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run ios:dev:build
+```
 
-## Join the community
+2. Start the local bundler in Dev Client mode:
 
-Join our community of developers creating universal apps.
+```bash
+npm run start:dev-client
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+3. Open the installed Dev Client on iPhone and connect to the local server (QR on LAN).
+
+After this first build, day-to-day frontend changes (`.tsx`, styles, business logic) do not require a new EAS build.
+
+If LAN is unavailable in your network, you can still force tunnel mode:
+
+```bash
+npm run start:dev-client:tunnel
+```
+
+## When you still need a new iOS build
+
+Run a new iOS build only when native layer changes, for example:
+
+- adding/removing native dependencies
+- changing native permissions/capabilities
+- changing config plugins in `app.json`
+- Expo SDK upgrades that affect native code
+
+## Useful commands
+
+```bash
+npm run start
+npm run start:dev-client
+npm run start:dev-client:tunnel
+npm run ios:dev:build
+npm run lint
+```
+
+## Important note for Windows
+
+If you are on Windows, local iOS compilation with Xcode is not available.
+The professional workflow is exactly this: build Dev Client once with EAS, then iterate locally with Metro + hot reload.
+"# olby-app" 
