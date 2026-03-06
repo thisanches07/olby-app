@@ -1,24 +1,210 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { Stack, usePathname, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import DevPanel from "@/app/dev/DevPanel";
+import type { DevUser } from "@/app/dev/mock-users";
+import { ToastProvider } from "@/components/obra/toast";
+import { ProjectsProvider } from "@/contexts/projects-context";
+import {
+  SubscriptionProvider,
+  useSubscription,
+} from "@/contexts/subscription-context";
+import { AppSessionProvider, useAppSession } from "@/hooks/use-app-session";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { setPlanErrorHandler } from "@/services/api";
+import { loginWithEmail } from "@/services/auth.service";
+import { pendingInviteToken } from "@/utils/pending-invite";
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const onLoginPage = pathname === "/login";
+    const onInvitePage = pathname === "/invite";
+
+    // Convites sao publicos, a tela /invite gerencia seu proprio auth check
+    if (!user && !onLoginPage && !onInvitePage) {
+      router.replace("/login");
+      return;
+    }
+
+    if (user && onLoginPage) {
+      const pending = pendingInviteToken.get();
+      if (pending) {
+        pendingInviteToken.clear();
+        router.replace({ pathname: "/invite", params: { token: pending } });
+      } else {
+        router.replace("/(tabs)");
+      }
+    }
+  }, [user, isLoading, pathname, router]);
+
+  if (isLoading) {
+    return (
+      <View
+        pointerEvents="auto"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#EFF6FF",
+        }}
+      >
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
+
+  const onLoginPage = pathname === "/login";
+  const onInvitePage = pathname === "/invite";
+
+  // Evita renderizar telas protegidas por um frame antes do redirect.
+  if (!user && !onLoginPage && !onInvitePage) return null;
+  if (user && onLoginPage) return null;
+
+  return <>{children}</>;
+}
+/** Loads subscription data once the user is authenticated. */
+function SubscriptionLoader() {
+  const { user, isLoading: authLoading } = useAuth();
+  const { refresh } = useSubscription();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      refresh();
+    }
+  }, [user, authLoading, refresh]);
+
+  return null;
+}
+
+/** Registers the global 403 plan-error handler that redirects to paywall. */
+function PlanErrorInterceptor() {
+  const router = useRouter();
+
+  useEffect(() => {
+    setPlanErrorHandler(() => {
+      router.push("/subscription/plans");
+    });
+    return () => setPlanErrorHandler(null);
+  }, [router]);
+
+  return null;
+}
+
+function DevPanelBridge() {
+  const { role, setRole, dataState, setDataState } = useAppSession();
+  const { user, signOut } = useAuth();
+
+  async function handleLoginAs(devUser: DevUser) {
+    await loginWithEmail(devUser.email, devUser.password);
+    setRole(devUser.role);
+  }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <View pointerEvents="box-none" style={{ position: "absolute", inset: 0 }}>
+      <DevPanel
+        role={role}
+        setRole={setRole}
+        dataState={dataState}
+        setDataState={setDataState}
+        currentUserEmail={user?.email ?? null}
+        onLoginAs={handleLoginAs}
+        onSignOut={signOut}
+      />
+    </View>
   );
 }
+
+export default function RootLayout() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider value={DefaultTheme}>
+          <AuthProvider>
+            <SubscriptionProvider>
+              <AppSessionProvider>
+                {/* ✅ ToastProvider precisa ficar acima de qualquer provider que use useToast (ex: ProjectsProvider) */}
+                <ToastProvider>
+                  <ProjectsProvider>
+                    <AuthGate>
+                      <SubscriptionLoader />
+                      <PlanErrorInterceptor />
+
+                      <Stack>
+                        <Stack.Screen
+                          name="login"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="(tabs)"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="obra/[id]"
+                          options={{
+                            headerShown: false,
+                            headerBackButtonMenuEnabled: false,
+                          }}
+                        />
+                        <Stack.Screen
+                          name="diario/[id]"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="shared/[id]"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="profile"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="invite"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="subscription/plans"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="subscription/my-plan"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="modal"
+                          options={{ presentation: "modal", title: "Modal" }}
+                        />
+                      </Stack>
+                    </AuthGate>
+
+                    <StatusBar style="dark" />
+                    {__DEV__ ? <DevPanelBridge /> : null}
+                  </ProjectsProvider>
+                </ToastProvider>
+              </AppSessionProvider>
+            </SubscriptionProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+

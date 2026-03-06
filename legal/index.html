@@ -1,0 +1,67 @@
+ <!doctype html>
+ <html lang="pt-BR">
+   <head>
+     <meta charset="utf-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1" />
+     <meta name="robots" content="index,follow" />
+     <title>Obly App — Central de Privacidade</title>
+     <meta
+       name="description"
+       content="Política de Privacidade e Termos de Uso do Obly App."
+     />
+     <link rel="stylesheet" href="./styles.css" />
+   </head>
+   <body>
+     <header class="topbar">
+       <div class="topbar-inner">
+         <div class="brand">
+           <div class="logo" aria-hidden="true"></div>
+           <div>Obly App</div>
+         </div>
+         <nav class="nav" aria-label="Navegação">
+           <a href="./privacy.html">Política de Privacidade</a>
+           <a href="./terms.html">Termos de Uso</a>
+         </nav>
+       </div>
+     </header>
+ 
+     <main class="container">
+       <section class="hero">
+         <div class="kicker">Central de Privacidade</div>
+         <h1>Documentos legais do Obly App</h1>
+         <p class="subtitle">
+           Aqui você encontra a Política de Privacidade e os Termos de Uso do
+           Obly App. Esses documentos são públicos e podem ser acessados sem
+           login.
+         </p>
+       </section>
+ 
+       <section class="card">
+         <h2>Escolha um documento</h2>
+         <ul>
+           <li>
+             <a href="./privacy.html"><strong>Política de Privacidade</strong></a>
+             — como coletamos e usamos dados (nome, e-mail, telefone e fotos).
+           </li>
+           <li>
+             <a href="./terms.html"><strong>Termos de Uso</strong></a>
+             — regras de uso do app e responsabilidades.
+           </li>
+         </ul>
+ 
+         <div class="note">
+           <strong>Suporte</strong>: se tiver dúvidas, fale com a gente em
+           <a href="mailto:oblyapp.contact@gmail.com">oblyapp.contact@gmail.com</a>.
+         </div>
+       </section>
+ 
+       <footer class="footer">
+         © <span id="year"></span> Obly App. Todos os direitos reservados.
+       </footer>
+     </main>
+ 
+     <script>
+       document.getElementById("year").textContent = String(new Date().getFullYear());
+     </script>
+   </body>
+ </html>

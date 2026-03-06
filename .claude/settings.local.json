@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"c:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\obra-app/app/\\(tabs\\)/\")",
+      "Bash(find \"c:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\obra-app/app/\\(tabs\\)\" -name \"_layout.tsx\" -exec cat {} ;)",
+      "Bash(npm install firebase expo-auth-session expo-crypto)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\(''exports'', {}\\), indent=2\\)\\)\")",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx expo install expo-image-manipulator)",
+      "Bash(npx expo install expo-media-library)",
+      "Bash(npx tsc --noEmit --skipLibCheck)"
+    ]
+  }
+}
