@@ -220,6 +220,19 @@ export default function ForgotPasswordScreen() {
                 editable={!loading}
               />
 
+              <View style={styles.googleNote}>
+                <MaterialIcons name="info-outline" size={14} color="#64748B" />
+                <Text style={styles.googleNoteText}>
+                  Se você entrou com Google, não é necessário redefinir senha.{" "}
+                  <Text
+                    style={styles.googleNoteLink}
+                    onPress={() => router.back()}
+                  >
+                    Voltar e usar o botão Google.
+                  </Text>
+                </Text>
+              </View>
+
               <TouchableOpacity
                 style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
                 onPress={handleSend}
@@ -402,5 +415,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: PRIMARY,
+  },
+  googleNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 7,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  googleNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 17,
+  },
+  googleNoteLink: {
+    color: PRIMARY,
+    fontWeight: "600",
   },
 });

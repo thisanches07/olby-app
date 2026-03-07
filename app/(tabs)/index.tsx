@@ -50,7 +50,7 @@ export default function MinhasObrasScreen() {
 
   const { obras, isLoading, isRefreshing, addObra, loadInitial, refresh } =
     useProjects();
-  const { plan, refresh: refreshSubscription } = useSubscription();
+  const { plan, isLoading: subscriptionLoading, refresh: refreshSubscription } = useSubscription();
   const isPlanKnown = !!plan?.code;
   const isFreePlan = plan?.code === "FREE";
   const isBasicPlan = plan?.code === "BASIC";
@@ -135,15 +135,16 @@ export default function MinhasObrasScreen() {
   }, [isPlanKnown]);
 
   const handlePressCreate = useCallback(() => {
+    // Aguarda o plano carregar antes de qualquer decisão
+    if (subscriptionLoading) return;
+
     if (canCreate) {
       setShowCreateModal(true);
       return;
     }
 
-    // Free: botão aparece, mas ao acessar mostramos aviso e direcionamos para planos
-    // Basic (limite): aviso profissional + direcionamento para upgrade
     showBlockedCreateAlert();
-  }, [canCreate, showBlockedCreateAlert]);
+  }, [canCreate, showBlockedCreateAlert, subscriptionLoading]);
 
   const handleRequireUpgrade = useCallback(() => {
     setShowCreateModal(false);
@@ -151,7 +152,7 @@ export default function MinhasObrasScreen() {
   }, [showBlockedCreateAlert]);
 
   const postCreateObraId =
-    typeof modalMode === "object" && modalMode.type === "post_create"
+    modalMode !== null && typeof modalMode === "object" && modalMode.type === "post_create"
       ? modalMode.obraId
       : null;
 
