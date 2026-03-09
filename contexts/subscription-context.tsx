@@ -64,15 +64,18 @@ export function SubscriptionProvider({
     } catch (err: unknown) {
       const mapped = mapBillingError(err);
 
-      // 404 em /subscriptions/me significa "sem assinatura ativa":
-      // mantemos estado FREE sem banner de erro.
-      if (mapped.status === 404 || mapped.code === "NOT_FOUND") {
-        setPlan(buildFreeSubscriptionInfo());
-        setError(null);
-      } else {
+      // 401 = sessão expirada — não sobrescreve o plano, deixa o AuthGate agir.
+      if (mapped.status === 401 || mapped.code === "UNAUTHORIZED") {
         setError(getFriendlySubscriptionError(mapped));
-        setPlan(null);
+        return;
       }
+
+      // Para qualquer outro erro (404, 500, timeout, rede), fazemos fallback
+      // para FREE para que o app mostre o modal de upgrade ao invés de
+      // "Assinatura indisponível". Isso evita que cold-starts do servidor
+      // bloqueiem completamente o fluxo do usuário.
+      setPlan(buildFreeSubscriptionInfo());
+      setError(null);
     } finally {
       setIsLoading(false);
     }

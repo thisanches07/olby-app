@@ -78,6 +78,18 @@ const IS_EXPO_GO =
   Constants.executionEnvironment === "storeClient" ||
   Constants.appOwnership === "expo";
 
+// ── Debug logger ─────────────────────────────────────────────────────────────
+const TAG = "[IAP]";
+function iapLog(event: string, data?: unknown): void {
+  if (__DEV__) {
+    if (data !== undefined) {
+      console.log(`${TAG} ${event}`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`${TAG} ${event}`);
+    }
+  }
+}
+
 function normalizeStorePrice(
   plan: (typeof PLANS)[number],
   subscriptions: ProductSubscription[],
@@ -249,9 +261,16 @@ function SubscriptionPlansIapEnabled() {
     finishTransaction,
   } = useIAP({
     onPurchaseSuccess: (purchase) => {
+      iapLog("onPurchaseSuccess", {
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+        store: purchase.store,
+        platform: purchase.platform,
+      });
       setIncomingPurchase(purchase);
     },
     onPurchaseError: (iapError) => {
+      iapLog("onPurchaseError", { message: iapError.message, code: (iapError as { code?: unknown }).code });
       const message =
         toFriendlyMessage(iapError.message, "A compra nao foi concluida.") ??
         "A compra nao foi concluida.";
@@ -263,12 +282,32 @@ function SubscriptionPlansIapEnabled() {
       setIsRequestingPurchase(false);
     },
     onError: (iapError) => {
+      iapLog("onError (IAP global)", { message: iapError.message, code: (iapError as { code?: unknown }).code });
       setStoreError(
         toFriendlyMessage(iapError.message, "Falha na conexao com a loja.") ??
           "Falha na conexao com a loja.",
       );
     },
   });
+
+  // ── Log: mudança de conexão com a loja ───────────────────────────────────
+  React.useEffect(() => {
+    iapLog("connected changed", { connected, platform: Platform.OS });
+  }, [connected]);
+
+  // ── Log: subscriptions atualizadas ───────────────────────────────────────
+  React.useEffect(() => {
+    iapLog("subscriptions updated", {
+      count: subscriptions.length,
+      skusRequested: STORE_SUBSCRIPTION_SKUS,
+      items: subscriptions.map((s) => ({
+        id: s.id,
+        title: s.title,
+        displayPrice: s.displayPrice,
+        platform: (s as { platform?: unknown }).platform ?? Platform.OS,
+      })),
+    });
+  }, [subscriptions]);
 
   const processPurchase = React.useCallback(
     async (purchase: Purchase) => {
@@ -347,11 +386,20 @@ function SubscriptionPlansIapEnabled() {
       try {
         setStoreError(null);
         setIsLoadingStoreProducts(true);
+
+        iapLog("fetchProducts → calling", {
+          skus: STORE_SUBSCRIPTION_SKUS,
+          type: "subs",
+        });
+
         await fetchProducts({ skus: STORE_SUBSCRIPTION_SKUS, type: "subs" });
+
+        iapLog("fetchProducts → done (subscriptions will update via hook)");
       } catch (fetchError: unknown) {
         if (!mounted) return;
         const rawMessage =
           fetchError instanceof Error ? fetchError.message : null;
+        iapLog("fetchProducts → error", { message: rawMessage });
         setStoreError(
           toFriendlyMessage(
             rawMessage,
@@ -421,8 +469,19 @@ function SubscriptionPlansIapEnabled() {
     "Nao foi possivel concluir a compra.",
   );
 
+  // Aviso específico quando a loja conectou mas não retornou nenhum SKU
+  const storeConnectedButEmpty =
+    connected && !isLoadingStoreProducts && subscriptions.length === 0 && !storeError;
+
   async function handleSubscribe(planItem: (typeof PLANS)[number]) {
     if (planItem.code === "FREE" || !planItem.productId) return;
+
+    iapLog("handleSubscribe → called", {
+      productId: planItem.productId,
+      connected,
+      subscriptionsCount: subscriptions.length,
+      availableIds: subscriptions.map((s) => s.id),
+    });
 
     if (Platform.OS === "web") {
       showToast({
@@ -434,6 +493,7 @@ function SubscriptionPlansIapEnabled() {
     }
 
     if (!connected) {
+      iapLog("handleSubscribe → abort: not connected");
       showToast({
         title: "Loja indisponivel",
         message: "Nao foi possivel conectar na App Store/Google Play.",
@@ -444,6 +504,10 @@ function SubscriptionPlansIapEnabled() {
 
     const storeProduct = subscriptions.find((s) => s.id === planItem.productId);
     if (!storeProduct) {
+      iapLog("handleSubscribe → abort: product not found", {
+        wanted: planItem.productId,
+        got: subscriptions.map((s) => s.id),
+      });
       showToast({
         title: "Produto nao encontrado",
         message: "Confirme se o SKU existe e esta ativo na loja.",
@@ -451,6 +515,11 @@ function SubscriptionPlansIapEnabled() {
       });
       return;
     }
+
+    iapLog("handleSubscribe → product found, requesting purchase", {
+      id: storeProduct.id,
+      displayPrice: storeProduct.displayPrice,
+    });
 
     try {
       clearPurchaseFeedback();
@@ -486,6 +555,7 @@ function SubscriptionPlansIapEnabled() {
     } catch (requestError: unknown) {
       const rawMessage =
         requestError instanceof Error ? requestError.message : null;
+      iapLog("handleSubscribe → requestPurchase error", { message: rawMessage });
       const message =
         toFriendlyMessage(rawMessage, "Falha ao iniciar compra.") ??
         "Falha ao iniciar compra.";
@@ -519,6 +589,42 @@ function SubscriptionPlansIapEnabled() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── DEV: painel de diagnóstico IAP ──────────────────────────── */}
+        {__DEV__ && (
+          <View style={styles.debugPanel}>
+            <Text style={styles.debugTitle}>DEV — diagnóstico IAP</Text>
+            <Text style={styles.debugRow}>
+              connected: <Text style={styles.debugValue}>{String(connected)}</Text>
+            </Text>
+            <Text style={styles.debugRow}>
+              loadingProducts: <Text style={styles.debugValue}>{String(isLoadingStoreProducts)}</Text>
+            </Text>
+            <Text style={styles.debugRow}>
+              storeError: <Text style={styles.debugValue}>{storeError ?? "—"}</Text>
+            </Text>
+            <Text style={styles.debugRow}>
+              subscriptions count: <Text style={styles.debugValue}>{subscriptions.length}</Text>
+            </Text>
+            <Text style={styles.debugRow}>SKUs esperados:</Text>
+            {STORE_SUBSCRIPTION_SKUS.map((sku) => (
+              <Text key={sku} style={styles.debugSku}>
+                {"  "}
+                {subscriptions.some((s) => s.id === sku) ? "✓" : "✗"} {sku}
+              </Text>
+            ))}
+            {subscriptions.length > 0 && (
+              <>
+                <Text style={[styles.debugRow, { marginTop: 4 }]}>IDs retornados pela loja:</Text>
+                {subscriptions.map((s) => (
+                  <Text key={s.id} style={styles.debugSku}>
+                    {"  "}• {s.id} ({s.displayPrice ?? "sem preço"})
+                  </Text>
+                ))}
+              </>
+            )}
+          </View>
+        )}
+
         {reasonMessage ? (
           <View style={[styles.feedbackCard, styles.feedbackCardInfo]}>
             <Text style={[styles.feedbackText, styles.feedbackTextInfo]}>
@@ -542,6 +648,16 @@ function SubscriptionPlansIapEnabled() {
             </Text>
           </View>
         ) : null}
+
+        {storeConnectedButEmpty && (
+          <View style={[styles.feedbackCard, styles.feedbackCardError]}>
+            <Text style={[styles.feedbackText, styles.feedbackTextError]}>
+              A App Store nao retornou subscriptions para estes SKUs. Verifique
+              se os produtos estao ativos no App Store Connect e se o bundle ID
+              bate com o app.
+            </Text>
+          </View>
+        )}
 
         {(friendlyPurchaseError || purchaseSuccess) && (
           <View
@@ -981,5 +1097,35 @@ const styles = StyleSheet.create({
   legalLinkSeparator: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  // ── DEV panel ──────────────────────────────────────────────────────────────
+  debugPanel: {
+    backgroundColor: "#1e1e2e",
+    borderRadius: radius.md,
+    padding: spacing[12],
+    marginBottom: spacing[16],
+    gap: 2,
+  },
+  debugTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#cdd6f4",
+    marginBottom: spacing[6],
+    letterSpacing: 0.5,
+  },
+  debugRow: {
+    fontSize: 11,
+    color: "#a6adc8",
+    lineHeight: 17,
+  },
+  debugValue: {
+    color: "#a6e3a1",
+    fontWeight: "700",
+  },
+  debugSku: {
+    fontSize: 10,
+    color: "#89b4fa",
+    lineHeight: 16,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
 });

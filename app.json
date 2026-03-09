@@ -15,7 +15,14 @@
       "infoPlist": {
         "CFBundleDisplayName": "Obly App",
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": false
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "192.168.0.117": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": false
+            }
+          }
         },
         "ITSAppUsesNonExemptEncryption": false
       }
