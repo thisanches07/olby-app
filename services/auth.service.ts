@@ -1,5 +1,6 @@
 import {
   GoogleAuthProvider,
+  OAuthProvider,
   User,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -86,6 +87,26 @@ export async function registerWithEmail(
 export async function loginWithGoogleIdToken(idToken: string) {
   const credential = GoogleAuthProvider.credential(idToken);
   const result = await signInWithCredential(firebaseAuth, credential);
+  await ensureUserRegistered(result.user);
+  return result;
+}
+
+export async function loginWithApple(
+  identityToken: string,
+  fullName?: { givenName?: string | null; familyName?: string | null } | null,
+) {
+  const provider = new OAuthProvider("apple.com");
+  const credential = provider.credential({ idToken: identityToken });
+  const result = await signInWithCredential(firebaseAuth, credential);
+
+  // Apple só envia fullName no primeiro login — não sobrescrever se já existe
+  if (!result.user.displayName && (fullName?.givenName || fullName?.familyName)) {
+    const displayName = [fullName.givenName, fullName.familyName]
+      .filter(Boolean)
+      .join(" ");
+    if (displayName) await updateProfile(result.user, { displayName });
+  }
+
   await ensureUserRegistered(result.user);
   return result;
 }

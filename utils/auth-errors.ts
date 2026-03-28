@@ -26,6 +26,16 @@ const firebaseErrorMap: Record<string, string> = {
   // Rede
   "auth/network-request-failed":
     "Sem conexão com a internet. Verifique sua rede e tente novamente.",
+
+  // Apple Sign-In (expo-apple-authentication)
+  "ERR_REQUEST_CANCELED": "Login com Apple cancelado.",
+  "ERR_REQUEST_FAILED":
+    "Não foi possível completar o login com Apple. Tente novamente.",
+  "ERR_REQUEST_NOT_HANDLED":
+    "Login com Apple não está disponível neste dispositivo.",
+  "ERR_REQUEST_NOT_INTERACTIVE":
+    "Login com Apple requer interação do usuário.",
+  "ERR_INVALID_OPERATION": "Operação inválida no login com Apple.",
 };
 
 export function getAuthErrorMessage(error: unknown): string {

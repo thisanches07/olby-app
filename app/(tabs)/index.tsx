@@ -1,11 +1,12 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -14,11 +15,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { HomeEmptyState } from "@/components/home/home-empty-state";
 import { HomeFilterChips } from "@/components/home/home-filter-chips";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomeSearchBar } from "@/components/home/home-search-bar";
 import { ObraCard, StatusType } from "@/components/obra-card";
+import { ObraCardSkeleton } from "@/components/obra/obra-card-skeleton";
 import { CreateProjectModal } from "@/components/projeto/create-project-modal";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
 import { useProjects } from "@/contexts/projects-context";
@@ -138,6 +141,10 @@ export default function MinhasObrasScreen() {
     // Aguarda o plano carregar antes de qualquer decisão
     if (subscriptionLoading) return;
 
+    if (Platform.OS === "ios") {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     if (canCreate) {
       setShowCreateModal(true);
       return;
@@ -161,9 +168,10 @@ export default function MinhasObrasScreen() {
       <StatusBar style="light" />
 
       <View style={styles.content}>
-        <FlatList
+        <FlashList
           data={obrasFiltradas}
           keyExtractor={(item) => item.id}
+          estimatedItemSize={185}
           renderItem={({ item }) => (
             <ObraCard
               obra={item}
@@ -175,12 +183,18 @@ export default function MinhasObrasScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
+          overScrollMode="never"
           style={styles.flatList}
           contentContainerStyle={styles.listaContainer}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={refresh}
+              onRefresh={() => {
+                if (Platform.OS === "ios") {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                refresh();
+              }}
               tintColor="#FFFFFF"
               colors={["#FFFFFF"]}
               progressBackgroundColor={colors.primary}
@@ -233,22 +247,25 @@ export default function MinhasObrasScreen() {
               )}
 
               {isLoading && (
-                <View style={styles.loadingWrap}>
-                  <ActivityIndicator />
-                </View>
+                <>
+                  <ObraCardSkeleton />
+                  <ObraCardSkeleton />
+                  <ObraCardSkeleton />
+                  <ObraCardSkeleton />
+                </>
               )}
             </>
           }
           ListEmptyComponent={!isLoading ? <HomeEmptyState /> : null}
         />
 
-        <TouchableOpacity
+        <PressableScale
           style={styles.fab}
-          activeOpacity={0.85}
+          scaleTo={0.92}
           onPress={handlePressCreate}
         >
           <MaterialIcons name="add" size={28} color={colors.white} />
-        </TouchableOpacity>
+        </PressableScale>
 
         <CreateProjectModal
           visible={showCreateModal}

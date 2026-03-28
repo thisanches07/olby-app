@@ -1,15 +1,24 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useRef, useState } from "react";
+import { BlurView } from "expo-blur";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   Modal,
   Platform,
   StyleSheet,
   Text,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+import { PressableScale } from "@/components/ui/pressable-scale";
 
 export interface ActionMenuItem {
   label: string;
@@ -32,43 +41,46 @@ export function ActionMenuSheet({
   onClose,
 }: ActionMenuSheetProps) {
   const [internalVisible, setInternalVisible] = useState(false);
-  const translateY = useRef(new Animated.Value(400)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(300);
+  const backdropOpacity = useSharedValue(0);
+
+  const SPRING = { damping: 40, stiffness: 420, mass: 0.8 } as const;
 
   useEffect(() => {
     if (visible) {
       setInternalVisible(true);
-      translateY.setValue(400);
-      backdropOpacity.setValue(0);
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      translateY.value = 300;
+      backdropOpacity.value = 0;
+      backdropOpacity.value = withTiming(1, { duration: 200 });
+      translateY.value = withSpring(0, SPRING);
     } else {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 400,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => setInternalVisible(false));
+      backdropOpacity.value = withTiming(0, { duration: 160 });
+      translateY.value = withTiming(300, { duration: 180 });
+      setTimeout(() => setInternalVisible(false), 190);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > 80 || e.velocityY > 600) {
+        runOnJS(onClose)();
+      } else {
+        translateY.value = withSpring(0, SPRING);
+      }
+    });
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   return (
     <Modal
@@ -81,15 +93,14 @@ export function ActionMenuSheet({
       <View style={styles.overlay}>
         {/* Backdrop — fecha ao tocar fora */}
         <TouchableWithoutFeedback onPress={onClose}>
-          <Animated.View
-            style={[styles.backdrop, { opacity: backdropOpacity }]}
-          />
+          <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+            <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
+          </Animated.View>
         </TouchableWithoutFeedback>
 
         {/* Sheet */}
-        <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
-        >
+        <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.sheet, sheetStyle]}>
           {/* Drag handle */}
           <View style={styles.handle} />
 
@@ -98,14 +109,14 @@ export function ActionMenuSheet({
           {/* Opções agrupadas */}
           <View style={styles.actionsContainer}>
             {actions.map((action, i) => (
-              <TouchableOpacity
+              <PressableScale
                 key={i}
                 style={[styles.row, i > 0 && styles.rowBorder]}
                 onPress={() => {
                   onClose();
                   setTimeout(action.onPress, 280);
                 }}
-                activeOpacity={0.65}
+                scaleTo={0.98}
               >
                 <View
                   style={[
@@ -130,19 +141,20 @@ export function ActionMenuSheet({
                 >
                   {action.label}
                 </Text>
-              </TouchableOpacity>
+              </PressableScale>
             ))}
           </View>
 
           {/* Cancelar */}
-          <TouchableOpacity
+          <PressableScale
             style={styles.cancelRow}
             onPress={onClose}
-            activeOpacity={0.7}
+            scaleTo={0.98}
           >
             <Text style={styles.cancelText}>Cancelar</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </Animated.View>
+        </GestureDetector>
       </View>
     </Modal>
   );
@@ -155,7 +167,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.48)",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   sheet: {
     backgroundColor: "#FFFFFF",
@@ -163,7 +175,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     paddingBottom: Platform.OS === "ios" ? 36 : 24,
     paddingTop: 12,
-    // shadow on top edge
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
@@ -187,6 +198,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 12,
     paddingHorizontal: 20,
+    fontFamily: "Inter-SemiBold",
   },
   actionsContainer: {
     marginHorizontal: 16,
@@ -223,10 +235,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: "#111827",
+    fontFamily: "Inter-Regular",
   },
   rowLabelDestructive: {
     color: "#EF4444",
     fontWeight: "600",
+    fontFamily: "Inter-SemiBold",
   },
   cancelRow: {
     marginHorizontal: 16,
@@ -241,5 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#374151",
+    fontFamily: "Inter-Bold",
   },
 });

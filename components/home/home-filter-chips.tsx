@@ -1,12 +1,9 @@
+import * as Haptics from "expo-haptics";
 import React from "react";
-import {
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-} from "react-native";
+import { FlatList, Platform, StyleSheet, Text } from "react-native";
 
-const PRIMARY = "#2563EB";
+import { PressableScale } from "@/components/ui/pressable-scale";
+import { colors } from "@/theme/colors";
 
 interface FilterChip {
   label: string;
@@ -32,9 +29,15 @@ export function HomeFilterChips({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
       renderItem={({ item }) => (
-        <TouchableOpacity
+        <PressableScale
           style={[styles.chip, activeFilter === item.value && styles.chipActive]}
-          onPress={() => onFilterChange(item.value)}
+          scaleTo={0.94}
+          onPress={() => {
+            if (Platform.OS === "ios") {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            onFilterChange(item.value);
+          }}
         >
           <Text
             style={[
@@ -44,7 +47,7 @@ export function HomeFilterChips({
           >
             {item.label}
           </Text>
-        </TouchableOpacity>
+        </PressableScale>
       )}
     />
   );
@@ -62,20 +65,22 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
     marginRight: 8,
   },
   chipActive: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   text: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#6B7280",
+    color: colors.textMuted,
+    fontFamily: "Inter-Regular",
   },
   textActive: {
     color: "#FFFFFF",
     fontWeight: "600",
+    fontFamily: "Inter-SemiBold",
   },
 });

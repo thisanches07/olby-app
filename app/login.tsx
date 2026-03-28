@@ -22,7 +22,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
+import * as AppleAuthentication from "expo-apple-authentication";
+
 import {
+  loginWithApple,
   loginWithEmail,
   loginWithGoogleIdToken,
   registerWithEmail,
@@ -261,6 +264,7 @@ export default function LoginScreen() {
   const [nome, setNome] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   const googleAndroidClientId =
@@ -285,7 +289,7 @@ export default function LoginScreen() {
 
   const showError = (msg: string) => setError(msg);
   const clearError = () => setError(null);
-  const isBusy = loading || googleLoading;
+  const isBusy = loading || googleLoading || appleLoading;
 
   useEffect(() => {
     const handleGoogleResponse = async () => {
@@ -422,6 +426,38 @@ export default function LoginScreen() {
     }
   };
 
+  const handleAppleAuth = async () => {
+    clearError();
+    try {
+      setAppleLoading(true);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        showError("Não foi possível obter o token da Apple. Tente novamente.");
+        return;
+      }
+      await loginWithApple(credential.identityToken, credential.fullName);
+      router.replace("/(tabs)");
+    } catch (err) {
+      // Cancel silencioso — usuário fechou o sheet intencionalmente
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "ERR_REQUEST_CANCELED"
+      ) {
+        return;
+      }
+      showError(getAuthErrorMessage(err));
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
   const switchMode = (next: AuthMode) => {
     setMode(next);
     setEmail("");
@@ -515,6 +551,26 @@ export default function LoginScreen() {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* Apple Button — iOS only */}
+            {Platform.OS === "ios" && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={
+                  mode === "login"
+                    ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                    : AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+                }
+                buttonStyle={
+                  AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                }
+                cornerRadius={14}
+                style={[
+                  styles.appleButton,
+                  isBusy && styles.appleButtonDisabled,
+                ]}
+                onPress={handleAppleAuth}
+              />
+            )}
 
             {/* Divider */}
             <View style={styles.divider}>
@@ -695,6 +751,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   googleButtonDisabled: { opacity: 0.7 },
+  appleButton: {
+    height: 52,
+    borderRadius: 14,
+    marginBottom: 20,
+  },
+  appleButtonDisabled: { opacity: 0.7 },
   googleIconOuter: {
     width: 32,
     height: 32,

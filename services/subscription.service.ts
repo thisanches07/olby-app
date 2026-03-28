@@ -18,6 +18,7 @@ export interface SubscriptionInfo {
   priceCents: number;
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
   ownedProjectCount: number;
   canCreateProject: boolean;
 }
@@ -30,6 +31,7 @@ export function buildFreeSubscriptionInfo(): SubscriptionInfo {
     priceCents: 0,
     subscriptionStatus: null,
     trialEndsAt: null,
+    currentPeriodEnd: null,
     ownedProjectCount: 0,
     canCreateProject: false,
   };

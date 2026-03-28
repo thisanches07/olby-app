@@ -1,6 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Constants from "expo-constants";
 import type { ProductSubscription, Purchase } from "expo-iap";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
@@ -42,7 +43,7 @@ const PLANS = [
     code: "BASIC" as const,
     label: "Basico",
     price: "R$ 79,90",
-    priceNote: "/mes",
+    priceNote: "por mês",
     emoji: "STAR",
     features: [
       { ok: true, text: "Criar ate 3 obras ativas" },
@@ -58,7 +59,7 @@ const PLANS = [
     code: "PRO" as const,
     label: "Profissional",
     price: "R$ 129,90",
-    priceNote: "/mes",
+    priceNote: "por mês",
     emoji: "PRO",
     features: [
       { ok: true, text: "Obras ilimitadas" },
@@ -101,7 +102,8 @@ function normalizeStorePrice(
     return { price: plan.price, priceNote: plan.priceNote };
   }
 
-  return { price: storeProduct.displayPrice, priceNote: "" };
+  // Preservar "por mês" mesmo quando usando preço da loja (duração obrigatória pela Apple 3.1.2c)
+  return { price: storeProduct.displayPrice, priceNote: plan.priceNote };
 }
 
 function purchaseKeyFromPurchase(purchase: Purchase): string {
@@ -696,6 +698,15 @@ function SubscriptionPlansIapEnabled() {
               ]}
             >
               {isHighlight && !isCurrent && (
+                <LinearGradient
+                  colors={["#1E40AF", "#2563EB", "#3B82F6"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+              )}
+              {isHighlight && !isCurrent && (
                 <View style={styles.popularBadge}>
                   <Text style={styles.popularBadgeText}>Mais popular</Text>
                 </View>
@@ -740,12 +751,17 @@ function SubscriptionPlansIapEnabled() {
                     <MaterialIcons
                       name={feature.ok ? "check-circle" : "cancel"}
                       size={18}
-                      color={feature.ok ? colors.success : colors.border}
+                      color={
+                        isHighlight && !isCurrent
+                          ? feature.ok ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)"
+                          : feature.ok ? colors.success : colors.border
+                      }
                     />
                     <Text
                       style={[
                         styles.featureText,
                         !feature.ok && styles.featureTextOff,
+                        isHighlight && !isCurrent && { color: feature.ok ? "#FFFFFF" : "rgba(255,255,255,0.5)" },
                       ]}
                     >
                       {feature.text}
@@ -764,7 +780,25 @@ function SubscriptionPlansIapEnabled() {
                   <Text style={styles.currentBadgeText}>Plano atual</Text>
                 </View>
               ) : planItem.code !== "FREE" ? (
-                <TouchableOpacity
+                <>
+                  <Text style={styles.renewalNotice}>
+                    Renova automaticamente. Cancele quando quiser.{" "}
+                    <Text
+                      style={styles.renewalNoticeLink}
+                      onPress={openTerms}
+                    >
+                      Termos
+                    </Text>
+                    {" e "}
+                    <Text
+                      style={styles.renewalNoticeLink}
+                      onPress={openPrivacy}
+                    >
+                      Privacidade
+                    </Text>
+                    .
+                  </Text>
+                  <TouchableOpacity
                   style={[
                     styles.subscribeButton,
                     isHighlight && styles.subscribeButtonHighlight,
@@ -775,14 +809,18 @@ function SubscriptionPlansIapEnabled() {
                   disabled={disableAllActions}
                 >
                   {disableAllActions ? (
-                    <ActivityIndicator color={colors.white} size="small" />
+                    <ActivityIndicator color={isHighlight && !isCurrent ? colors.primary : colors.white} size="small" />
                   ) : (
-                    <Text style={styles.subscribeButtonText}>
+                    <Text style={[
+                      styles.subscribeButtonText,
+                      isHighlight && !isCurrent && { color: colors.primary },
+                    ]}>
                       Assinar por {pricing.price}
                       {pricing.priceNote}
                     </Text>
                   )}
                 </TouchableOpacity>
+                </>
               ) : null}
             </View>
           );
@@ -982,7 +1020,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   planNameHighlight: {
-    color: colors.primary,
+    color: "#FFFFFF",
   },
   planPriceRow: {
     flexDirection: "row",
@@ -996,7 +1034,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   planPriceHighlight: {
-    color: colors.primary,
+    color: "#FFFFFF",
   },
   planPriceNote: {
     fontSize: 13,
@@ -1035,7 +1073,7 @@ const styles = StyleSheet.create({
     ...shadow(2, colors.primary),
   },
   subscribeButtonHighlight: {
-    backgroundColor: colors.primary,
+    backgroundColor: "#FFFFFF",
   },
   subscribeButtonDisabled: {
     opacity: 0.7,
@@ -1097,6 +1135,19 @@ const styles = StyleSheet.create({
   legalLinkSeparator: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  renewalNotice: {
+    fontSize: 11,
+    color: colors.subtext,
+    textAlign: "center",
+    marginBottom: spacing[8],
+    lineHeight: 16,
+  },
+  renewalNoticeLink: {
+    color: colors.primary,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+    fontSize: 11,
   },
   // ── DEV panel ──────────────────────────────────────────────────────────────
   debugPanel: {

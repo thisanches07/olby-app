@@ -1,11 +1,11 @@
 import type { ObraDetalhe } from "@/data/obras";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useAuth } from "@/hooks/use-auth";
-
-const PRIMARY = "#2563EB";
+import { colors } from "@/theme/colors";
 
 interface HomeHeaderProps {
   mode: "cliente" | "engenheiro";
@@ -44,7 +44,12 @@ export function HomeHeader({ mode, onModeChange, obras }: HomeHeaderProps) {
   }, [photoUrl]);
 
   return (
-    <View style={styles.header}>
+    <LinearGradient
+      colors={["#1D4ED8", "#2563EB", "#3B82F6"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.header}
+    >
       <View style={styles.headerTop}>
         <View style={styles.greetingWrap}>
           <Text style={styles.headerGreeting}>{greeting}</Text>
@@ -84,7 +89,7 @@ export function HomeHeader({ mode, onModeChange, obras }: HomeHeaderProps) {
           <Text style={styles.statLabel}>Concluídas</Text>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -98,7 +103,7 @@ function getGreeting(firstName: string | null): string {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,

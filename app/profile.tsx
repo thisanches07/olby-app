@@ -721,7 +721,7 @@ export default function ProfileScreen() {
               iconColor={colors.primary}
               label="Minha assinatura"
               sublabel={subSublabel}
-              onPress={() => router.push("/subscription/plans")}
+              onPress={() => router.push("/subscription/my-plan")}
             />
             <ActionRow
               icon="lock-reset"

@@ -1,15 +1,22 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useRef, useState } from "react";
+import { BlurView } from "expo-blur";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   Modal,
   Platform,
   StyleSheet,
   Text,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+
+import { PressableScale } from "@/components/ui/pressable-scale";
 
 interface ConfirmSheetProps {
   visible: boolean;
@@ -36,43 +43,30 @@ export function ConfirmSheet({
   onClose,
 }: ConfirmSheetProps) {
   const [internalVisible, setInternalVisible] = useState(false);
-  const translateY = useRef(new Animated.Value(400)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(400);
+  const backdropOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
       setInternalVisible(true);
-      translateY.setValue(400);
-      backdropOpacity.setValue(0);
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      translateY.value = 400;
+      backdropOpacity.value = 0;
+      backdropOpacity.value = withTiming(1, { duration: 220 });
+      translateY.value = withSpring(0, { damping: 20, stiffness: 250 });
     } else {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 400,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => setInternalVisible(false));
+      backdropOpacity.value = withTiming(0, { duration: 180 });
+      translateY.value = withTiming(400, { duration: 200 });
+      setTimeout(() => setInternalVisible(false), 210);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   const handleConfirm = () => {
     onClose();
@@ -91,14 +85,12 @@ export function ConfirmSheet({
     >
       <View style={styles.overlay}>
         <TouchableWithoutFeedback onPress={onClose}>
-          <Animated.View
-            style={[styles.backdrop, { opacity: backdropOpacity }]}
-          />
+          <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+            <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
+          </Animated.View>
         </TouchableWithoutFeedback>
 
-        <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
-        >
+        <Animated.View style={[styles.sheet, sheetStyle]}>
           {/* Handle */}
           <View style={styles.handle} />
 
@@ -113,7 +105,7 @@ export function ConfirmSheet({
 
           {/* Buttons */}
           <View style={styles.buttons}>
-            <TouchableOpacity
+            <PressableScale
               style={[
                 styles.confirmBtn,
                 confirmVariant === "destructive"
@@ -121,7 +113,7 @@ export function ConfirmSheet({
                   : styles.confirmPrimary,
               ]}
               onPress={handleConfirm}
-              activeOpacity={0.82}
+              scaleTo={0.97}
             >
               <Text
                 style={[
@@ -131,15 +123,15 @@ export function ConfirmSheet({
               >
                 {confirmLabel}
               </Text>
-            </TouchableOpacity>
+            </PressableScale>
 
-            <TouchableOpacity
+            <PressableScale
               style={styles.cancelBtn}
               onPress={onClose}
-              activeOpacity={0.7}
+              scaleTo={0.98}
             >
               <Text style={styles.cancelBtnText}>Cancelar</Text>
-            </TouchableOpacity>
+            </PressableScale>
           </View>
         </Animated.View>
       </View>
@@ -154,7 +146,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   sheet: {
     backgroundColor: "#FFFFFF",
@@ -196,12 +188,14 @@ const styles = StyleSheet.create({
     color: "#111827",
     textAlign: "center",
     letterSpacing: -0.2,
+    fontFamily: "Inter-Bold",
   },
   message: {
     fontSize: 14,
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 20,
+    fontFamily: "Inter-Regular",
   },
   buttons: {
     paddingHorizontal: 16,
@@ -223,6 +217,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 0.1,
+    fontFamily: "Inter-Bold",
   },
   confirmBtnTextPrimary: {
     color: "#FFFFFF",
@@ -239,5 +234,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#374151",
+    fontFamily: "Inter-Bold",
   },
 });

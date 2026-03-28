@@ -1,10 +1,20 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  Inter_400Regular,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+SplashScreen.preventAutoHideAsync();
 
 import DevPanel from "@/app/dev/DevPanel";
 import type { DevUser } from "@/app/dev/mock-users";
@@ -134,8 +144,23 @@ function DevPanelBridge() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    "Inter-Regular": Inter_400Regular,
+    "Inter-SemiBold": Inter_600SemiBold,
+    "Inter-Bold": Inter_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
       <SafeAreaProvider>
         <ThemeProvider value={DefaultTheme}>
           <AuthProvider>
@@ -182,11 +207,19 @@ export default function RootLayout() {
                         />
                         <Stack.Screen
                           name="subscription/plans"
-                          options={{ headerShown: false }}
+                          options={{
+                            headerShown: false,
+                            presentation: "modal",
+                            animation: "slide_from_bottom",
+                          }}
                         />
                         <Stack.Screen
                           name="subscription/my-plan"
-                          options={{ headerShown: false }}
+                          options={{
+                            headerShown: false,
+                            presentation: "modal",
+                            animation: "slide_from_bottom",
+                          }}
                         />
                         <Stack.Screen
                           name="modal"
@@ -204,6 +237,7 @@ export default function RootLayout() {
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }

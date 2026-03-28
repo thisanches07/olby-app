@@ -1,6 +1,9 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+
+import { PressableScale } from "@/components/ui/pressable-scale";
+import { colors } from "@/theme/colors";
 
 export type StatusType =
   | "em_andamento"
@@ -75,11 +78,7 @@ export function ObraCard({ obra, onPress }: ObraCardProps) {
   const progressColor = PROGRESS_COLORS[status];
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
+    <PressableScale style={styles.card} onPress={onPress} scaleTo={0.975}>
       <View style={styles.cardHeader}>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
           <View
@@ -89,7 +88,7 @@ export function ObraCard({ obra, onPress }: ObraCardProps) {
             {statusInfo.label}
           </Text>
         </View>
-        <MaterialIcons name="chevron-right" size={22} color="#D1D5DB" />
+        <MaterialIcons name="chevron-right" size={22} color={colors.iconMuted} />
       </View>
 
       <Text style={styles.nomeProjeto} numberOfLines={1}>
@@ -100,7 +99,7 @@ export function ObraCard({ obra, onPress }: ObraCardProps) {
       </Text>
 
       <View style={styles.enderecoRow}>
-        <MaterialIcons name="location-on" size={13} color="#9CA3AF" />
+        <MaterialIcons name="location-on" size={13} color={colors.subtext} />
         <Text style={styles.enderecoText} numberOfLines={1}>
           {endereco}
         </Text>
@@ -130,17 +129,17 @@ export function ObraCard({ obra, onPress }: ObraCardProps) {
 
       <View style={styles.footer}>
         <View style={styles.dateItem}>
-          <MaterialIcons name="calendar-today" size={12} color="#9CA3AF" />
+          <MaterialIcons name="calendar-today" size={12} color={colors.subtext} />
           <Text style={styles.dateLabel}>Início: </Text>
           <Text style={styles.dateValue}>{dataInicio}</Text>
         </View>
         <View style={styles.dateItem}>
-          <MaterialIcons name="event" size={12} color="#9CA3AF" />
+          <MaterialIcons name="event" size={12} color={colors.subtext} />
           <Text style={styles.dateLabel}>Previsão: </Text>
           <Text style={styles.dateValue}>{dataPrevisao}</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
@@ -179,18 +178,21 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: "600",
+    fontFamily: "Inter-SemiBold",
   },
   nomeProjeto: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#111827",
+    color: colors.text,
     marginBottom: 2,
+    fontFamily: "Inter-Bold",
   },
   cliente: {
     fontSize: 14,
-    color: "#6B7280",
+    color: colors.textMuted,
     fontWeight: "500",
     marginBottom: 6,
+    fontFamily: "Inter-Regular",
   },
   enderecoRow: {
     flexDirection: "row",
@@ -199,12 +201,13 @@ const styles = StyleSheet.create({
   },
   enderecoText: {
     fontSize: 12,
-    color: "#9CA3AF",
+    color: colors.subtext,
     flex: 1,
+    fontFamily: "Inter-Regular",
   },
   divider: {
     height: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.gray100,
     marginVertical: 12,
   },
   progressContainer: {
@@ -217,16 +220,19 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: 12,
-    color: "#9CA3AF",
+    color: colors.subtext,
     fontWeight: "500",
+    fontFamily: "Inter-Regular",
   },
   progressValue: {
     fontSize: 12,
     fontWeight: "700",
+    fontFamily: "Inter-Bold",
+    fontVariant: ["tabular-nums"],
   },
   progressTrack: {
     height: 6,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.gray100,
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -245,11 +251,14 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 11,
-    color: "#9CA3AF",
+    color: colors.subtext,
+    fontFamily: "Inter-Regular",
   },
   dateValue: {
     fontSize: 11,
-    color: "#6B7280",
+    color: colors.textMuted,
     fontWeight: "600",
+    fontFamily: "Inter-SemiBold",
+    fontVariant: ["tabular-nums"],
   },
 });
