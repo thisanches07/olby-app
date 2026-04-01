@@ -394,8 +394,11 @@ export function ShareProjectModal({
     if (!inviteResult) return;
     try {
       await Share.share({
-        message: `Acompanhe o andamento do projeto "${projectName}":\n${inviteResult.inviteUrl}`,
-        title: "Convite de projeto",
+        message:
+          `Você foi convidado para acompanhar a obra "${projectName}" no Obly App.\n\n` +
+          `Toque no link para aceitar o convite:\n${inviteResult.inviteUrl}\n\n` +
+          `Ainda não tem o app? Baixe grátis em oblyapp.com`,
+        title: "Convite para obra",
       });
     } catch {
       // usuário cancelou o share sheet — não é erro

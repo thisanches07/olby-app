@@ -7,16 +7,17 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  Animated,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { notifyError, notifySuccess } from "@/utils/haptics";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -66,55 +67,45 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [payload, setPayload] = useState<ToastPayload | null>(null);
 
-  const translateY = useRef(new Animated.Value(-20)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  const hideToast = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 160,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -14,
-        duration: 160,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setVisible(false);
-      setPayload(null);
-    });
-  }, [opacity, translateY]);
+  const translateY = useSharedValue(-80);
+  const opacity = useSharedValue(0);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hideToast = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    opacity.value = withTiming(0, { duration: 180 });
+    translateY.value = withTiming(-80, { duration: 200 }, (finished) => {
+      if (finished) {
+        runOnJS(setVisible)(false);
+        runOnJS(setPayload)(null);
+      }
+    });
+  }, [opacity, translateY]);
 
   const showToast = useCallback(
     (t: ToastPayload) => {
       if (timerRef.current) clearTimeout(timerRef.current);
 
-      setPayload({
-        tone: "info",
-        durationMs: 2400,
-        ...t,
-      });
+      const tone = t.tone ?? "info";
+
+      setPayload({ tone, durationMs: 2400, ...t });
       setVisible(true);
 
-      translateY.setValue(-14);
-      opacity.setValue(0);
+      // Haptic baseado no tom
+      if (tone === "success") notifySuccess();
+      else if (tone === "error") notifyError();
 
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      // Reset position e anima com spring para leve bounce
+      translateY.value = -80;
+      opacity.value = 0;
+
+      opacity.value = withTiming(1, { duration: 200 });
+      translateY.value = withSpring(0, {
+        damping: 18,
+        stiffness: 260,
+        mass: 0.8,
+      });
 
       timerRef.current = setTimeout(
         () => {
@@ -131,6 +122,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     [showToast, hideToast],
   );
 
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
+
   return (
     <ToastContext.Provider value={value}>
       {children}
@@ -141,17 +137,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             pointerEvents="box-none"
             style={[
               styles.container,
-              {
-                paddingTop: Math.max(insets.top, 10),
-              },
+              { paddingTop: Math.max(insets.top, 10) },
             ]}
           >
             <Animated.View
               style={[
                 styles.toast,
+                animStyle,
                 {
-                  transform: [{ translateY }],
-                  opacity,
                   backgroundColor: toneMeta(payload.tone ?? "info").bg,
                   borderColor: toneMeta(payload.tone ?? "info").border,
                 },

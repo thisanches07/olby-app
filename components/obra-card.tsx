@@ -1,8 +1,16 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
+import React, { useEffect, useRef } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+} from "react-native-reanimated";
 
 import { PressableScale } from "@/components/ui/pressable-scale";
+import { tapMedium } from "@/utils/haptics";
 import { colors } from "@/theme/colors";
 
 export type StatusType =
@@ -62,9 +70,11 @@ const PROGRESS_COLORS: Record<StatusType, string> = {
 interface ObraCardProps {
   obra: Obra;
   onPress?: () => void;
+  /** Callback disparado ao pressionar "Diário" no swipe */
+  onViewDiary?: () => void;
 }
 
-export function ObraCard({ obra, onPress }: ObraCardProps) {
+export function ObraCard({ obra, onPress, onViewDiary }: ObraCardProps) {
   const {
     nome,
     cliente,
@@ -77,79 +87,156 @@ export function ObraCard({ obra, onPress }: ObraCardProps) {
   const statusInfo = STATUS_CONFIG[status];
   const progressColor = PROGRESS_COLORS[status];
 
+  const swipeRef = useRef<Swipeable>(null);
+
+  // Anima a barra de progresso de 0 → valor real ao montar
+  const progressWidth = useSharedValue(0);
+  useEffect(() => {
+    progressWidth.value = withDelay(
+      120,
+      withSpring(progresso, { damping: 22, stiffness: 90 }),
+    );
+  }, [progresso]);
+
+  const progressAnimStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value}%` as `${number}%`,
+  }));
+
+  const renderRightActions = () => (
+    <View style={styles.swipeActions}>
+      {onViewDiary && (
+        <Pressable
+          style={[styles.swipeBtn, styles.swipeBtnDiary]}
+          onPress={() => {
+            swipeRef.current?.close();
+            onViewDiary();
+          }}
+        >
+          <MaterialIcons name="menu-book" size={20} color="#fff" />
+          <Text style={styles.swipeBtnText}>Diário</Text>
+        </Pressable>
+      )}
+      <Pressable
+        style={[styles.swipeBtn, styles.swipeBtnView]}
+        onPress={() => {
+          swipeRef.current?.close();
+          onPress?.();
+        }}
+      >
+        <MaterialIcons name="visibility" size={20} color="#fff" />
+        <Text style={styles.swipeBtnText}>Ver</Text>
+      </Pressable>
+    </View>
+  );
+
   return (
-    <PressableScale style={styles.card} onPress={onPress} scaleTo={0.975}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-          <View
-            style={[styles.statusDot, { backgroundColor: statusInfo.dot }]}
-          />
-          <Text style={[styles.statusText, { color: statusInfo.color }]}>
-            {statusInfo.label}
-          </Text>
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={renderRightActions}
+      onSwipeableWillOpen={() => tapMedium()}
+      friction={2}
+      overshootRight={false}
+      containerStyle={styles.swipeContainer}
+    >
+      <PressableScale style={styles.card} onPress={onPress} scaleTo={0.975}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
+            <View
+              style={[styles.statusDot, { backgroundColor: statusInfo.dot }]}
+            />
+            <Text style={[styles.statusText, { color: statusInfo.color }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color={colors.iconMuted} />
         </View>
-        <MaterialIcons name="chevron-right" size={22} color={colors.iconMuted} />
-      </View>
 
-      <Text style={styles.nomeProjeto} numberOfLines={1}>
-        {nome}
-      </Text>
-      <Text style={styles.cliente} numberOfLines={1}>
-        {cliente}
-      </Text>
-
-      <View style={styles.enderecoRow}>
-        <MaterialIcons name="location-on" size={13} color={colors.subtext} />
-        <Text style={styles.enderecoText} numberOfLines={1}>
-          {endereco}
+        <Text style={styles.nomeProjeto} numberOfLines={1}>
+          {nome}
         </Text>
-      </View>
+        <Text style={styles.cliente} numberOfLines={1}>
+          {cliente}
+        </Text>
 
-      <View style={styles.divider} />
-
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Progresso</Text>
-          <Text style={[styles.progressValue, { color: progressColor }]}>
-            {progresso}%
+        <View style={styles.enderecoRow}>
+          <MaterialIcons name="location-on" size={13} color={colors.subtext} />
+          <Text style={styles.enderecoText} numberOfLines={1}>
+            {endereco}
           </Text>
         </View>
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${progresso}%` as `${number}%`,
-                backgroundColor: progressColor,
-              },
-            ]}
-          />
-        </View>
-      </View>
 
-      <View style={styles.footer}>
-        <View style={styles.dateItem}>
-          <MaterialIcons name="calendar-today" size={12} color={colors.subtext} />
-          <Text style={styles.dateLabel}>Início: </Text>
-          <Text style={styles.dateValue}>{dataInicio}</Text>
+        <View style={styles.divider} />
+
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>Progresso</Text>
+            <Text style={[styles.progressValue, { color: progressColor }]}>
+              {progresso}%
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <Animated.View
+              style={[
+                styles.progressFill,
+                progressAnimStyle,
+                { backgroundColor: progressColor },
+              ]}
+            />
+          </View>
         </View>
-        <View style={styles.dateItem}>
-          <MaterialIcons name="event" size={12} color={colors.subtext} />
-          <Text style={styles.dateLabel}>Previsão: </Text>
-          <Text style={styles.dateValue}>{dataPrevisao}</Text>
+
+        <View style={styles.footer}>
+          <View style={styles.dateItem}>
+            <MaterialIcons name="calendar-today" size={12} color={colors.subtext} />
+            <Text style={styles.dateLabel}>Início: </Text>
+            <Text style={styles.dateValue}>{dataInicio}</Text>
+          </View>
+          <View style={styles.dateItem}>
+            <MaterialIcons name="event" size={12} color={colors.subtext} />
+            <Text style={styles.dateLabel}>Previsão: </Text>
+            <Text style={styles.dateValue}>{dataPrevisao}</Text>
+          </View>
         </View>
-      </View>
-    </PressableScale>
+      </PressableScale>
+    </Swipeable>
   );
 }
 
 const styles = StyleSheet.create({
+  swipeContainer: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 16,
+  },
+  swipeActions: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    marginLeft: 8,
+  },
+  swipeBtn: {
+    width: 72,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  swipeBtnView: {
+    backgroundColor: "#2563EB",
+  },
+  swipeBtnDiary: {
+    backgroundColor: "#6D28D9",
+    marginRight: 6,
+  },
+  swipeBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.2,
+  },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,

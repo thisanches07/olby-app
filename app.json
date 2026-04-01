@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.tsanc.obraapp",
       "supportsTablet": false,
       "usesAppleSignIn": true,
+      "associatedDomains": ["applinks:oblyapp.com"],
       "infoPlist": {
         "CFBundleDisplayName": "Obly App",
         "NSAppTransportSecurity": {
@@ -35,7 +36,21 @@
         "foregroundImage": "./assets/images/logo.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "oblyapp.com",
+              "pathPrefix": "/invite"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "output": "static",

@@ -6,6 +6,8 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
+import { tapLight } from "@/utils/haptics";
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface PressableScaleProps {
@@ -14,12 +16,14 @@ interface PressableScaleProps {
   style?: StyleProp<ViewStyle>;
   scaleTo?: number;
   disabled?: boolean;
+  /** Estilo de haptic no press. "none" desativa. Padrão: "light" */
+  haptic?: "light" | "none";
   children: React.ReactNode;
 }
 
 /**
  * Substitui TouchableOpacity com escala animada via Reanimated (UI thread).
- * Feedback visual mais responsivo e fluido em Android/iOS.
+ * Feedback visual + haptic mais responsivo e fluido em Android/iOS.
  */
 export function PressableScale({
   onPress,
@@ -27,6 +31,7 @@ export function PressableScale({
   style,
   scaleTo = 0.97,
   disabled = false,
+  haptic = "light",
   children,
 }: PressableScaleProps) {
   const scale = useSharedValue(1);
@@ -40,6 +45,7 @@ export function PressableScale({
       style={[style, animStyle]}
       onPressIn={() => {
         scale.value = withSpring(scaleTo, { damping: 15, stiffness: 300 });
+        if (haptic === "light") tapLight();
       }}
       onPressOut={() => {
         scale.value = withSpring(1, { damping: 15, stiffness: 300 });

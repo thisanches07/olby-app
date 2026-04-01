@@ -1,6 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const KEY = "pending_invite_token";
+
 /**
- * Module-level singleton para preservar o token de convite
- * quando o usuário precisa fazer login antes de aceitar.
+ * Persiste o token de convite pendente em AsyncStorage.
+ * Sobrevive ao app ser morto pelo SO entre o clique no link e o login.
  *
  * Fluxo:
  *   1. Usuário abre link de convite sem estar logado
@@ -8,15 +12,8 @@
  *   3. Após login, AuthGate detecta o token pendente e redireciona para /invite
  *   4. app/invite.tsx aceita o convite e limpa o token
  */
-
-let _token: string | null = null;
-
 export const pendingInviteToken = {
-  set: (token: string): void => {
-    _token = token;
-  },
-  get: (): string | null => _token,
-  clear: (): void => {
-    _token = null;
-  },
+  set: (token: string): Promise<void> => AsyncStorage.setItem(KEY, token),
+  get: (): Promise<string | null> => AsyncStorage.getItem(KEY),
+  clear: (): Promise<void> => AsyncStorage.removeItem(KEY),
 };

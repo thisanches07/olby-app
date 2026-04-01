@@ -61,19 +61,16 @@ export default function InviteScreen() {
   useEffect(() => {
     if (authLoading) return;
 
-    // Sem token no URL
     if (!token) {
       setState({ kind: "no_token" });
       return;
     }
 
-    // Usuário não autenticado → pedir login e preservar token
     if (!user) {
       setState({ kind: "needs_login" });
       return;
     }
 
-    // Autenticado → aceitar o convite
     acceptInvite(token);
   }, [authLoading, user, token]);
 
@@ -81,7 +78,6 @@ export default function InviteScreen() {
     setState({ kind: "accepting" });
     try {
       const result = await invitesService.accept(inviteToken);
-      // Muda o role local para "cliente" (CLIENT_VIEWER)
       setRole("cliente");
       setState({ kind: "success", projectId: result.projectId });
     } catch (err) {
@@ -89,26 +85,49 @@ export default function InviteScreen() {
     }
   }
 
-  function handleLoginRedirect() {
+  async function handleLoginRedirect() {
     if (token) {
-      pendingInviteToken.set(token);
+      await pendingInviteToken.set(token);
     }
     router.replace("/login");
+  }
+
+  function handleClose() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
   }
 
   function handleGoToProject(projectId: string) {
     router.replace({ pathname: "/obra/[id]", params: { id: projectId } });
   }
 
-  function handleGoHome() {
-    router.replace("/(tabs)");
-  }
-
   // ── Renders ──────────────────────────────────────────────────────────────
+
+  const isBlocking =
+    state.kind === "loading" || state.kind === "accepting" || authLoading;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
+
+      {/* Drag handle — visual de modal */}
+      <View style={styles.dragHandleWrap}>
+        <View style={styles.dragHandle} />
+      </View>
+
+      {/* Botão fechar — disponível exceto durante operações bloqueantes */}
+      {!isBlocking && (
+        <TouchableOpacity
+          onPress={handleClose}
+          style={styles.closeBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <MaterialIcons name="close" size={22} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
 
       {/* Loading inicial (verificando auth) */}
       {(state.kind === "loading" || authLoading) && (
@@ -140,8 +159,8 @@ export default function InviteScreen() {
             Este link de convite não é válido. Verifique se você recebeu o link
             correto.
           </Text>
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleGoHome}>
-            <Text style={styles.btnPrimaryText}>Voltar para o início</Text>
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleClose}>
+            <Text style={styles.btnPrimaryText}>Fechar</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -167,6 +186,9 @@ export default function InviteScreen() {
           >
             <MaterialIcons name="login" size={18} color={colors.white} />
             <Text style={styles.btnPrimaryText}>Fazer login</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.btnSecondary} onPress={handleClose}>
+            <Text style={styles.btnSecondaryText}>Agora não</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -208,8 +230,8 @@ export default function InviteScreen() {
           </View>
           <Text style={styles.title}>Não foi possível aceitar</Text>
           <Text style={styles.subtitle}>{state.message}</Text>
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleGoHome}>
-            <Text style={styles.btnPrimaryText}>Voltar para o início</Text>
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleClose}>
+            <Text style={styles.btnPrimaryText}>Fechar</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -221,6 +243,27 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  dragHandleWrap: {
+    alignItems: "center",
+    paddingTop: spacing[12],
+    paddingBottom: spacing[4],
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
+  },
+  closeBtn: {
+    position: "absolute",
+    top: spacing[14],
+    right: spacing[16],
+    zIndex: 10,
+    padding: spacing[4],
   },
   center: {
     flex: 1,
@@ -275,5 +318,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: colors.white,
+  },
+  btnSecondary: {
+    paddingVertical: spacing[10],
+    paddingHorizontal: spacing[28],
+  },
+  btnSecondaryText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textMuted,
   },
 });

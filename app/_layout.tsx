@@ -52,13 +52,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
 
     if (user && onLoginPage) {
-      const pending = pendingInviteToken.get();
-      if (pending) {
-        pendingInviteToken.clear();
-        router.replace({ pathname: "/invite", params: { token: pending } });
-      } else {
-        router.replace("/(tabs)");
-      }
+      pendingInviteToken.get().then((pending) => {
+        if (pending) {
+          void pendingInviteToken.clear();
+          router.replace({ pathname: "/invite", params: { token: pending } });
+        } else {
+          router.replace("/(tabs)");
+        }
+      });
     }
   }, [user, isLoading, pathname, router]);
 
@@ -193,17 +194,17 @@ export default function RootLayout() {
                           name="diario/[id]"
                           options={{ headerShown: false }}
                         />
-                        <Stack.Screen
-                          name="shared/[id]"
-                          options={{ headerShown: false }}
-                        />
-                        <Stack.Screen
+<Stack.Screen
                           name="profile"
                           options={{ headerShown: false }}
                         />
                         <Stack.Screen
                           name="invite"
-                          options={{ headerShown: false }}
+                          options={{
+                            headerShown: false,
+                            presentation: "modal",
+                            animation: "slide_from_bottom",
+                          }}
                         />
                         <Stack.Screen
                           name="subscription/plans"

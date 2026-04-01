@@ -173,8 +173,6 @@ export function CircularProgress({
               },
             ]}
             numberOfLines={1}
-            adjustsFontSizeToFit // iOS: reduz se precisar (sem quebrar linha)
-            minimumFontScale={0.65} // iOS: limite mínimo de redução
             allowFontScaling={false}
           >
             {displayPercent}%

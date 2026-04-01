@@ -13,8 +13,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FadeSlideIn } from "@/components/ui/fade-slide-in";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { HomeEmptyState } from "@/components/home/home-empty-state";
 import { HomeFilterChips } from "@/components/home/home-filter-chips";
@@ -163,6 +170,13 @@ export default function MinhasObrasScreen() {
       ? modalMode.obraId
       : null;
 
+  // Collapsing header
+  const scrollY = useSharedValue(0);
+  const compactHeaderStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [80, 150], [0, 1], Extrapolation.CLAMP),
+    pointerEvents: scrollY.value > 80 ? "none" : "none",
+  }));
+
   return (
     <SafeAreaView style={styles.safeTop} edges={["top"]}>
       <StatusBar style="light" />
@@ -172,13 +186,18 @@ export default function MinhasObrasScreen() {
           data={obrasFiltradas}
           keyExtractor={(item) => item.id}
           estimatedItemSize={185}
-          renderItem={({ item }) => (
-            <ObraCard
-              obra={item}
-              onPress={() =>
-                router.push({ pathname: "/obra/[id]", params: { id: item.id } })
-              }
-            />
+          renderItem={({ item, index }) => (
+            <FadeSlideIn index={index}>
+              <ObraCard
+                obra={item}
+                onPress={() =>
+                  router.push({ pathname: "/obra/[id]", params: { id: item.id } })
+                }
+                onViewDiary={() =>
+                  router.push({ pathname: "/diario/[id]", params: { id: item.id } })
+                }
+              />
+            </FadeSlideIn>
           )}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -186,6 +205,8 @@ export default function MinhasObrasScreen() {
           overScrollMode="never"
           style={styles.flatList}
           contentContainerStyle={styles.listaContainer}
+          onScroll={(e) => { scrollY.value = e.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -292,6 +313,11 @@ export default function MinhasObrasScreen() {
           }
         />
       </View>
+
+      {/* Compact header que faz fade-in quando o HomeHeader sai do viewport */}
+      <Animated.View style={[styles.compactHeader, compactHeaderStyle]} pointerEvents="none">
+        <Text style={styles.compactTitle}>Minhas Obras</Text>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -353,5 +379,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...shadow(2, colors.primary),
+  },
+  compactHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 52,
+    backgroundColor: "#1D4ED8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+    fontFamily: "Inter-Bold",
   },
 });

@@ -1,10 +1,12 @@
 import { ShareProjectButton } from "@/components/projeto/share-project-button";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import type { ProjectApiRole } from "@/utils/project-role";
 import { canManageMembers } from "@/utils/project-role";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 interface ObraHeaderProps {
   title: string;
@@ -21,11 +23,15 @@ export function ObraHeader({
   onBack,
   titleVisible = true,
 }: ObraHeaderProps) {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.headerBtn} onPress={onBack ?? (() => router.back())}>
+  const inner = (
+    <View style={styles.row}>
+      <PressableScale
+        style={styles.headerBtn}
+        onPress={onBack ?? (() => router.back())}
+        scaleTo={0.88}
+      >
         <MaterialIcons name="chevron-left" size={28} color="#111827" />
-      </TouchableOpacity>
+      </PressableScale>
 
       <View style={styles.headerCenter}>
         {titleVisible ? (
@@ -38,26 +44,53 @@ export function ObraHeader({
         ) : null}
       </View>
 
-      {canManageMembers(projectRole) && (
+      {canManageMembers(projectRole) ? (
         <ShareProjectButton
           projectId={projectId}
           projectName={title}
           projectRole={projectRole}
         />
+      ) : (
+        <View style={styles.headerBtn} />
       )}
+    </View>
+  );
+
+  if (Platform.OS === "ios") {
+    return (
+      <BlurView
+        intensity={80}
+        tint="systemChromeMaterial"
+        style={styles.blurWrapper}
+      >
+        {inner}
+        <View style={styles.borderBottom} />
+      </BlurView>
+    );
+  }
+
+  return (
+    <View style={styles.androidWrapper}>
+      {inner}
+      <View style={styles.borderBottom} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
+  blurWrapper: {},
+  androidWrapper: {
+    backgroundColor: "#FFFFFF",
+  },
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
     paddingHorizontal: 8,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+  },
+  borderBottom: {
+    height: 1,
+    backgroundColor: "rgba(0,0,0,0.06)",
   },
   headerBtn: {
     width: 40,

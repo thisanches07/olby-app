@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["<APPLE_TEAM_ID>.com.tsanc.obraapp"],
+        "components": [
+          {
+            "/": "/invite",
+            "comment": "Abre o modal de convite diretamente no app"
+          }
+        ]
+      }
+    ]
+  }
+}
