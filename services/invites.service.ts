@@ -25,6 +25,20 @@ export const invitesService = {
   },
 
   /**
+   * GET /projects/:projectId/invites/active
+   * Retorna o convite ativo (não expirado e não usado) ou lança 404.
+   */
+  getActive: async (projectId: string): Promise<InviteResponseDto | null> => {
+    try {
+      return await api.get<InviteResponseDto>(
+        `/projects/${projectId}/invites/active`,
+      );
+    } catch {
+      return null; // 404 = sem convite ativo
+    }
+  },
+
+  /**
    * POST /invites/accept
    * Aceita convite e adiciona o usuário como CLIENT_VIEWER.
    */

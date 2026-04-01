@@ -1,7 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Clipboard from "expo-clipboard";
 import { getAuth } from "firebase/auth";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -197,8 +203,7 @@ export function ShareProjectModal({
           }
         })
         .onEnd((event) => {
-          const shouldClose =
-            event.translationY > 150 || event.velocityY > 800;
+          const shouldClose = event.translationY > 150 || event.velocityY > 800;
           if (shouldClose) {
             void closeAnimated();
             return;
@@ -223,17 +228,20 @@ export function ShareProjectModal({
   const [membersLoading, setMembersLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
-  // Reset state on open
+  // Reset state on open e busca convite ativo no backend
   useEffect(() => {
-    if (visible) {
-      setInviteResult(null);
-      setIsLoading(false);
-      setError(null);
-      setCopied(false);
-      setMembersState([]);
-      setMembersLoading(false);
-    }
-  }, [visible]);
+    if (!visible) return;
+    setIsLoading(false);
+    setError(null);
+    setCopied(false);
+    setMembersState([]);
+    setMembersLoading(false);
+
+    void (async () => {
+      const active = await invitesService.getActive(projectId);
+      setInviteResult(active);
+    })();
+  }, [visible, projectId]);
 
   useEffect(() => {
     if (!visible) return;
@@ -329,7 +337,11 @@ export function ShareProjectModal({
   const handleRemoveMember = useCallback(
     async (member: ProjectMember) => {
       if (!canManageMembers) return;
-      if (member.isOwner || member.isCurrentUser || member.role === "engenheiro")
+      if (
+        member.isOwner ||
+        member.isCurrentUser ||
+        member.role === "engenheiro"
+      )
         return;
 
       try {
@@ -462,7 +474,11 @@ export function ShareProjectModal({
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.closeBtn}
                 >
-                  <MaterialIcons name="close" size={22} color={colors.textMuted} />
+                  <MaterialIcons
+                    name="close"
+                    size={22}
+                    color={colors.textMuted}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -482,7 +498,7 @@ export function ShareProjectModal({
                   <Text style={styles.projectName}>{projectName}</Text>
                   <Text style={styles.projectDesc}>
                     Gere um link de convite. Válido por{" "}
-                    <Text style={styles.projectDescBold}>24 horas</Text> e pode
+                    <Text style={styles.projectDescBold}>7 dias</Text> e pode
                     ser usado <Text style={styles.projectDescBold}>1 vez</Text>.
                   </Text>
                 </View>
@@ -496,7 +512,9 @@ export function ShareProjectModal({
                         size={18}
                         color={colors.primary}
                       />
-                      <Text style={styles.sectionTitle}>Pessoas com acesso</Text>
+                      <Text style={styles.sectionTitle}>
+                        Pessoas com acesso
+                      </Text>
                     </View>
 
                     <View style={styles.countPill}>
@@ -528,10 +546,7 @@ export function ShareProjectModal({
                             </View>
 
                             <View style={{ flex: 1, gap: 2 }}>
-                              <Text
-                                style={styles.memberName}
-                                numberOfLines={1}
-                              >
+                              <Text style={styles.memberName} numberOfLines={1}>
                                 {m.name}
                                 {m.isCurrentUser ? " (Eu)" : ""}
                               </Text>
@@ -547,9 +562,7 @@ export function ShareProjectModal({
                           </View>
 
                           <View style={styles.memberRight}>
-                            <View
-                              style={[styles.chip, memberRoleChipStyle(m)]}
-                            >
+                            <View style={[styles.chip, memberRoleChipStyle(m)]}>
                               <Text style={styles.chipText}>
                                 {memberRoleLabel(m)}
                               </Text>
@@ -586,7 +599,7 @@ export function ShareProjectModal({
                   )}
                 </View>
 
-                  {/* O Cliente Verá — sempre visível */}
+                {/* O Cliente Verá — sempre visível */}
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <MaterialIcons
@@ -670,7 +683,8 @@ export function ShareProjectModal({
                         color={colors.textMuted}
                       />
                       <Text style={styles.noLinkText}>
-                        Nenhum link gerado ainda. Toque em &quot;Gerar link&quot; abaixo.
+                        Nenhum link gerado ainda. Toque em &quot;Gerar
+                        link&quot; abaixo.
                       </Text>
                     </View>
                   )}
@@ -687,10 +701,7 @@ export function ShareProjectModal({
                           numberOfLines={1}
                         />
                         <TouchableOpacity
-                          style={[
-                            styles.copyBtn,
-                            copied && styles.copyBtnDone,
-                          ]}
+                          style={[styles.copyBtn, copied && styles.copyBtnDone]}
                           onPress={handleCopy}
                           activeOpacity={0.7}
                         >

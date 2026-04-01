@@ -8,7 +8,7 @@ import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -38,6 +38,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const navigatingRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -52,6 +53,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
 
     if (user && onLoginPage) {
+      if (navigatingRef.current) return;
+      navigatingRef.current = true;
       pendingInviteToken.get().then((pending) => {
         if (pending) {
           void pendingInviteToken.clear();
@@ -59,7 +62,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         } else {
           router.replace("/(tabs)");
         }
+        navigatingRef.current = false;
       });
+    } else {
+      navigatingRef.current = false;
     }
   }, [user, isLoading, pathname, router]);
 
@@ -88,7 +94,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Evita renderizar telas protegidas por um frame antes do redirect.
   if (!user && !onLoginPage && !onInvitePage) return null;
-  if (user && onLoginPage) return null;
 
   return <>{children}</>;
 }
