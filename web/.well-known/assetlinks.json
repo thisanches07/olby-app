@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.tsanc.obraapp",
-    "sha256_cert_fingerprints": ["<SHA256_DO_EAS_BUILD>"]
+    "sha256_cert_fingerprints": ["TODO_SHA256_EAS_BUILD"]
   }
 }]

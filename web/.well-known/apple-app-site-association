@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["<APPLE_TEAM_ID>.com.tsanc.obraapp"],
+        "appIDs": ["TODO_APPLE_TEAM_ID.com.tsanc.obraapp"],
         "components": [
           {
             "/": "/invite",
