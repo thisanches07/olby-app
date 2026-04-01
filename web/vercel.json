@@ -1,0 +1,18 @@
+{
+  "rewrites": [
+    { "source": "/",               "destination": "/legal/index.html" },
+    { "source": "/privacy",        "destination": "/legal/privacy.html" },
+    { "source": "/terms",          "destination": "/legal/terms.html" },
+    { "source": "/reset-password", "destination": "/legal/reset-password.html" }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/apple-app-site-association",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    },
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    }
+  ]
+}
