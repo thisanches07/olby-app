@@ -3,7 +3,8 @@
     { "source": "/",               "destination": "/legal/index.html" },
     { "source": "/privacy",        "destination": "/legal/privacy.html" },
     { "source": "/terms",          "destination": "/legal/terms.html" },
-    { "source": "/reset-password", "destination": "/legal/reset-password.html" }
+    { "source": "/reset-password", "destination": "/legal/reset-password.html" },
+    { "source": "/styles.css",     "destination": "/legal/styles.css" }
   ],
   "headers": [
     {
