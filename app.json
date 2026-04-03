@@ -72,9 +72,7 @@
         }
       ],
       "expo-iap",
-      "expo-apple-authentication",
-      "expo-blur",
-      "expo-linear-gradient"
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,
