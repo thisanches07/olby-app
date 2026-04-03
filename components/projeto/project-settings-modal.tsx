@@ -308,10 +308,8 @@ export function ProjectSettingsModal({
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [statusUpdating, setStatusUpdating] = useState(false);
-
-  const [checkingOpenTasksForStatus, setCheckingOpenTasksForStatus] =
-    useState(false);
+  // null = idle; 'checking:STATUS' ou 'updating:STATUS' identifica qual botão está ativo
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   const [deliveryTouched, setDeliveryTouched] = useState(false);
   const [saveAttempted, setSaveAttempted] = useState(false);
@@ -436,8 +434,7 @@ export function ProjectSettingsModal({
     [projectId, showToast],
   );
 
-  const busy =
-    saving || deleting || statusUpdating || checkingOpenTasksForStatus;
+  const busy = saving || deleting || pendingStatus !== null;
   const canEdit = canEditProject(projectRole);
   const canManageMembersAccess = canManageMembers(projectRole);
 
@@ -456,8 +453,7 @@ export function ProjectSettingsModal({
       setIsDirty(false);
       setSaving(false);
       setDeleting(false);
-      setStatusUpdating(false);
-      setCheckingOpenTasksForStatus(false);
+      setPendingStatus(null);
 
       setDeliveryTouched(false);
       setSaveAttempted(false);
@@ -816,12 +812,12 @@ export function ProjectSettingsModal({
 
     if (shouldGateByOpenTasks) {
       try {
-        setCheckingOpenTasksForStatus(true);
+        setPendingStatus(`checking:${next}`);
         hasOpenTasks = await hasOpenTaskLinked();
       } catch {
         hasOpenTasks = false;
       } finally {
-        setCheckingOpenTasksForStatus(false);
+        setPendingStatus(null);
       }
     }
 
@@ -846,7 +842,7 @@ export function ProjectSettingsModal({
       onConfirm: async () => {
         try {
           setConfirm((prev) => (prev ? { ...prev, busy: true } : prev));
-          setStatusUpdating(true);
+          setPendingStatus(`updating:${next}`);
 
           await doPatchStatus(next);
 
@@ -859,7 +855,7 @@ export function ProjectSettingsModal({
           });
           closeConfirm();
         } finally {
-          setStatusUpdating(false);
+          setPendingStatus(null);
           setConfirm((prev) => (prev ? { ...prev, busy: false } : prev));
         }
       },
@@ -1089,11 +1085,12 @@ export function ProjectSettingsModal({
                       (busy || !canEdit) && { opacity: 0.6 },
                     ]}
                   >
-                    {statusUpdating || checkingOpenTasksForStatus ? (
+                    {pendingStatus === "checking:COMPLETED" ||
+                    pendingStatus === "updating:COMPLETED" ? (
                       <View style={styles.btnRow}>
                         <ActivityIndicator />
                         <Text style={styles.secondaryBtnText}>
-                          {checkingOpenTasksForStatus
+                          {pendingStatus === "checking:COMPLETED"
                             ? "Verificando..."
                             : "Atualizando..."}
                         </Text>
@@ -1121,11 +1118,12 @@ export function ProjectSettingsModal({
                       (busy || !canEdit) && { opacity: 0.6 },
                     ]}
                   >
-                    {statusUpdating || checkingOpenTasksForStatus ? (
+                    {pendingStatus === "checking:ARCHIVED" ||
+                    pendingStatus === "updating:ARCHIVED" ? (
                       <View style={styles.btnRow}>
                         <ActivityIndicator />
                         <Text style={styles.secondaryBtnText}>
-                          {checkingOpenTasksForStatus
+                          {pendingStatus === "checking:ARCHIVED"
                             ? "Verificando..."
                             : "Atualizando..."}
                         </Text>
@@ -1153,7 +1151,7 @@ export function ProjectSettingsModal({
                       (busy || !canEdit) && { opacity: 0.6 },
                     ]}
                   >
-                    {statusUpdating ? (
+                    {pendingStatus === "updating:ACTIVE" ? (
                       <View style={styles.btnRow}>
                         <ActivityIndicator />
                         <Text style={styles.secondaryBtnText}>

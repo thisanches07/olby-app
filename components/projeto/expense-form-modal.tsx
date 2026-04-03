@@ -77,23 +77,43 @@ const CATEGORIES = [
 
 type ExpenseCategory = (typeof CATEGORIES)[number]["value"];
 
-function formatDateDisplay(digits: string): string {
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function maskBRDate(text: string) {
+  const digits = text.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
-function digitsToISO(digits: string): string {
-  const dd = digits.slice(0, 2);
-  const mm = digits.slice(2, 4);
-  const yyyy = digits.slice(4, 8);
-  return `${yyyy}-${mm}-${dd}`;
+function parseBRDateToLocalDate(input: string): Date | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const dd = Number(m[1]);
+  const mm = Number(m[2]);
+  const yyyy = Number(m[3]);
+  if (!Number.isFinite(dd) || !Number.isFinite(mm) || !Number.isFinite(yyyy))
+    return null;
+  if (yyyy < 1900 || yyyy > 2100) return null;
+  if (mm < 1 || mm > 12) return null;
+  const d = new Date(yyyy, mm - 1, dd);
+  if (d.getFullYear() !== yyyy || d.getMonth() !== mm - 1 || d.getDate() !== dd)
+    return null;
+  return d;
 }
 
-function isoToDigits(iso: string): string {
+function isoToBRDate(iso: string): string {
   const parts = iso.split("-");
-  if (parts.length === 3) return `${parts[2]}${parts[1]}${parts[0]}`;
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
   return "";
+}
+
+function onlyDigitsLen(text: string) {
+  return text.replace(/\D/g, "").length;
 }
 
 const PRIORITY_CONFIG: Record<
@@ -126,7 +146,9 @@ export function ExpenseFormModal({
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
-  const [dateDigits, setDateDigits] = useState("");
+  const [dateText, setDateText] = useState("");
+  const [dateTouched, setDateTouched] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [categoria, setCategoria] = useState<ExpenseCategory>("MATERIAL");
   const [tarefaId, setTarefaId] = useState<string | undefined>(undefined);
 
@@ -136,7 +158,9 @@ export function ExpenseFormModal({
   const resetForm = useCallback(() => {
     setDescricao("");
     setValor("");
-    setDateDigits("");
+    setDateText("");
+    setDateTouched(false);
+    setSaveAttempted(false);
     setCategoria("MATERIAL");
     setTarefaId(undefined);
   }, []);
@@ -145,7 +169,7 @@ export function ExpenseFormModal({
     if (expense) {
       setDescricao(expense.descricao);
       setValor(Math.round(expense.valor * 100).toString());
-      setDateDigits(isoToDigits(expense.data));
+      setDateText(isoToBRDate(expense.data));
       setCategoria(expense.categoria as ExpenseCategory);
       setTarefaId(expense.tarefaId);
     } else {
@@ -171,9 +195,9 @@ export function ExpenseFormModal({
     resetForm();
   }, [visible, resetForm]);
 
-  const handleDateChange = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, 8);
-    setDateDigits(digits);
+  const handleDateChange = (t: string) => {
+    setDateTouched(true);
+    setDateText(maskBRDate(t));
   };
 
   const parsedValor = useMemo(() => {
@@ -181,7 +205,37 @@ export function ExpenseFormModal({
     return Number.isFinite(v) ? v : NaN;
   }, [valor]);
 
+  const dateDigitsLen = useMemo(() => onlyDigitsLen(dateText), [dateText]);
+
+  const parsedDate = useMemo(
+    () => (dateDigitsLen === 8 ? parseBRDateToLocalDate(dateText) : null),
+    [dateText, dateDigitsLen],
+  );
+
+  const shouldShowDateValidation = useMemo(
+    () =>
+      dateDigitsLen === 8 ||
+      saveAttempted ||
+      (dateTouched && !dateText.trim()),
+    [dateDigitsLen, saveAttempted, dateTouched, dateText],
+  );
+
+  const dateError = useMemo(() => {
+    if (!shouldShowDateValidation) return null;
+    const raw = dateText.trim();
+    if (!raw) return "Informe a data do gasto.";
+    if (dateDigitsLen !== 8) return "Complete a data no formato DD/MM/AAAA.";
+    const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return "Use o formato DD/MM/AAAA.";
+    const yyyy = Number(m[3]);
+    if (yyyy < 1900 || yyyy > 2100) return "Ano inválido.";
+    const parsed = parseBRDateToLocalDate(raw);
+    if (!parsed) return "Data inválida (dia/mês não existe).";
+    return null;
+  }, [shouldShowDateValidation, dateText, dateDigitsLen]);
+
   const handleSave = () => {
+    setSaveAttempted(true);
     const trimmedDescricao = descricao.trim();
     if (!trimmedDescricao) {
       showToast({ title: "Descrição obrigatória", message: "Informe uma descrição para o gasto.", tone: "error" });
@@ -199,15 +253,21 @@ export function ExpenseFormModal({
       showToast({ title: "Valor inválido", message: "Informe um valor maior que zero.", tone: "error" });
       return;
     }
-    if (dateDigits.length < 8) {
-      showToast({ title: "Data inválida", message: "Informe a data no formato DD/MM/AAAA.", tone: "error" });
+    const rawDate = dateText.trim();
+    if (!rawDate || dateDigitsLen !== 8 || !parsedDate) {
+      const msg = !rawDate
+        ? "Informe a data do gasto."
+        : !parsedDate
+          ? "Data inválida (dia/mês não existe)."
+          : "Complete a data no formato DD/MM/AAAA.";
+      showToast({ title: "Data inválida", message: msg, tone: "error" });
       return;
     }
 
     onSave({
       descricao: trimmedDescricao,
       valor: parsedValor,
-      data: digitsToISO(dateDigits),
+      data: `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`,
       categoria,
       tarefaId,
     });
@@ -293,15 +353,45 @@ export function ExpenseFormModal({
               <Text style={styles.label}>
                 Data <Text style={styles.required}>*</Text>
               </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor="#9CA3AF"
-                value={formatDateDisplay(dateDigits)}
-                onChangeText={handleDateChange}
-                maxLength={10}
-                keyboardType="number-pad"
-              />
+              <View
+                style={[
+                  styles.dateInputWrap,
+                  dateError ? styles.dateInputWrapError : null,
+                ]}
+              >
+                <MaterialIcons
+                  name="event"
+                  size={16}
+                  color={dateError ? "#EF4444" : "#9CA3AF"}
+                />
+                <TextInput
+                  style={styles.dateInput}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#9CA3AF"
+                  value={dateText}
+                  onChangeText={handleDateChange}
+                  maxLength={10}
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                />
+                {!!dateText.trim() && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setDateTouched(true);
+                      setDateText("");
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons name="close" size={16} color="#9CA3AF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {dateError ? (
+                <Text style={styles.dateErrorText}>{dateError}</Text>
+              ) : (
+                <Text style={styles.dateHelperText}>DD/MM/AAAA</Text>
+              )}
             </View>
           </View>
 
@@ -559,6 +649,38 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textAlign: "right",
     fontWeight: "600",
+  },
+
+  dateInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  dateInputWrapError: {
+    borderColor: "#EF4444",
+  },
+  dateInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111827",
+    paddingHorizontal: 6,
+    paddingVertical: 0,
+  },
+  dateErrorText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#EF4444",
+    fontWeight: "500",
+  },
+  dateHelperText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#9CA3AF",
   },
 
   chipsWrap: { flexDirection: "row", flexWrap: "wrap" },
