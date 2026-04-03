@@ -1,9 +1,8 @@
 import { PRIMARY } from "@/utils/obra-utils";
 import { tapLight } from "@/utils/haptics";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { BlurView } from "expo-blur";
 import React, { useEffect, useState } from "react";
-import { LayoutChangeEvent, Platform, StyleSheet, Text, View } from "react-native";
+import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -92,21 +91,8 @@ export function BottomTabs({ tabs, activeTab, onTabChange }: BottomTabsProps) {
     </View>
   );
 
-  if (Platform.OS === "ios") {
-    return (
-      <BlurView
-        intensity={85}
-        tint="systemChromeMaterial"
-        style={styles.blurWrapper}
-      >
-        <View style={styles.borderTop} />
-        {content}
-      </BlurView>
-    );
-  }
-
   return (
-    <View style={styles.androidWrapper}>
+    <View style={styles.wrapper}>
       <View style={styles.borderTop} />
       {content}
     </View>
@@ -114,15 +100,17 @@ export function BottomTabs({ tabs, activeTab, onTabChange }: BottomTabsProps) {
 }
 
 const styles = StyleSheet.create({
-  blurWrapper: {
-    // sem position absolute — fica em fluxo normal dentro do bottomArea
-  },
-  androidWrapper: {
-    backgroundColor: "rgba(255,255,255,0.97)",
+  wrapper: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 8,
   },
   borderTop: {
     height: 1,
-    backgroundColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "rgba(0,0,0,0.05)",
   },
   inner: {
     paddingTop: 8,

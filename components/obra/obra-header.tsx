@@ -3,10 +3,9 @@ import { PressableScale } from "@/components/ui/pressable-scale";
 import type { ProjectApiRole } from "@/utils/project-role";
 import { canManageMembers } from "@/utils/project-role";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 interface ObraHeaderProps {
   title: string;
@@ -56,41 +55,27 @@ export function ObraHeader({
     </View>
   );
 
-  if (Platform.OS === "ios") {
-    return (
-      <BlurView
-        intensity={80}
-        tint="systemChromeMaterial"
-        style={styles.blurWrapper}
-      >
-        {inner}
-        <View style={styles.borderBottom} />
-      </BlurView>
-    );
-  }
-
   return (
-    <View style={styles.androidWrapper}>
+    <View style={styles.wrapper}>
       {inner}
-      <View style={styles.borderBottom} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  blurWrapper: {},
-  androidWrapper: {
+  wrapper: {
     backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 10,
-  },
-  borderBottom: {
-    height: 1,
-    backgroundColor: "rgba(0,0,0,0.06)",
   },
   headerBtn: {
     width: 40,

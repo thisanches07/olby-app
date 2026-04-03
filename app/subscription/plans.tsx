@@ -31,7 +31,6 @@ const PLANS = [
     label: "Gratuito",
     price: "R$ 0",
     priceNote: "",
-    emoji: "",
     features: [
       { ok: true, text: "Visualizar obras como convidado (ilimitado)" },
       { ok: false, text: "Criar suas proprias obras" },
@@ -44,7 +43,6 @@ const PLANS = [
     label: "Basico",
     price: "R$ 79,90",
     priceNote: "por mês",
-    emoji: "STAR",
     features: [
       { ok: true, text: "Criar ate 3 obras ativas" },
       { ok: true, text: "Convidar clientes (ilimitado)" },
@@ -53,21 +51,20 @@ const PLANS = [
       { ok: true, text: "Gestao de tarefas" },
     ],
     productId: "com.tsanc.obraapp.sub.basic1",
-    highlight: true,
+    highlight: false,
   },
   {
     code: "PRO" as const,
     label: "Profissional",
     price: "R$ 129,90",
     priceNote: "por mês",
-    emoji: "PRO",
     features: [
       { ok: true, text: "Obras ilimitadas" },
       { ok: true, text: "Tudo do plano Basico" },
       { ok: true, text: "Suporte prioritario" },
     ],
     productId: "com.tsanc.obraapp.sub.pro",
-    highlight: false,
+    highlight: true,
   },
 ] as const;
 
@@ -714,9 +711,6 @@ function SubscriptionPlansIapEnabled() {
 
               <View style={styles.planHeader}>
                 <View style={styles.planLabelRow}>
-                  {planItem.emoji ? (
-                    <Text style={styles.planEmoji}>{planItem.emoji}</Text>
-                  ) : null}
                   <Text
                     style={[
                       styles.planName,
@@ -736,14 +730,17 @@ function SubscriptionPlansIapEnabled() {
                     {pricing.price}
                   </Text>
                   {pricing.priceNote ? (
-                    <Text style={styles.planPriceNote}>
+                    <Text style={[
+                      styles.planPriceNote,
+                      isHighlight && !isCurrent && { color: "rgba(255,255,255,0.75)" },
+                    ]}>
                       {pricing.priceNote}
                     </Text>
                   ) : null}
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={[styles.divider, isHighlight && !isCurrent && { backgroundColor: "rgba(255,255,255,0.2)" }]} />
 
               <View style={styles.featureList}>
                 {planItem.features.map((feature, index) => (
@@ -781,17 +778,26 @@ function SubscriptionPlansIapEnabled() {
                 </View>
               ) : planItem.code !== "FREE" ? (
                 <>
-                  <Text style={styles.renewalNotice}>
+                  <Text style={[
+                    styles.renewalNotice,
+                    isHighlight && !isCurrent && { color: "rgba(255,255,255,0.6)" },
+                  ]}>
                     Renova automaticamente. Cancele quando quiser.{" "}
                     <Text
-                      style={styles.renewalNoticeLink}
+                      style={[
+                        styles.renewalNoticeLink,
+                        isHighlight && !isCurrent && { color: "rgba(255,255,255,0.85)", textDecorationLine: "underline" },
+                      ]}
                       onPress={openTerms}
                     >
                       Termos
                     </Text>
                     {" e "}
                     <Text
-                      style={styles.renewalNoticeLink}
+                      style={[
+                        styles.renewalNoticeLink,
+                        isHighlight && !isCurrent && { color: "rgba(255,255,255,0.85)", textDecorationLine: "underline" },
+                      ]}
                       onPress={openPrivacy}
                     >
                       Privacidade
@@ -1009,9 +1015,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing[6],
-  },
-  planEmoji: {
-    fontSize: 18,
   },
   planName: {
     fontSize: 14,
