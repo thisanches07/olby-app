@@ -47,7 +47,7 @@ export function CircularProgress({
    * - mais conservadora para não “invadir” o arco
    * - mantém 1 linha sempre
    */
-  const valueFont = Math.max(18, Math.round(innerSize * 0.38));
+  const valueFont = Math.max(16, Math.round(innerSize * 0.30));
 
   const labelFont = Math.max(11, Math.round(size * 0.075));
   const subtitleFont = Math.max(10, Math.round(size * 0.062));
@@ -173,6 +173,8 @@ export function CircularProgress({
               },
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
             allowFontScaling={false}
           >
             {displayPercent}%
@@ -219,7 +221,6 @@ const styles = StyleSheet.create({
   center: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 12,
   },
 
   valueText: {
