@@ -446,6 +446,10 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { plan } = useSubscription();
 
+  const isGoogleUser = user?.providerData?.some(
+    (p) => p.providerId === "google.com",
+  ) ?? false;
+
   const subBadge = getStatusBadge(plan?.subscriptionStatus ?? null);
   const subSublabel = plan
     ? `${plan.name} · ${subBadge.label}`
@@ -723,14 +727,29 @@ export default function ProfileScreen() {
               sublabel={subSublabel}
               onPress={() => router.push("/subscription/my-plan")}
             />
-            <ActionRow
-              icon="lock-reset"
-              iconBg={colors.tintBlue}
-              iconColor={colors.primary}
-              label="Trocar senha"
-              sublabel="Enviar link de redefinição por e-mail"
-              onPress={handleChangePassword}
-            />
+            {isGoogleUser ? (
+              <View style={[styles.actionRow, styles.rowBorder]}>
+                <View style={[styles.actionIconWrap, { backgroundColor: "#F0FDF4" }]}>
+                  <MaterialIcons name="lock-outline" size={18} color={colors.textMuted} />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={[styles.actionLabel, { color: colors.textMuted }]}>
+                    Trocar senha
+                  </Text>
+                  <Text style={styles.actionSublabel}>Conta gerenciada pelo Google</Text>
+                </View>
+                <MaterialIcons name="info-outline" size={16} color={colors.textMuted} />
+              </View>
+            ) : (
+              <ActionRow
+                icon="lock-reset"
+                iconBg={colors.tintBlue}
+                iconColor={colors.primary}
+                label="Trocar senha"
+                sublabel="Enviar link de redefinição por e-mail"
+                onPress={handleChangePassword}
+              />
+            )}
             <ActionRow
               icon="logout"
               iconBg="#FEF3C7"

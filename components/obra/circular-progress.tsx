@@ -173,8 +173,6 @@ export function CircularProgress({
               },
             ]}
             numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
             allowFontScaling={false}
           >
             {displayPercent}%
