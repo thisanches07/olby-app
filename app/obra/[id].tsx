@@ -518,7 +518,7 @@ export default function ObraDetalheScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#FFFFFF",
   },
 
   // ── Loading / Error ──

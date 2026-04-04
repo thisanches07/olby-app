@@ -101,6 +101,9 @@ export function EngHoursCompactCard({
               styles.metricValue,
               { color: hasHours ? horasBarColor : PRIMARY },
             ]}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+            minimumFontScale={0.7}
           >
             {formatHoras(horasRealizadas)}
           </Text>
@@ -117,6 +120,9 @@ export function EngHoursCompactCard({
               styles.metricValue,
               { color: isHorasExcedidas ? "#EF4444" : hasHours ? "#22C55E" : "#9CA3AF" },
             ]}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+            minimumFontScale={0.7}
           >
             {isHorasExcedidas
               ? `+${formatHoras(horasRealizadas - horasContratadas)}`
@@ -130,7 +136,12 @@ export function EngHoursCompactCard({
 
         <View style={[styles.metricItem, { alignItems: "flex-end" }]}>
           <Text style={styles.metricLabel}>Contratadas</Text>
-          <Text style={[styles.metricValue, { color: "#374151" }]}>
+          <Text
+            style={[styles.metricValue, { color: "#374151" }]}
+            adjustsFontSizeToFit
+            numberOfLines={1}
+            minimumFontScale={0.7}
+          >
             {hasHours ? formatHoras(horasContratadas) : "Sem limite"}
           </Text>
         </View>

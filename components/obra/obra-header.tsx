@@ -12,7 +12,6 @@ interface ObraHeaderProps {
   projectId: string;
   projectRole: ProjectApiRole;
   onBack?: () => void;
-  titleVisible?: boolean;
 }
 
 export function ObraHeader({
@@ -20,44 +19,35 @@ export function ObraHeader({
   projectId,
   projectRole,
   onBack,
-  titleVisible = true,
 }: ObraHeaderProps) {
-  const inner = (
-    <View style={styles.row}>
-      <PressableScale
-        style={styles.headerBtn}
-        onPress={onBack ?? (() => router.back())}
-        scaleTo={0.88}
-      >
-        <MaterialIcons name="chevron-left" size={28} color="#111827" />
-      </PressableScale>
-
-      <View style={styles.headerCenter}>
-        {titleVisible ? (
-          <>
-            <Text style={styles.headerLabel}>PROJETO</Text>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {title}
-            </Text>
-          </>
-        ) : null}
-      </View>
-
-      {canManageMembers(projectRole) ? (
-        <ShareProjectButton
-          projectId={projectId}
-          projectName={title}
-          projectRole={projectRole}
-        />
-      ) : (
-        <View style={styles.headerBtn} />
-      )}
-    </View>
-  );
-
   return (
     <View style={styles.wrapper}>
-      {inner}
+      <View style={styles.row}>
+        <PressableScale
+          style={styles.headerBtn}
+          onPress={onBack ?? (() => router.back())}
+          scaleTo={0.88}
+        >
+          <MaterialIcons name="arrow-back-ios" size={22} color="#111827" />
+        </PressableScale>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerLabel}>PROJETO</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+
+        {canManageMembers(projectRole) ? (
+          <ShareProjectButton
+            projectId={projectId}
+            projectName={title}
+            projectRole={projectRole}
+          />
+        ) : (
+          <View style={styles.headerBtn} />
+        )}
+      </View>
     </View>
   );
 }
@@ -65,17 +55,14 @@ export function ObraHeader({
 const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(0,0,0,0.12)",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
   },
   headerBtn: {
     width: 40,

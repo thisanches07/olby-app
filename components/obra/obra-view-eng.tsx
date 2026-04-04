@@ -392,7 +392,7 @@ export function ObraViewEng({
       <View
         style={[
           styles.bottomArea,
-          { paddingBottom: insets.bottom, backgroundColor: colors.white },
+          { backgroundColor: colors.white },
         ]}
       >
         {showCTA && (
@@ -420,7 +420,7 @@ export function ObraViewEng({
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: "#F5F5F5" },
   scrollContent: { paddingHorizontal: spacing[20] },
   edgeSwipeZone: {
     position: "absolute",

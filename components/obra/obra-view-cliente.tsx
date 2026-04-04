@@ -240,7 +240,7 @@ export function ObraViewCliente({
       <View
         style={[
           styles.bottomArea,
-          { paddingBottom: insets.bottom, backgroundColor: colors.white },
+          { backgroundColor: colors.white },
         ]}
       >
         <ClienteCTAButton
@@ -261,7 +261,7 @@ export function ObraViewCliente({
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: "#F5F5F5" },
   edgeSwipeZone: {
     position: "absolute",
     left: 0,

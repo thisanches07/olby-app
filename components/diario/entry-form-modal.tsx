@@ -2,10 +2,10 @@ import { DiaryEntry } from "@/hooks/use-diary-state";
 import { EntryFormData } from "@/hooks/use-diary-data";
 import { parseISODateToBR } from "@/hooks/use-diary-data";
 import type { LocalPhotoAsset } from "@/utils/photo-upload";
-import { maskBRDate, parseBRDateToLocalDate } from "@/utils/br-date";
+import { brDateDigitsLen, maskBRDate, parseBRDateToLocalDate } from "@/utils/br-date";
 import { useToast } from "@/components/obra/toast";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -74,6 +74,8 @@ export function EntryFormModal({
 }: EntryFormModalProps) {
   const { showToast } = useToast();
   const [date, setDate] = useState("");
+  const [dateTouched, setDateTouched] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [time, setTime] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -163,8 +165,36 @@ export function EntryFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingEntry, visible]);
 
+  const dateDigitsLen = useMemo(() => brDateDigitsLen(date), [date]);
+
+  const shouldShowDateValidation = useMemo(
+    () => dateDigitsLen === 8 || saveAttempted || (dateTouched && !date.trim()),
+    [dateDigitsLen, saveAttempted, dateTouched, date],
+  );
+
+  const dateError = useMemo(() => {
+    if (!shouldShowDateValidation) return null;
+    const raw = date.trim();
+    if (!raw) return "Informe a data do registro.";
+    if (dateDigitsLen !== 8) return "Complete a data no formato DD/MM/AAAA.";
+    const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return "Use o formato DD/MM/AAAA.";
+    const yyyy = Number(m[3]);
+    if (yyyy < 1900 || yyyy > 2100) return "Ano inválido.";
+    const parsed = parseBRDateToLocalDate(raw);
+    if (!parsed) return "Data inválida (dia/mês não existe).";
+    return null;
+  }, [shouldShowDateValidation, date, dateDigitsLen]);
+
+  const handleDateChange = (t: string) => {
+    setDateTouched(true);
+    setDate(maskBRDate(t));
+  };
+
   const resetForm = () => {
     setDate("");
+    setDateTouched(false);
+    setSaveAttempted(false);
     setTime("");
     setTitle("");
     setDescription("");
@@ -193,16 +223,13 @@ export function EntryFormModal({
 
   // ── Salvar ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!date.trim() || !title.trim()) {
-      showToast({ title: "Campos obrigatórios", message: "Preencha a data e o título.", tone: "error" });
+    setSaveAttempted(true);
+    if (!title.trim()) {
+      showToast({ title: "Título obrigatório", message: "Informe um título para o registro.", tone: "error" });
       return;
     }
-    if (date.replace(/\D/g, "").length < 8) {
-      showToast({ title: "Data incompleta", message: "Use o formato DD/MM/AAAA.", tone: "error" });
-      return;
-    }
-    if (!parseBRDateToLocalDate(date)) {
-      showToast({ title: "Data inválida", message: "Verifique o dia e o mês.", tone: "error" });
+    const rawDate = date.trim();
+    if (!rawDate || dateDigitsLen !== 8 || !parseBRDateToLocalDate(rawDate)) {
       return;
     }
     if (durationMinutes === null) {
@@ -323,24 +350,53 @@ export function EntryFormModal({
                 <Text style={styles.label}>
                   Data <Text style={styles.required}>*</Text>
                 </Text>
-                <TextInput
-                  ref={dateRef}
-                  style={styles.input}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#9CA3AF"
-                  value={date}
-                  onChangeText={(t) => setDate(maskBRDate(t))}
-                  maxLength={10}
-                  keyboardType="number-pad"
-                  returnKeyType="next"
-                  blurOnSubmit={false}
-                  onFocus={() => {
-                    setFocusedField("date");
-                    scrollToKeyboard(dateRef, 280);
-                  }}
-                  onBlur={() => setFocusedField(null)}
-                  onSubmitEditing={() => nextFor("date")}
-                />
+                <View
+                  style={[
+                    styles.dateInputWrap,
+                    dateError ? styles.dateInputWrapError : null,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="event"
+                    size={16}
+                    color={dateError ? "#EF4444" : "#9CA3AF"}
+                  />
+                  <TextInput
+                    ref={dateRef}
+                    style={styles.dateInput}
+                    placeholder="DD/MM/AAAA"
+                    placeholderTextColor="#9CA3AF"
+                    value={date}
+                    onChangeText={handleDateChange}
+                    maxLength={10}
+                    keyboardType="number-pad"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onFocus={() => {
+                      setFocusedField("date");
+                      scrollToKeyboard(dateRef, 280);
+                    }}
+                    onBlur={() => setFocusedField(null)}
+                    onSubmitEditing={() => nextFor("date")}
+                  />
+                  {!!date.trim() && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setDateTouched(true);
+                        setDate("");
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialIcons name="close" size={16} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {dateError ? (
+                  <Text style={styles.dateErrorText}>{dateError}</Text>
+                ) : (
+                  <Text style={styles.dateHelperText}>DD/MM/AAAA</Text>
+                )}
                 {focusedField === "date" && (
                   <View style={styles.inlineActions}>
                     <TouchableOpacity
@@ -629,6 +685,39 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textAlign: "right",
     fontWeight: "600",
+  },
+
+  // ── Date input ──
+  dateInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  dateInputWrapError: {
+    borderColor: "#EF4444",
+  },
+  dateInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111827",
+    paddingHorizontal: 6,
+    paddingVertical: 0,
+  },
+  dateErrorText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#EF4444",
+    fontWeight: "500",
+  },
+  dateHelperText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#9CA3AF",
   },
 
   // ── Inline actions ──
