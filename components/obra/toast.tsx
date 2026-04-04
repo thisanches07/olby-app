@@ -7,7 +7,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -18,9 +25,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { notifyError, notifySuccess } from "@/utils/haptics";
-import { colors } from "@/theme/colors";
-import { radius } from "@/theme/radius";
-import { spacing } from "@/theme/spacing";
 
 type ToastTone = "success" | "error" | "info";
 
@@ -38,28 +42,17 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-function toneMeta(tone: ToastTone) {
-  if (tone === "success")
-    return {
-      icon: "check-circle",
-      bg: "#ECFDF5",
-      border: "#CFFAEA",
-      title: "#065F46",
-    };
-  if (tone === "error")
-    return {
-      icon: "error-outline",
-      bg: "#FFF1F2",
-      border: "#FFE4E6",
-      title: "#9F1239",
-    };
-  return {
-    icon: "info-outline",
-    bg: "#EEF2FF",
-    border: "#C7D2FE",
-    title: "#1E3A8A",
-  };
-}
+const TONE_ICON: Record<ToastTone, string> = {
+  success: "check-circle",
+  error: "error-outline",
+  info: "info-outline",
+};
+
+const TONE_COLOR: Record<ToastTone, string> = {
+  success: "#34D399",
+  error: "#F87171",
+  info: "#818CF8",
+};
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
@@ -67,15 +60,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [payload, setPayload] = useState<ToastPayload | null>(null);
 
-  const translateY = useSharedValue(-80);
+  const translateY = useSharedValue(100);
   const opacity = useSharedValue(0);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hideToast = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    opacity.value = withTiming(0, { duration: 180 });
-    translateY.value = withTiming(-80, { duration: 200 }, (finished) => {
+    opacity.value = withTiming(0, { duration: 160 });
+    translateY.value = withTiming(100, { duration: 200 }, (finished) => {
       if (finished) {
         runOnJS(setVisible)(false);
         runOnJS(setPayload)(null);
@@ -92,25 +85,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       setPayload({ tone, durationMs: 2400, ...t });
       setVisible(true);
 
-      // Haptic baseado no tom
       if (tone === "success") notifySuccess();
       else if (tone === "error") notifyError();
 
-      // Reset position e anima com spring para leve bounce
-      translateY.value = -80;
+      translateY.value = 100;
       opacity.value = 0;
 
-      opacity.value = withTiming(1, { duration: 200 });
+      opacity.value = withTiming(1, { duration: 180 });
       translateY.value = withSpring(0, {
-        damping: 18,
-        stiffness: 260,
-        mass: 0.8,
+        damping: 20,
+        stiffness: 280,
+        mass: 0.7,
       });
 
       timerRef.current = setTimeout(
-        () => {
-          hideToast();
-        },
+        () => hideToast(),
         (t.durationMs ?? 2400) as number,
       );
     },
@@ -127,66 +116,53 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     opacity: opacity.value,
   }));
 
+  const tone = payload?.tone ?? "info";
+  const bottomOffset = Math.max(insets.bottom, 16) + 72;
+
   return (
     <ToastContext.Provider value={value}>
       {children}
 
-      {visible && payload && (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={hideToast}
+      >
         <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           <View
             pointerEvents="box-none"
-            style={[
-              styles.container,
-              { paddingTop: Math.max(insets.top, 10) },
-            ]}
+            style={[styles.container, { paddingBottom: bottomOffset }]}
           >
-            <Animated.View
-              style={[
-                styles.toast,
-                animStyle,
-                {
-                  backgroundColor: toneMeta(payload.tone ?? "info").bg,
-                  borderColor: toneMeta(payload.tone ?? "info").border,
-                },
-              ]}
-            >
+            <Animated.View style={[styles.toast, animStyle]}>
               <View style={styles.row}>
-                <View style={styles.iconWrap}>
-                  <MaterialIcons
-                    // @ts-expect-error runtime ok
-                    name={toneMeta(payload.tone ?? "info").icon}
-                    size={18}
-                    color={colors.title}
-                  />
-                </View>
+                <MaterialIcons
+                  // @ts-expect-error runtime ok
+                  name={TONE_ICON[tone]}
+                  size={20}
+                  color={TONE_COLOR[tone]}
+                />
 
-                <View style={{ flex: 1, gap: 2 }}>
+                <View style={styles.textBlock}>
                   <Text style={styles.title} numberOfLines={1}>
-                    {payload.title}
+                    {payload?.title}
                   </Text>
-                  {!!payload.message && (
+                  {!!payload?.message && (
                     <Text style={styles.message} numberOfLines={2}>
                       {payload.message}
                     </Text>
                   )}
                 </View>
 
-                <Pressable
-                  onPress={hideToast}
-                  hitSlop={12}
-                  style={styles.close}
-                >
-                  <MaterialIcons
-                    name="close"
-                    size={18}
-                    color={colors.textMuted}
-                  />
+                <Pressable onPress={hideToast} hitSlop={12}>
+                  <MaterialIcons name="close" size={16} color="#71717A" />
                 </Pressable>
               </View>
             </Animated.View>
           </View>
         </View>
-      )}
+      </Modal>
     </ToastContext.Provider>
   );
 }
@@ -200,53 +176,47 @@ export function useToast() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: spacing[16],
-    zIndex: 9999,
+    paddingHorizontal: 16,
+    alignItems: "center",
   },
   toast: {
-    borderWidth: 1,
-    borderRadius: radius["2xl"],
-    paddingVertical: spacing[10],
-    paddingHorizontal: spacing[12],
+    backgroundColor: "#18181B",
+    borderRadius: 100,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    maxWidth: 380,
+    width: "100%",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.12,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.22,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
       },
-      android: { elevation: 10 },
+      android: { elevation: 12 },
     }),
   },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing[10] },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.dividerSoft,
+  row: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 10,
+  },
+  textBlock: {
+    flex: 1,
+    gap: 1,
   },
   title: {
     fontSize: 13,
-    fontWeight: "900",
-    color: colors.title,
+    fontWeight: "700",
+    color: "#FAFAFA",
     letterSpacing: -0.1,
   },
-  message: { fontSize: 12, color: colors.text, lineHeight: 16, opacity: 0.9 },
-  close: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.dividerSoft,
+  message: {
+    fontSize: 12,
+    color: "#A1A1AA",
+    lineHeight: 16,
   },
 });

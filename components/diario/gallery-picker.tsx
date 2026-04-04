@@ -1,4 +1,5 @@
 import { useToast } from "@/components/obra/toast";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
@@ -33,7 +34,7 @@ export function GalleryPicker({
   const { showToast } = useToast();
   const [newAssets, setNewAssets] = useState<LocalPhotoAsset[]>([]);
   const [showCameraModal, setShowCameraModal] = useState(false);
-  // Stores assets pending user confirmation when over the limit
+  // Stores assets pending user confirmation when over the limit (fallback for Android API <34)
   const [pendingOverflow, setPendingOverflow] = useState<{
     assets: ImagePicker.ImagePickerAsset[];
     spacesLeft: number;
@@ -67,6 +68,7 @@ export function GalleryPicker({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
+        selectionLimit: spacesLeft,
         quality: 0.85,
       });
 
@@ -74,6 +76,7 @@ export function GalleryPicker({
 
       const selected = result.assets;
       if (selected.length > spacesLeft) {
+        // Fallback for Android API <34 which may ignore selectionLimit
         setPendingOverflow({ assets: selected, spacesLeft });
       } else {
         addPickerAssets(selected);
@@ -100,17 +103,25 @@ export function GalleryPicker({
   };
 
   const canAddMore = newAssets.length < MAX_NEW_PHOTOS;
+  const spacesLeft = MAX_NEW_PHOTOS - newAssets.length;
   const totalExisting = existingPhotos.length;
+
+  const cameraLabel = canAddMore
+    ? `Câmera · ${spacesLeft} vaga${spacesLeft === 1 ? "" : "s"}`
+    : "Câmera";
+  const galleryLabel = canAddMore
+    ? `Galeria · ${spacesLeft} vaga${spacesLeft === 1 ? "" : "s"}`
+    : "Galeria";
 
   return (
     <View style={styles.container}>
       {/* Botões de seleção */}
       <View style={styles.buttonRow}>
-        <TouchableOpacity
+        <PressableScale
           style={[styles.button, !canAddMore && styles.buttonDisabled]}
           onPress={() => setShowCameraModal(true)}
           disabled={!canAddMore}
-          activeOpacity={0.7}
+          scaleTo={0.96}
         >
           <MaterialIcons
             name="camera-alt"
@@ -120,15 +131,15 @@ export function GalleryPicker({
           <Text
             style={[styles.buttonText, !canAddMore && styles.buttonTextDisabled]}
           >
-            Câmera
+            {cameraLabel}
           </Text>
-        </TouchableOpacity>
+        </PressableScale>
 
-        <TouchableOpacity
+        <PressableScale
           style={[styles.button, !canAddMore && styles.buttonDisabled]}
           onPress={pickFromGallery}
           disabled={!canAddMore}
-          activeOpacity={0.7}
+          scaleTo={0.96}
         >
           <MaterialIcons
             name="image"
@@ -138,9 +149,9 @@ export function GalleryPicker({
           <Text
             style={[styles.buttonText, !canAddMore && styles.buttonTextDisabled]}
           >
-            Galeria
+            {galleryLabel}
           </Text>
-        </TouchableOpacity>
+        </PressableScale>
       </View>
 
       {/* Fotos existentes (somente leitura) */}

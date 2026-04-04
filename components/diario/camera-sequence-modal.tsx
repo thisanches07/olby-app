@@ -1,10 +1,12 @@
 import { useToast } from "@/components/obra/toast";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { colors, radius, shadow, spacing } from "@/theme";
+import { notifySuccess } from "@/utils/haptics";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Modal,
   SafeAreaView,
@@ -16,6 +18,8 @@ import {
 } from "react-native";
 
 const MAX_PHOTOS = 10;
+const THUMB_WIDTH = 70;
+const THUMB_GAP = 8;
 
 interface CameraSequenceModalProps {
   visible: boolean;
@@ -30,17 +34,52 @@ export function CameraSequenceModal({
 }: CameraSequenceModalProps) {
   const { showToast } = useToast();
   const [photos, setPhotos] = useState<string[]>([]);
-  const [lastPhotoUri, setLastPhotoUri] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState<boolean | null>(null);
   const [confirmCancelVisible, setConfirmCancelVisible] = useState(false);
+  const filmstripRef = useRef<ScrollView>(null);
+
+  // Derived preview URI — single source of truth
+  const previewUri = selectedIndex !== null ? (photos[selectedIndex] ?? null) : null;
+
+  // Request permission once when modal opens
+  useEffect(() => {
+    if (!visible) return;
+    ImagePicker.requestCameraPermissionsAsync().then((perm) => {
+      setCameraPermissionGranted(perm.granted);
+      if (!perm.granted) {
+        showToast({
+          title: "Permissão negada",
+          message: "Libere o acesso à câmera nas configurações do dispositivo.",
+          tone: "error",
+        });
+      }
+    });
+  }, [visible]);
+
+  // Auto-scroll filmstrip to keep selected thumbnail visible
+  useEffect(() => {
+    if (selectedIndex === null) return;
+    const timeout = setTimeout(() => {
+      filmstripRef.current?.scrollTo({
+        x: selectedIndex * (THUMB_WIDTH + THUMB_GAP),
+        animated: true,
+      });
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, [selectedIndex]);
 
   const takePhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        showToast({ title: "Permissão negada", message: "Precisa de acesso à câmera.", tone: "error" });
-        return;
-      }
+    if (!cameraPermissionGranted) {
+      showToast({
+        title: "Permissão negada",
+        message: "Libere o acesso à câmera nas configurações do dispositivo.",
+        tone: "error",
+      });
+      return;
+    }
 
+    try {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
         quality: 0.8,
@@ -50,10 +89,14 @@ export function CameraSequenceModal({
         const uri = result.assets[0].uri;
         const updatedPhotos = [...photos, uri];
         setPhotos(updatedPhotos);
-        setLastPhotoUri(uri);
+        setSelectedIndex(updatedPhotos.length - 1);
 
         if (updatedPhotos.length >= MAX_PHOTOS) {
-          showToast({ title: "Limite atingido", message: "Você já tem 10 fotos. Clique em OK para confirmar.", tone: "info" });
+          showToast({
+            title: "Limite atingido",
+            message: "Você já tem 10 fotos. Toque em Usar fotos para confirmar.",
+            tone: "info",
+          });
         }
       }
     } catch {
@@ -64,14 +107,18 @@ export function CameraSequenceModal({
   const removePhoto = (index: number) => {
     const updatedPhotos = photos.filter((_, i) => i !== index);
     setPhotos(updatedPhotos);
-    if (index === photos.length - 1) {
-      setLastPhotoUri(updatedPhotos[updatedPhotos.length - 1] || null);
+
+    if (updatedPhotos.length === 0) {
+      setSelectedIndex(null);
+    } else if (selectedIndex === null || selectedIndex >= updatedPhotos.length) {
+      setSelectedIndex(updatedPhotos.length - 1);
     }
+    // If selectedIndex < index, it remains valid — no change needed
   };
 
   const resetModal = () => {
     setPhotos([]);
-    setLastPhotoUri(null);
+    setSelectedIndex(null);
   };
 
   const handleConfirm = () => {
@@ -79,6 +126,7 @@ export function CameraSequenceModal({
       showToast({ title: "Nenhuma foto", message: "Tire pelo menos uma foto.", tone: "error" });
       return;
     }
+    notifySuccess();
     onPhotosCapture(photos);
     resetModal();
   };
@@ -93,6 +141,10 @@ export function CameraSequenceModal({
   };
 
   const canTakeMore = photos.length < MAX_PHOTOS;
+  const confirmLabel =
+    photos.length === 0
+      ? "OK"
+      : `Usar ${photos.length} foto${photos.length === 1 ? "" : "s"}`;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
@@ -114,25 +166,35 @@ export function CameraSequenceModal({
 
         {/* Counter */}
         <View style={styles.counterBar}>
-          <Text style={styles.counterText}>
-            {photos.length}/{MAX_PHOTOS} fotos
-          </Text>
-
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${(photos.length / MAX_PHOTOS) * 100}%` },
-              ]}
-            />
-          </View>
+          {photos.length === 0 ? (
+            <Text style={styles.counterGuidance}>Até {MAX_PHOTOS} fotos por registro</Text>
+          ) : (
+            <>
+              <View style={styles.counterRow}>
+                <Text style={styles.counterText}>
+                  {photos.length}/{MAX_PHOTOS} fotos
+                </Text>
+                {photos.length >= MAX_PHOTOS && (
+                  <Text style={styles.counterLimitLabel}>Limite atingido</Text>
+                )}
+              </View>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${(photos.length / MAX_PHOTOS) * 100}%` },
+                  ]}
+                />
+              </View>
+            </>
+          )}
         </View>
 
         {/* Last Photo Preview */}
-        {lastPhotoUri ? (
+        {previewUri ? (
           <View style={styles.previewContainer}>
             <Image
-              source={{ uri: lastPhotoUri }}
+              source={{ uri: previewUri }}
               style={styles.previewImage}
               contentFit="cover"
             />
@@ -150,18 +212,27 @@ export function CameraSequenceModal({
           </View>
         )}
 
-        {/* Photos Miniatures */}
+        {/* Photos Filmstrip */}
         {photos.length > 0 && (
           <View style={styles.miniatureSection}>
             <Text style={styles.miniatureLabel}>Fotos tiradas:</Text>
 
             <ScrollView
+              ref={filmstripRef}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.miniatureContent}
             >
               {photos.map((uri, index) => (
-                <View key={index} style={styles.miniatureContainer}>
+                <PressableScale
+                  key={index}
+                  scaleTo={0.93}
+                  style={[
+                    styles.miniatureContainer,
+                    selectedIndex === index && styles.miniatureContainerSelected,
+                  ]}
+                  onPress={() => setSelectedIndex(index)}
+                >
                   <Image
                     source={{ uri }}
                     style={styles.miniatureImage}
@@ -171,6 +242,7 @@ export function CameraSequenceModal({
                   <TouchableOpacity
                     style={styles.miniatureRemoveBtn}
                     onPress={() => removePhoto(index)}
+                    hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                     activeOpacity={0.7}
                   >
                     <MaterialIcons
@@ -181,7 +253,7 @@ export function CameraSequenceModal({
                   </TouchableOpacity>
 
                   <Text style={styles.miniatureIndex}>{index + 1}</Text>
-                </View>
+                </PressableScale>
               ))}
             </ScrollView>
           </View>
@@ -189,15 +261,15 @@ export function CameraSequenceModal({
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
+          <PressableScale
             style={[
               styles.actionBtn,
               styles.cameraBtn,
               !canTakeMore && styles.buttonDisabled,
             ]}
+            scaleTo={0.96}
             onPress={takePhoto}
             disabled={!canTakeMore}
-            activeOpacity={0.7}
           >
             <MaterialIcons
               name="photo-camera"
@@ -212,16 +284,16 @@ export function CameraSequenceModal({
             >
               {canTakeMore ? "Tirar Foto" : "Limite atingido"}
             </Text>
-          </TouchableOpacity>
+          </PressableScale>
 
-          <TouchableOpacity
+          <PressableScale
             style={[styles.actionBtn, styles.confirmBtn]}
+            scaleTo={0.96}
             onPress={handleConfirm}
-            activeOpacity={0.7}
           >
             <MaterialIcons name="check" size={24} color={colors.white} />
-            <Text style={styles.actionBtnText}>OK</Text>
-          </TouchableOpacity>
+            <Text style={styles.actionBtnText}>{confirmLabel}</Text>
+          </PressableScale>
         </View>
 
         <ConfirmSheet
@@ -276,10 +348,26 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[12],
     gap: spacing[8],
   },
+  counterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   counterText: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.title,
+  },
+  counterGuidance: {
+    fontSize: 13,
+    color: colors.subtext,
+    fontStyle: "italic",
+  },
+  counterLimitLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.danger,
+    letterSpacing: 0.3,
   },
   progressBar: {
     height: 4,
@@ -339,15 +427,21 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   miniatureContent: {
-    gap: spacing[8],
+    gap: THUMB_GAP,
     paddingRight: spacing[20],
   },
   miniatureContainer: {
     position: "relative",
+    borderWidth: 2.5,
+    borderColor: "transparent",
+    borderRadius: radius.xs + 2,
+  },
+  miniatureContainerSelected: {
+    borderColor: colors.primary,
   },
   miniatureImage: {
-    width: 70,
-    height: 70,
+    width: THUMB_WIDTH,
+    height: THUMB_WIDTH,
     borderRadius: radius.xs,
     backgroundColor: colors.gray100,
   },
