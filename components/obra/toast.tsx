@@ -7,16 +7,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -38,6 +32,10 @@ type ToastPayload = {
 type ToastContextValue = {
   showToast: (t: ToastPayload) => void;
   hideToast: () => void;
+  visible: boolean;
+  payload: ToastPayload | null;
+  translateY: SharedValue<number>;
+  opacity: SharedValue<number>;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -54,9 +52,64 @@ const TONE_COLOR: Record<ToastTone, string> = {
   info: "#818CF8",
 };
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+/**
+ * Renderiza o pill de toast. Pode ser montado em qualquer lugar da árvore
+ * que esteja dentro de um ToastProvider — inclusive dentro de um <Modal>.
+ * O bottomOffset padrão (72) considera a tab bar. Dentro de modais use 24.
+ */
+export function ToastRenderer({ bottomOffset }: { bottomOffset?: number }) {
+  const ctx = useContext(ToastContext);
   const insets = useSafeAreaInsets();
 
+  const animStyle = useAnimatedStyle(() => {
+    if (!ctx) return {};
+    return {
+      transform: [{ translateY: ctx.translateY.value }],
+      opacity: ctx.opacity.value,
+    };
+  });
+
+  if (!ctx || !ctx.visible || !ctx.payload) return null;
+
+  const { payload, hideToast } = ctx;
+  const tone = payload.tone ?? "info";
+  const bottom = Math.max(insets.bottom, 16) + (bottomOffset ?? 72);
+
+  return (
+    <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.container]}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.anchor, { bottom }]}
+      >
+        <Animated.View style={[styles.toast, animStyle]}>
+          <View style={styles.row}>
+            <MaterialIcons
+              // @ts-expect-error runtime ok
+              name={TONE_ICON[tone]}
+              size={20}
+              color={TONE_COLOR[tone]}
+            />
+            <View style={styles.textBlock}>
+              <Text style={styles.title} numberOfLines={1}>
+                {payload.title}
+              </Text>
+              {!!payload.message && (
+                <Text style={styles.message} numberOfLines={2}>
+                  {payload.message}
+                </Text>
+              )}
+            </View>
+            <Pressable onPress={hideToast} hitSlop={12}>
+              <MaterialIcons name="close" size={16} color="#71717A" />
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [payload, setPayload] = useState<ToastPayload | null>(null);
 
@@ -107,62 +160,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ showToast, hideToast }),
-    [showToast, hideToast],
+    () => ({ showToast, hideToast, visible, payload, translateY, opacity }),
+    [showToast, hideToast, visible, payload, translateY, opacity],
   );
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
-
-  const tone = payload?.tone ?? "info";
-  const bottomOffset = Math.max(insets.bottom, 16) + 72;
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-
-      <Modal
-        visible={visible}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={hideToast}
-      >
-        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          <View
-            pointerEvents="box-none"
-            style={[styles.container, { paddingBottom: bottomOffset }]}
-          >
-            <Animated.View style={[styles.toast, animStyle]}>
-              <View style={styles.row}>
-                <MaterialIcons
-                  // @ts-expect-error runtime ok
-                  name={TONE_ICON[tone]}
-                  size={20}
-                  color={TONE_COLOR[tone]}
-                />
-
-                <View style={styles.textBlock}>
-                  <Text style={styles.title} numberOfLines={1}>
-                    {payload?.title}
-                  </Text>
-                  {!!payload?.message && (
-                    <Text style={styles.message} numberOfLines={2}>
-                      {payload.message}
-                    </Text>
-                  )}
-                </View>
-
-                <Pressable onPress={hideToast} hitSlop={12}>
-                  <MaterialIcons name="close" size={16} color="#71717A" />
-                </Pressable>
-              </View>
-            </Animated.View>
-          </View>
-        </View>
-      </Modal>
+      {/* Renderer raiz — visível quando nenhuma modal está aberta */}
+      <ToastRenderer bottomOffset={72} />
     </ToastContext.Provider>
   );
 }
@@ -175,11 +181,13 @@ export function useToast() {
 
 const styles = StyleSheet.create({
   container: {
+    zIndex: 9999,
+    ...Platform.select({ android: { elevation: 10 } }),
+  },
+  anchor: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
+    left: 16,
+    right: 16,
     alignItems: "center",
   },
   toast: {

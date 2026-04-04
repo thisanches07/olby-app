@@ -10,8 +10,8 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
-  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,

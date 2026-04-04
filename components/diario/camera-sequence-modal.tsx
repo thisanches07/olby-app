@@ -7,8 +7,8 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useRef, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
-  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,

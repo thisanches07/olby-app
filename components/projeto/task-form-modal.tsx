@@ -2,9 +2,9 @@ import { Tarefa } from "@/data/obras";
 import { useToast } from "@/components/obra/toast";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
-  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,

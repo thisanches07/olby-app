@@ -6,11 +6,11 @@ import { brDateDigitsLen, maskBRDate, parseBRDateToLocalDate } from "@/utils/br-
 import { useToast } from "@/components/obra/toast";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   SafeAreaView,
   ScrollView,

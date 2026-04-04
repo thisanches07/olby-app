@@ -2,10 +2,10 @@ import { useToast } from "@/components/obra/toast";
 import { formatBRLInput } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   SafeAreaView,
   ScrollView,

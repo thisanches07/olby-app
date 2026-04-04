@@ -1,10 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Dimensions,
-  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,

@@ -8,11 +8,11 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Modal,
   Platform,
   ScrollView,
   Share,

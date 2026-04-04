@@ -7,11 +7,11 @@ import {
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { getAuth } from "firebase/auth";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
