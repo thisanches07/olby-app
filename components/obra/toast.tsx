@@ -57,7 +57,7 @@ const TONE_COLOR: Record<ToastTone, string> = {
  * que esteja dentro de um ToastProvider — inclusive dentro de um <Modal>.
  * O bottomOffset padrão (72) considera a tab bar. Dentro de modais use 24.
  */
-export function ToastRenderer({ bottomOffset }: { bottomOffset?: number }) {
+export function ToastRenderer({ topOffset }: { topOffset?: number }) {
   const ctx = useContext(ToastContext);
   const insets = useSafeAreaInsets();
 
@@ -73,13 +73,13 @@ export function ToastRenderer({ bottomOffset }: { bottomOffset?: number }) {
 
   const { payload, hideToast } = ctx;
   const tone = payload.tone ?? "info";
-  const bottom = Math.max(insets.bottom, 16) + (bottomOffset ?? 72);
+  const top = insets.top + (topOffset ?? 16);
 
   return (
     <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.container]}>
       <View
         pointerEvents="box-none"
-        style={[styles.anchor, { bottom }]}
+        style={[styles.anchor, { top }]}
       >
         <Animated.View style={[styles.toast, animStyle]}>
           <View style={styles.row}>
@@ -121,7 +121,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const hideToast = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     opacity.value = withTiming(0, { duration: 160 });
-    translateY.value = withTiming(100, { duration: 200 }, (finished) => {
+    translateY.value = withTiming(-100, { duration: 200 }, (finished) => {
       if (finished) {
         runOnJS(setVisible)(false);
         runOnJS(setPayload)(null);
@@ -141,7 +141,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       if (tone === "success") notifySuccess();
       else if (tone === "error") notifyError();
 
-      translateY.value = 100;
+      translateY.value = -100;
       opacity.value = 0;
 
       opacity.value = withTiming(1, { duration: 180 });
@@ -168,7 +168,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Renderer raiz — visível quando nenhuma modal está aberta */}
-      <ToastRenderer bottomOffset={72} />
+      <ToastRenderer topOffset={16} />
     </ToastContext.Provider>
   );
 }

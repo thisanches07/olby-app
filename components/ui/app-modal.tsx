@@ -11,7 +11,7 @@ export function AppModal({ children, ...props }: ModalProps) {
   return (
     <Modal {...props}>
       {children}
-      <ToastRenderer bottomOffset={24} />
+      <ToastRenderer topOffset={16} />
     </Modal>
   );
 }

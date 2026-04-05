@@ -2,6 +2,13 @@ import { api } from "./api";
 
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED" | "PLANNING";
 
+export interface ProjectMemberDto {
+  userId: string;
+  userName: string | null;
+  userPhone: string | null;
+  role: string;
+}
+
 export interface ProjectResponseDto {
   id: string;
   ownerId: string;
@@ -16,6 +23,7 @@ export interface ProjectResponseDto {
   updatedAt: string;
   trackFinancial?: boolean;
   trackActivities?: boolean;
+  members?: ProjectMemberDto[];
 }
 
 export interface ProjectSummaryDto extends ProjectResponseDto {

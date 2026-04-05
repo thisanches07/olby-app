@@ -1,15 +1,21 @@
 import {
   GoogleAuthProvider,
   OAuthProvider,
+  PhoneAuthProvider,
   User,
   createUserWithEmailAndPassword,
+  linkWithCredential,
   sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
+  signInWithPhoneNumber,
   signOut,
   updateProfile,
+  type ApplicationVerifier,
+  type ConfirmationResult,
 } from "firebase/auth";
 
+import { api } from "./api";
 import { firebaseAuth } from "./firebase";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
@@ -123,4 +129,32 @@ export async function getIdToken(): Promise<string | null> {
   const user = firebaseAuth.currentUser;
   if (!user) return null;
   return user.getIdToken();
+}
+
+// ─── Phone Verification ───────────────────────────────────────────────────────
+
+export interface BackendUser {
+  id: string;
+  name: string;
+  phone?: string | null;
+  phoneVerifiedAt?: string | null;
+}
+
+export async function sendPhoneCode(
+  phoneNumber: string,
+  recaptchaVerifier: ApplicationVerifier,
+): Promise<ConfirmationResult> {
+  return signInWithPhoneNumber(firebaseAuth, phoneNumber, recaptchaVerifier);
+}
+
+export async function linkPhoneWithCode(
+  verificationId: string,
+  code: string,
+  phoneNumber: string,
+): Promise<BackendUser> {
+  const credential = PhoneAuthProvider.credential(verificationId, code);
+  await linkWithCredential(firebaseAuth.currentUser!, credential);
+  // Force-refresh so the ID token carries the phone_number claim
+  await firebaseAuth.currentUser!.getIdToken(true);
+  return api.patch<BackendUser>("/users/me", { phone: phoneNumber });
 }

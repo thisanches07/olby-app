@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect } from "@react-navigation/native";
+import { FlashList } from "@shopify/flash-list";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -21,8 +21,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { FadeSlideIn } from "@/components/ui/fade-slide-in";
-import { PressableScale } from "@/components/ui/pressable-scale";
 import { HomeEmptyState } from "@/components/home/home-empty-state";
 import { HomeFilterChips } from "@/components/home/home-filter-chips";
 import { HomeHeader } from "@/components/home/home-header";
@@ -31,6 +29,8 @@ import { ObraCard, StatusType } from "@/components/obra-card";
 import { ObraCardSkeleton } from "@/components/obra/obra-card-skeleton";
 import { CreateProjectModal } from "@/components/projeto/create-project-modal";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
+import { FadeSlideIn } from "@/components/ui/fade-slide-in";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
 import type { ObraDetalhe } from "@/data/obras";
@@ -42,7 +42,7 @@ const FILTROS: { label: string; value: StatusType | "todas" }[] = [
   { label: "Todas", value: "todas" },
   { label: "Em Andamento", value: "em_andamento" },
   { label: "Concluidas", value: "concluida" },
-  { label: "Pausadas", value: "pausada" },
+  { label: "Arquivadas", value: "pausada" },
 ];
 
 export default function MinhasObrasScreen() {
@@ -60,7 +60,11 @@ export default function MinhasObrasScreen() {
 
   const { obras, isLoading, isRefreshing, addObra, loadInitial, refresh } =
     useProjects();
-  const { plan, isLoading: subscriptionLoading, refresh: refreshSubscription } = useSubscription();
+  const {
+    plan,
+    isLoading: subscriptionLoading,
+    refresh: refreshSubscription,
+  } = useSubscription();
   const isPlanKnown = !!plan?.code;
   const isFreePlan = plan?.code === "FREE";
   const isBasicPlan = plan?.code === "BASIC";
@@ -93,8 +97,12 @@ export default function MinhasObrasScreen() {
 
     return obras.filter((obra) => {
       const matchBusca =
+        !query ||
         obra.nome.toLowerCase().includes(query) ||
-        (obra.cliente || "").toLowerCase().includes(query);
+        (obra.cliente || "").toLowerCase().includes(query) ||
+        (obra.members ?? []).some((m) =>
+          (m.userName ?? "").toLowerCase().includes(query),
+        );
 
       const matchFiltro =
         filtroAtivo === "todas" || obra.status === filtroAtivo;
@@ -166,7 +174,9 @@ export default function MinhasObrasScreen() {
   }, [showBlockedCreateAlert]);
 
   const postCreateObraId =
-    modalMode !== null && typeof modalMode === "object" && modalMode.type === "post_create"
+    modalMode !== null &&
+    typeof modalMode === "object" &&
+    modalMode.type === "post_create"
       ? modalMode.obraId
       : null;
 
@@ -191,10 +201,16 @@ export default function MinhasObrasScreen() {
               <ObraCard
                 obra={item}
                 onPress={() =>
-                  router.push({ pathname: "/obra/[id]", params: { id: item.id } })
+                  router.push({
+                    pathname: "/obra/[id]",
+                    params: { id: item.id },
+                  })
                 }
                 onViewDiary={() =>
-                  router.push({ pathname: "/diario/[id]", params: { id: item.id } })
+                  router.push({
+                    pathname: "/diario/[id]",
+                    params: { id: item.id },
+                  })
                 }
               />
             </FadeSlideIn>
@@ -205,7 +221,9 @@ export default function MinhasObrasScreen() {
           overScrollMode="never"
           style={styles.flatList}
           contentContainerStyle={styles.listaContainer}
-          onScroll={(e) => { scrollY.value = e.nativeEvent.contentOffset.y; }}
+          onScroll={(e) => {
+            scrollY.value = e.nativeEvent.contentOffset.y;
+          }}
           scrollEventThrottle={16}
           refreshControl={
             <RefreshControl
@@ -306,7 +324,10 @@ export default function MinhasObrasScreen() {
           onViewObra={
             postCreateObraId
               ? () => {
-                  router.push({ pathname: "/obra/[id]", params: { id: postCreateObraId } });
+                  router.push({
+                    pathname: "/obra/[id]",
+                    params: { id: postCreateObraId },
+                  });
                   setModalMode(null);
                 }
               : undefined
@@ -315,7 +336,10 @@ export default function MinhasObrasScreen() {
       </View>
 
       {/* Compact header que faz fade-in quando o HomeHeader sai do viewport */}
-      <Animated.View style={[styles.compactHeader, compactHeaderStyle]} pointerEvents="none">
+      <Animated.View
+        style={[styles.compactHeader, compactHeaderStyle]}
+        pointerEvents="none"
+      >
         <Text style={styles.compactTitle}>Minhas Obras</Text>
       </Animated.View>
     </SafeAreaView>

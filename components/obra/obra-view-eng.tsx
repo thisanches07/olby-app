@@ -3,6 +3,7 @@ import { usePreventRemove } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   PanResponder,
   RefreshControl,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
@@ -136,6 +138,8 @@ interface ObraViewEngProps {
   onEditBudget: () => void;
   onEditHours: () => void;
   onEditProject?: () => void;
+  onConcludeProject?: () => void;
+  isConcluding?: boolean;
   onViewDiary: () => void;
   onEnableFinancial: () => void;
   onDisableFinancial: () => void;
@@ -160,6 +164,8 @@ export function ObraViewEng({
   onEditBudget,
   onEditHours,
   onEditProject,
+  onConcludeProject,
+  isConcluding,
   onViewDiary,
   onEnableFinancial,
   onDisableFinancial,
@@ -223,6 +229,11 @@ export function ObraViewEng({
   ).current;
 
   const isReadOnly = obra.status === "concluida" || obra.status === "pausada";
+  const showCompletionBanner =
+    obra.progresso >= 100 &&
+    obra.status !== "concluida" &&
+    obra.status !== "pausada" &&
+    !!onConcludeProject;
   const readOnlyReason: "concluida" | "pausada" | undefined = isReadOnly
     ? (obra.status as "concluida" | "pausada")
     : undefined;
@@ -306,7 +317,35 @@ export function ObraViewEng({
                 endereco={obra.endereco}
                 dataPrevisaoEntrega={entregaLabel}
                 onEditPress={onEditProject}
+                status={obra.status}
               />
+
+              {showCompletionBanner && (
+                <Animated.View
+                  entering={FadeInDown.duration(380).springify().damping(15)}
+                  exiting={FadeOutUp.duration(220)}
+                >
+                  <TouchableOpacity
+                    style={styles.completionBanner}
+                    onPress={onConcludeProject}
+                    activeOpacity={0.88}
+                    disabled={isConcluding}
+                  >
+                    <MaterialIcons name="emoji-events" size={24} color={colors.success} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.completionTitle}>Todas as tarefas concluídas!</Text>
+                      <Text style={styles.completionSub}>Pronto para marcar a obra como concluída?</Text>
+                    </View>
+                    <View style={[styles.completionBtn, isConcluding && { opacity: 0.7 }]}>
+                      {isConcluding ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.completionBtnText}>Concluir</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
 
               <TouchableOpacity
                 style={styles.diarioBtn}
@@ -429,6 +468,43 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 30,
     zIndex: 999,
+  },
+
+  completionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[12],
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    borderRadius: 16,
+    padding: spacing[16],
+    marginTop: spacing[14],
+    marginBottom: spacing[4],
+  },
+  completionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#15803D",
+    marginBottom: 2,
+  },
+  completionSub: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "400",
+  },
+  completionBtn: {
+    backgroundColor: colors.success,
+    paddingHorizontal: spacing[14],
+    paddingVertical: spacing[8],
+    borderRadius: 20,
+    minWidth: 72,
+    alignItems: "center",
+  },
+  completionBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 
   diarioBtn: {

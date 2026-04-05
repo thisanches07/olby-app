@@ -5,6 +5,22 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { CircularProgress } from "@/components/obra/circular-progress";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { PROGRESS_COLOR } from "@/utils/obra-utils";
+import type { StatusType } from "@/components/obra-card";
+
+const TRACK_COLOR: Record<StatusType, string> = {
+  em_andamento: "#E8ECFF",
+  concluida: "#DCFCE7",
+  pausada: "#FEF3C7",
+  planejamento: "#EDE9FE",
+};
+
+const BADGE_BG: Record<StatusType, string> = {
+  em_andamento: "#EEF0F8",
+  concluida: "#F0FDF4",
+  pausada: "#FFFBEB",
+  planejamento: "#F5F3FF",
+};
 
 interface EngHeroSectionProps {
   progresso: number;
@@ -13,6 +29,7 @@ interface EngHeroSectionProps {
   /** Pode vir como "Entrega prevista: 06 out 2028" ou só "06 out 2028" */
   dataPrevisaoEntrega?: string;
   onEditPress?: () => void;
+  status?: StatusType;
 }
 
 function stripEntregaPrefix(v?: string) {
@@ -26,7 +43,12 @@ export function EngHeroSection({
   endereco,
   dataPrevisaoEntrega,
   onEditPress,
+  status,
 }: EngHeroSectionProps) {
+  const accentColor = status ? PROGRESS_COLOR[status] : colors.primary;
+  const trackColor = status ? TRACK_COLOR[status] : "#E8ECFF";
+  const badgeBg = status ? BADGE_BG[status] : "#EEF0F8";
+
   const entregaDateText = useMemo(
     () => stripEntregaPrefix(dataPrevisaoEntrega),
     [dataPrevisaoEntrega],
@@ -34,12 +56,18 @@ export function EngHeroSection({
 
   return (
     <View style={styles.heroRow}>
-      <CircularProgress value={progresso} size={110} strokeWidth={11} />
+      <CircularProgress
+        value={progresso}
+        size={110}
+        strokeWidth={11}
+        color={accentColor}
+        trackColor={trackColor}
+      />
 
       <View style={styles.heroInfo}>
         <View style={styles.heroBadgeRow}>
-          <View style={styles.heroBadge}>
-            <View style={styles.heroDot} />
+          <View style={[styles.heroBadge, { backgroundColor: badgeBg }]}>
+            <View style={[styles.heroDot, { backgroundColor: accentColor }]} />
             <Text style={styles.heroEtapa} numberOfLines={1}>
               {etapaAtual?.toUpperCase?.() ?? "—"}
             </Text>

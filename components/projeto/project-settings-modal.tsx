@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { getAuth } from "firebase/auth";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
@@ -6,6 +7,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -37,6 +39,7 @@ export type ProjectMember = {
   id: string;
   name: string;
   email?: string;
+  phone?: string | null;
   role: ProjectMemberRole;
   /** Dono (OWNER) do projeto, não pode ser removido */
   isOwner?: boolean;
@@ -356,6 +359,7 @@ export function ProjectSettingsModal({
     userId: string;
     userName: string | null;
     userEmail: string | null;
+    userPhone?: string | null;
   };
 
   const mapRole = (rawRole: string): ProjectMemberRole => {
@@ -388,6 +392,7 @@ export function ProjectSettingsModal({
               id: m.id,
               name: m.userName?.trim() || "Usuario",
               email: email || undefined,
+              phone: m.userPhone ?? null,
               role: mapRole(m.role),
               isOwner,
               isCurrentUser,
@@ -1374,6 +1379,20 @@ export function ProjectSettingsModal({
                           </Text>
                         </View>
 
+                        {!m.isCurrentUser && !!m.phone && (
+                          <TouchableOpacity
+                            style={styles.whatsappBtn}
+                            activeOpacity={0.8}
+                            onPress={() =>
+                              Linking.openURL(
+                                `https://wa.me/${m.phone!.replace(/\D/g, "")}`,
+                              )
+                            }
+                          >
+                            <FontAwesome name="whatsapp" size={16} color="#fff" />
+                          </TouchableOpacity>
+                        )}
+
                         {canManageMembersAccess &&
                           !m.isOwner &&
                           !m.isCurrentUser &&
@@ -1704,6 +1723,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
+  whatsappBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: "#25D366",
+  },
   removeBtn: {
     width: 34,
     height: 34,

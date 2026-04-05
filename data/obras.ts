@@ -1,6 +1,6 @@
-import { Obra, StatusType } from "@/components/obra-card";
+import { Obra, ObraMember, StatusType } from "@/components/obra-card";
 
-export type { Obra, StatusType };
+export type { Obra, ObraMember, StatusType };
 
 export interface Tarefa {
   id: string;
@@ -48,4 +48,5 @@ export interface ObraDetalhe extends Obra {
   trackFinancial: boolean;
   trackActivities: boolean;
   myRole?: "OWNER" | "PRO" | "CLIENT_VIEWER" | null;
+  members?: ObraMember[];
 }

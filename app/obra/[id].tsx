@@ -19,6 +19,7 @@ import type { Gasto, Tarefa } from "@/data/obras";
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
 import { useObraData } from "@/hooks/use-obra-data";
+import { api } from "@/services/api";
 import {
   canEditProject,
   isClientView,
@@ -128,6 +129,7 @@ export default function ObraDetalheScreen() {
   } = useObraData(id!);
 
   const [obraOverride, setObraOverride] = useState<any | null>(null);
+  const [isConcluding, setIsConcluding] = useState(false);
 
   // Refresh ao voltar de outra tela (ex: diário de obra) para atualizar horas realizadas
   const initialFocusDone = useRef(false);
@@ -354,6 +356,32 @@ export default function ObraDetalheScreen() {
     );
   };
 
+  // Conclude project directly from 100% banner
+  const handleConcludeProject = () => {
+    Alert.alert(
+      "Concluir obra",
+      "Marcar como concluída. Você ainda pode ver o histórico depois.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Confirmar",
+          onPress: async () => {
+            setIsConcluding(true);
+            try {
+              await api.patch(`/projects/${obraView.id}`, { status: "COMPLETED" });
+              await refresh();
+              setObraOverride(null);
+            } catch {
+              Alert.alert("Erro", "Não foi possível concluir o projeto.");
+            } finally {
+              setIsConcluding(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // Project (settings)
   const handleEditProject = () => {
     if (!apiBaseUrl) {
@@ -414,6 +442,8 @@ export default function ObraDetalheScreen() {
           onEditBudget={handleEditBudget}
           onEditHours={handleEditHours}
           onEditProject={canEdit ? handleEditProject : undefined}
+          onConcludeProject={canEdit ? handleConcludeProject : undefined}
+          isConcluding={isConcluding}
           onViewDiary={handleViewDiary}
           onEnableFinancial={handleEnableFinancial}
           onDisableFinancial={handleDisableFinancial}

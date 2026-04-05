@@ -13,7 +13,8 @@
       "Bash(wc -l \"c:/Users/tsanc/Desktop/novo app/obra-app/app/\"*.tsx \"c:/Users/tsanc/Desktop/novo app/obra-app/app/\"*/*.tsx)",
       "Bash(find \"c:/Users/tsanc/Desktop/novo app/obra-app/app\" -name \"*.tsx\" -type f -exec wc -l {} +)",
       "Bash(xargs wc:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(npx expo:*)"
     ]
   }
 }

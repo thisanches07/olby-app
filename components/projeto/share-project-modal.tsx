@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as Clipboard from "expo-clipboard";
 import { getAuth } from "firebase/auth";
 import React, {
@@ -13,6 +14,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Linking,
   Platform,
   ScrollView,
   Share,
@@ -25,6 +27,7 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
 import { api } from "@/services/api";
 import { invitesService } from "@/services/invites.service";
@@ -64,6 +67,19 @@ interface ShareProjectModalProps {
   canShare?: boolean;
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ConfirmState = null | {
+  title: string;
+  description?: string;
+  tone?: "default" | "danger";
+  icon?: keyof typeof MaterialIcons.glyphMap;
+  confirmText?: string;
+  cancelText?: string;
+  busy?: boolean;
+  onConfirm: () => void | Promise<void>;
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type ProjectMemberRole = "engenheiro" | "cliente" | "convidado";
@@ -71,6 +87,7 @@ type ProjectMember = {
   id: string;
   name: string;
   email?: string;
+  phone?: string | null;
   role: ProjectMemberRole;
   isOwner?: boolean;
   isCurrentUser?: boolean;
@@ -227,6 +244,7 @@ export function ShareProjectModal({
   const [membersState, setMembersState] = useState<ProjectMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
 
   // Reset state on open e busca convite ativo no backend
   useEffect(() => {
@@ -259,6 +277,7 @@ export function ShareProjectModal({
           userId: string;
           userName: string | null;
           userEmail: string | null;
+          userPhone?: string | null;
         }[];
 
         const apiData = await api.get<ApiMember>(
@@ -293,6 +312,7 @@ export function ShareProjectModal({
                   id: m.id,
                   name: m.userName?.trim() || "Usuário",
                   email: email || undefined,
+                  phone: m.userPhone ?? null,
                   role: mapRole(m.role),
                   isOwner,
                   isCurrentUser,
@@ -335,7 +355,7 @@ export function ShareProjectModal({
   );
 
   const handleRemoveMember = useCallback(
-    async (member: ProjectMember) => {
+    (member: ProjectMember) => {
       if (!canManageMembers) return;
       if (
         member.isOwner ||
@@ -344,29 +364,42 @@ export function ShareProjectModal({
       )
         return;
 
-      try {
-        setRemovingMemberId(member.id);
+      setConfirm({
+        title: "Remover acesso?",
+        description: `Remover ${member.name} do projeto?`,
+        icon: "person-remove",
+        confirmText: "Remover",
+        cancelText: "Cancelar",
+        tone: "danger",
+        onConfirm: async () => {
+          try {
+            setConfirm((prev) => (prev ? { ...prev, busy: true } : prev));
+            setRemovingMemberId(member.id);
 
-        await api.delete(
-          `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(member.id)}`,
-        );
+            await api.delete(
+              `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(member.id)}`,
+            );
 
-        setMembersState((prev) => prev.filter((m) => m.id !== member.id));
+            setMembersState((prev) => prev.filter((m) => m.id !== member.id));
+            setConfirm(null);
 
-        showToast({
-          title: "Acesso removido",
-          message: `${member.name} não tem mais acesso ao projeto.`,
-          tone: "success",
-        });
-      } catch {
-        showToast({
-          title: "Não foi possível remover o acesso",
-          message: "Ocorreu um erro ao remover o acesso. Tente novamente.",
-          tone: "error",
-        });
-      } finally {
-        setRemovingMemberId(null);
-      }
+            showToast({
+              title: "Acesso removido",
+              message: `${member.name} não tem mais acesso ao projeto.`,
+              tone: "success",
+            });
+          } catch {
+            setConfirm((prev) => (prev ? { ...prev, busy: false } : prev));
+            showToast({
+              title: "Não foi possível remover o acesso",
+              message: "Ocorreu um erro ao remover o acesso. Tente novamente.",
+              tone: "error",
+            });
+          } finally {
+            setRemovingMemberId(null);
+          }
+        },
+      });
     },
     [canManageMembers, projectId, showToast],
   );
@@ -567,6 +600,20 @@ export function ShareProjectModal({
                                 {memberRoleLabel(m)}
                               </Text>
                             </View>
+
+                            {!m.isCurrentUser && !!m.phone && (
+                              <TouchableOpacity
+                                style={styles.whatsappBtn}
+                                activeOpacity={0.8}
+                                onPress={() =>
+                                  Linking.openURL(
+                                    `https://wa.me/${m.phone!.replace(/\D/g, "")}`,
+                                  )
+                                }
+                              >
+                                <FontAwesome name="whatsapp" size={16} color="#fff" />
+                              </TouchableOpacity>
+                            )}
 
                             {canManageMembers &&
                               !m.isOwner &&
@@ -855,6 +902,24 @@ export function ShareProjectModal({
             </>
           )}
         </Animated.View>
+
+        <ConfirmSheet
+          visible={!!confirm}
+          title={confirm?.title ?? ""}
+          description={confirm?.description}
+          tone={confirm?.tone ?? "default"}
+          icon={confirm?.icon ?? "help-outline"}
+          confirmText={confirm?.confirmText ?? "Confirmar"}
+          cancelText={confirm?.cancelText ?? "Cancelar"}
+          busy={!!confirm?.busy}
+          onCancel={() => {
+            if (confirm?.busy) return;
+            setConfirm(null);
+          }}
+          onConfirm={async () => {
+            await confirm?.onConfirm?.();
+          }}
+        />
       </View>
     </Modal>
   );
@@ -1142,6 +1207,14 @@ const styles = StyleSheet.create({
   chipGuest: { backgroundColor: "#FFF7ED", borderColor: "#FFE3C4" },
   chipOwner: { backgroundColor: "#EEF2FF", borderColor: "#C7D2FE" },
 
+  whatsappBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#25D366",
+  },
   removeBtn: {
     width: 34,
     height: 34,

@@ -10,6 +10,8 @@ interface CircularProgressProps {
   strokeWidth?: number;
   label?: string; // ex: "CONCLUSÃO"
   subtitle?: string;
+  color?: string;       // cor do arco de progresso (padrão: azul primário)
+  trackColor?: string;  // cor do trilho de fundo (padrão: PRIMARY_LIGHT)
 }
 
 function clamp(v: number) {
@@ -22,8 +24,13 @@ export function CircularProgress({
   strokeWidth = 14,
   label = "CONCLUSÃO",
   subtitle,
+  color,
+  trackColor,
 }: CircularProgressProps) {
-  const PRIMARY = "#2563EB";
+  const PRIMARY = color ?? "#2563EB";
+  const TRACK = trackColor ?? PRIMARY_LIGHT;
+  // ID único por instância para evitar colisão de gradientes SVG
+  const gradId = useRef(`grad-${Math.random().toString(36).slice(2, 7)}`).current;
 
   const { radius, circumference, cx, cy } = useMemo(() => {
     const r = (size - strokeWidth) / 2;
@@ -119,7 +126,7 @@ export function CircularProgress({
 
         <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
           <Defs>
-            <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <LinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0%" stopColor={PRIMARY} stopOpacity={1} />
               <Stop offset="55%" stopColor={PRIMARY} stopOpacity={0.92} />
               <Stop offset="100%" stopColor={PRIMARY} stopOpacity={0.75} />
@@ -131,7 +138,7 @@ export function CircularProgress({
             cx={cx}
             cy={cy}
             r={radius}
-            stroke={PRIMARY_LIGHT}
+            stroke={TRACK}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             fill="transparent"
@@ -143,7 +150,7 @@ export function CircularProgress({
             cx={cx}
             cy={cy}
             r={radius}
-            stroke="url(#grad)"
+            stroke={`url(#${gradId})`}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             fill="transparent"

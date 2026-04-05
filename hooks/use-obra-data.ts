@@ -94,8 +94,8 @@ function statusToEtapaLabel(s: string): string {
     em_andamento: "Em Andamento",
     completed: "Concluida",
     concluida: "Concluida",
-    paused: "Pausada",
-    pausada: "Pausada",
+    paused: "Arquivada",
+    pausada: "Arquivada",
     planning: "Planejamento",
     planejamento: "Planejamento",
   };
@@ -200,13 +200,18 @@ export function useObraData(projectId: string): UseObraDataReturn {
   const [project, setProject] = useState<ProjectResponseDto | null>(null);
   const [tasks, setTasks] = useState<TaskResponseDto[]>([]);
   const [expenses, setExpenses] = useState<ExpenseResponseDto[]>([]);
-  const [diaryEntries, setDiaryEntries] = useState<DailyLogEntryResponseDto[]>([]);
+  const [diaryEntries, setDiaryEntries] = useState<DailyLogEntryResponseDto[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProject = useCallback(async (id: string): Promise<ProjectResponseDto> => {
-    return await projectsService.getById(id);
-  }, []);
+  const fetchProject = useCallback(
+    async (id: string): Promise<ProjectResponseDto> => {
+      return await projectsService.getById(id);
+    },
+    [],
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -247,148 +252,196 @@ export function useObraData(projectId: string): UseObraDataReturn {
     return buildObraDetalhe(project, tasks, expenses, diaryEntries);
   }, [project, tasks, expenses, diaryEntries]);
 
-  const addTask = useCallback(async (taskData: Omit<Tarefa, "id">) => {
-    const created = await tasksService.create({
-      projectId,
-      title: taskData.titulo,
-      description: taskData.descricao || undefined,
-      priority: toApiPriority(taskData.prioridade),
-    });
-    setTasks((prev) => [created, ...prev]);
-  }, [projectId]);
+  const addTask = useCallback(
+    async (taskData: Omit<Tarefa, "id">) => {
+      const created = await tasksService.create({
+        projectId,
+        title: taskData.titulo,
+        description: taskData.descricao || undefined,
+        priority: toApiPriority(taskData.prioridade),
+      });
+      setTasks((prev) => [created, ...prev]);
+    },
+    [projectId],
+  );
 
-  const updateTask = useCallback(async (id: string, updates: Partial<Tarefa>) => {
-    const dto: Record<string, unknown> = {};
-    if (updates.titulo !== undefined) dto.title = updates.titulo;
-    if (updates.descricao !== undefined) dto.description = updates.descricao || null;
-    if (updates.prioridade !== undefined) dto.priority = toApiPriority(updates.prioridade);
-    if (updates.concluida !== undefined) dto.status = toApiTaskStatus(updates.concluida);
+  const updateTask = useCallback(
+    async (id: string, updates: Partial<Tarefa>) => {
+      const dto: Record<string, unknown> = {};
+      if (updates.titulo !== undefined) dto.title = updates.titulo;
+      if (updates.descricao !== undefined)
+        dto.description = updates.descricao || null;
+      if (updates.prioridade !== undefined)
+        dto.priority = toApiPriority(updates.prioridade);
+      if (updates.concluida !== undefined)
+        dto.status = toApiTaskStatus(updates.concluida);
 
-    const updated = await tasksService.update(id, dto);
-    setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
-  }, []);
-
-  const deleteTask = useCallback(async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    try {
-      await tasksService.delete(id);
-    } catch (e) {
-      await loadData();
-      throw e;
-    }
-  }, [loadData]);
-
-  const toggleTask = useCallback(async (id: string) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-
-    const newStatus = task.status === "DONE" ? "OPEN" : "DONE";
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
-
-    try {
-      const updated = await tasksService.update(id, { status: newStatus });
+      const updated = await tasksService.update(id, dto);
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
-    } catch (e) {
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: task.status } : t)));
-      throw e;
-    }
-  }, [tasks]);
+    },
+    [],
+  );
 
-  const addExpense = useCallback(async (expenseData: Omit<Gasto, "id">) => {
-    const trimmedDescription = expenseData.descricao.trim().slice(0, MAX_EXPENSE_DESCRIPTION);
-    const created = await expensesService.create({
-      projectId,
-      taskId: expenseData.tarefaId ?? null,
-      category: toApiCategory(expenseData.categoria),
-      description: trimmedDescription || undefined,
-      amountCents: Math.round(expenseData.valor * 100),
-      date: expenseData.data,
-    });
-    setExpenses((prev) => [created, ...prev]);
-  }, [projectId]);
+  const deleteTask = useCallback(
+    async (id: string) => {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      try {
+        await tasksService.delete(id);
+      } catch (e) {
+        await loadData();
+        throw e;
+      }
+    },
+    [loadData],
+  );
 
-  const updateExpense = useCallback(async (id: string, updates: Partial<Gasto>) => {
-    const dto: Record<string, unknown> = {};
-    if (updates.descricao !== undefined) {
-      dto.description = updates.descricao.trim().slice(0, MAX_EXPENSE_DESCRIPTION) || null;
-    }
-    if (updates.categoria !== undefined) dto.category = toApiCategory(updates.categoria);
-    if (updates.valor !== undefined) dto.amountCents = Math.round(updates.valor * 100);
-    if (updates.data !== undefined) dto.date = updates.data;
-    if ("tarefaId" in updates) dto.taskId = updates.tarefaId ?? null;
+  const toggleTask = useCallback(
+    async (id: string) => {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
 
-    const updated = await expensesService.update(id, dto);
-    setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
-  }, []);
+      const newStatus = task.status === "DONE" ? "OPEN" : "DONE";
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
+      );
 
-  const deleteExpense = useCallback(async (id: string) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
-    try {
-      await expensesService.delete(id);
-    } catch (e) {
-      await loadData();
-      throw e;
-    }
-  }, [loadData]);
+      try {
+        const updated = await tasksService.update(id, { status: newStatus });
+        setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      } catch (e) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, status: task.status } : t)),
+        );
+        throw e;
+      }
+    },
+    [tasks],
+  );
+
+  const addExpense = useCallback(
+    async (expenseData: Omit<Gasto, "id">) => {
+      const trimmedDescription = expenseData.descricao
+        .trim()
+        .slice(0, MAX_EXPENSE_DESCRIPTION);
+      const created = await expensesService.create({
+        projectId,
+        taskId: expenseData.tarefaId ?? null,
+        category: toApiCategory(expenseData.categoria),
+        description: trimmedDescription || undefined,
+        amountCents: Math.round(expenseData.valor * 100),
+        date: expenseData.data,
+      });
+      setExpenses((prev) => [created, ...prev]);
+    },
+    [projectId],
+  );
+
+  const updateExpense = useCallback(
+    async (id: string, updates: Partial<Gasto>) => {
+      const dto: Record<string, unknown> = {};
+      if (updates.descricao !== undefined) {
+        dto.description =
+          updates.descricao.trim().slice(0, MAX_EXPENSE_DESCRIPTION) || null;
+      }
+      if (updates.categoria !== undefined)
+        dto.category = toApiCategory(updates.categoria);
+      if (updates.valor !== undefined)
+        dto.amountCents = Math.round(updates.valor * 100);
+      if (updates.data !== undefined) dto.date = updates.data;
+      if ("tarefaId" in updates) dto.taskId = updates.tarefaId ?? null;
+
+      const updated = await expensesService.update(id, dto);
+      setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
+    },
+    [],
+  );
+
+  const deleteExpense = useCallback(
+    async (id: string) => {
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+      try {
+        await expensesService.delete(id);
+      } catch (e) {
+        await loadData();
+        throw e;
+      }
+    },
+    [loadData],
+  );
 
   const deleteAllTasks = useCallback(async () => {
     await tasksService.deleteByProject(projectId);
     setTasks([]);
   }, [projectId]);
 
-  const reorderTasks = useCallback(async (orderedIds: string[]) => {
-    const previousTasks = tasks;
+  const reorderTasks = useCallback(
+    async (orderedIds: string[]) => {
+      const previousTasks = tasks;
 
-    setTasks(
-      orderedIds
-        .map((id, idx) => {
-          const t = previousTasks.find((item) => item.id === id);
-          return t ? { ...t, position: idx } : null;
+      setTasks(
+        orderedIds
+          .map((id, idx) => {
+            const t = previousTasks.find((item) => item.id === id);
+            return t ? { ...t, position: idx } : null;
+          })
+          .filter((t): t is TaskResponseDto => t !== null),
+      );
+
+      const changed = orderedIds
+        .map((id, newIdx) => {
+          const oldIdx = previousTasks.findIndex((t) => t.id === id);
+          return oldIdx !== newIdx ? { id, position: newIdx } : null;
         })
-        .filter((t): t is TaskResponseDto => t !== null),
-    );
+        .filter((x): x is { id: string; position: number } => x !== null);
 
-    const changed = orderedIds
-      .map((id, newIdx) => {
-        const oldIdx = previousTasks.findIndex((t) => t.id === id);
-        return oldIdx !== newIdx ? { id, position: newIdx } : null;
-      })
-      .filter((x): x is { id: string; position: number } => x !== null);
+      if (changed.length === 0) return;
 
-    if (changed.length === 0) return;
-
-    try {
-      await Promise.all(changed.map(({ id, position }) => tasksService.update(id, { position })));
-    } catch {
-      setTasks(previousTasks);
-    }
-  }, [tasks]);
+      try {
+        await Promise.all(
+          changed.map(({ id, position }) =>
+            tasksService.update(id, { position }),
+          ),
+        );
+      } catch {
+        setTasks(previousTasks);
+      }
+    },
+    [tasks],
+  );
 
   const deleteAllExpenses = useCallback(async () => {
     await expensesService.deleteByProject(projectId);
     setExpenses([]);
   }, [projectId]);
 
-  const updateBudget = useCallback(async (newBudget: number, newHoras: number) => {
-    await projectsService.update(projectId, {
-      budgetCents: Math.round(newBudget * 100),
-      hoursContracted: newHoras,
-    });
-    setProject((prev) =>
-      prev
-        ? {
-            ...prev,
-            budgetCents: Math.round(newBudget * 100),
-            hoursContracted: newHoras,
-          }
-        : null,
-    );
-  }, [projectId]);
+  const updateBudget = useCallback(
+    async (newBudget: number, newHoras: number) => {
+      await projectsService.update(projectId, {
+        budgetCents: Math.round(newBudget * 100),
+        hoursContracted: newHoras,
+      });
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              budgetCents: Math.round(newBudget * 100),
+              hoursContracted: newHoras,
+            }
+          : null,
+      );
+    },
+    [projectId],
+  );
 
-  const updateTrackFinancial = useCallback(async (enabled: boolean) => {
-    await projectsService.update(projectId, { trackFinancial: enabled });
-    setProject((prev) => (prev ? { ...prev, trackFinancial: enabled } : null));
-  }, [projectId]);
+  const updateTrackFinancial = useCallback(
+    async (enabled: boolean) => {
+      await projectsService.update(projectId, { trackFinancial: enabled });
+      setProject((prev) =>
+        prev ? { ...prev, trackFinancial: enabled } : null,
+      );
+    },
+    [projectId],
+  );
 
   return {
     obra,

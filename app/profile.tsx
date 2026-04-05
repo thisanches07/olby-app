@@ -33,7 +33,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/contexts/subscription-context";
 import { getStatusBadge } from "@/services/subscription.service";
 import { api } from "@/services/api";
+import { type BackendUser } from "@/services/auth.service";
 import { firebaseAuth } from "@/services/firebase";
+import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -322,6 +324,7 @@ interface InfoRowProps {
   keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
   autoCapitalize?: React.ComponentProps<typeof TextInput>["autoCapitalize"];
   isLast?: boolean;
+  badge?: React.ReactNode;
 }
 
 function InfoRow({
@@ -335,6 +338,7 @@ function InfoRow({
   keyboardType = "default",
   autoCapitalize = "words",
   isLast = false,
+  badge,
 }: InfoRowProps) {
   const showInput = editable && isEditing;
 
@@ -367,15 +371,18 @@ function InfoRow({
               selectionColor={colors.primary}
             />
           ) : (
-            <Text
-              style={[
-                styles.rowValue,
-                !editable && styles.rowValueReadonly,
-              ]}
-              numberOfLines={1}
-            >
-              {value || "—"}
-            </Text>
+            <>
+              <Text
+                style={[
+                  styles.rowValue,
+                  !editable && styles.rowValueReadonly,
+                ]}
+                numberOfLines={1}
+              >
+                {value || "—"}
+              </Text>
+              {!!badge && !isEditing && badge}
+            </>
           )}
         </View>
         {!editable && (
