@@ -16,7 +16,12 @@
       "Bash(xargs grep:*)",
       "Bash(npx expo:*)",
       "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('expo',{}\\).get\\('plugins',[]\\), indent=2\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('expo',{}\\).get\\('plugins',[]\\), indent=2\\)\\)\")",
+      "WebFetch(domain:www.telesign.com)",
+      "WebFetch(domain:rnfirebase.io)",
+      "WebFetch(domain:statusneo.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:twilio.com)"
     ]
   }
 }

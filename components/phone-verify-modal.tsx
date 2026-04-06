@@ -204,6 +204,13 @@ export function PhoneVerifyModal({
     };
   }, [step]);
 
+  // Auto-submit when all 6 OTP digits are filled (WhatsApp/Instagram behavior)
+  useEffect(() => {
+    if (step === "otp" && otp.every((d) => d !== "") && !isLoading && !error) {
+      void handleVerifyCode();
+    }
+  }, [otp, step, isLoading, error, handleVerifyCode]);
+
   const dismiss = useCallback(() => {
     Keyboard.dismiss();
     Animated.parallel([
@@ -303,6 +310,7 @@ export function PhoneVerifyModal({
 
   const handleOtpChange = useCallback(
     (text: string, index: number) => {
+      setError(""); // clear stale error on any keystroke so auto-submit can re-fire
       // Handle paste / iOS oneTimeCode auto-fill (full 6-digit string)
       if (text.length === 6 && /^\d{6}$/.test(text)) {
         const filled = text.split("");

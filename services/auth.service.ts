@@ -6,6 +6,7 @@ import {
   createUserWithEmailAndPassword,
   linkWithCredential,
   sendPasswordResetEmail,
+  updatePhoneNumber,
   signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
@@ -149,8 +150,21 @@ export async function linkPhoneWithCode(
   phoneNumber: string,
 ): Promise<BackendUser> {
   const credential = PhoneAuthProvider.credential(verificationId, code);
-  await linkWithCredential(firebaseAuth.currentUser!, credential);
-  // Force-refresh so the ID token carries the phone_number claim
+  try {
+    await linkWithCredential(firebaseAuth.currentUser!, credential);
+  } catch (err: unknown) {
+    const errorCode =
+      err && typeof err === "object" && "code" in err
+        ? (err as { code: string }).code
+        : "";
+    if (errorCode === "auth/provider-already-linked") {
+      // Phone already linked — update it instead of linking
+      await updatePhoneNumber(firebaseAuth.currentUser!, credential);
+    } else {
+      throw err; // auth/credential-already-in-use etc. bubble up to the modal
+    }
+  }
+  // Force-refresh so the ID token carries the updated phone_number claim
   await firebaseAuth.currentUser!.getIdToken(true);
   return api.patch<BackendUser>("/users/me", { phone: phoneNumber });
 }

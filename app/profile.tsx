@@ -480,7 +480,7 @@ export default function ProfileScreen() {
       .then((u) => {
         if (u.phone) {
           setPhone(u.phone);
-          setDraftPhone(u.phone);
+          setPhone(u.phone);
         }
         setPhoneVerifiedAt(u.phoneVerifiedAt ?? null);
       })

@@ -8,7 +8,7 @@ import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -26,6 +26,7 @@ import {
 } from "@/contexts/subscription-context";
 import { AppSessionProvider, useAppSession } from "@/hooks/use-app-session";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import { setPlanErrorHandler } from "@/services/api";
 import { loginWithEmail } from "@/services/auth.service";
 import { pendingInviteToken } from "@/utils/pending-invite";
@@ -35,10 +36,11 @@ export const unstable_settings = {
 };
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, phoneVerifiedAt, isBackendLoading, setPhoneVerified } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const navigatingRef = useRef(false);
+  const [showVerifyGuard, setShowVerifyGuard] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -69,6 +71,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
+  // Guard: bloqueia acesso ao app para usuários email/senha sem telefone verificado
+  useEffect(() => {
+    if (isLoading || isBackendLoading) return;
+    if (!user) return;
+    const isEmailUser = user.providerData.some((p) => p.providerId === "password");
+    if (isEmailUser && phoneVerifiedAt === null) {
+      setShowVerifyGuard(true);
+    } else {
+      setShowVerifyGuard(false);
+    }
+  }, [user, isLoading, isBackendLoading, phoneVerifiedAt]);
+
   if (isLoading) {
     return (
       <View
@@ -95,7 +109,23 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Evita renderizar telas protegidas por um frame antes do redirect.
   if (!user && !onLoginPage && !onInvitePage) return null;
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <PhoneVerifyModal
+        visible={showVerifyGuard}
+        initialPhone=""
+        mandatory={true}
+        onSuccess={(updatedUser) => {
+          setPhoneVerified(updatedUser.phoneVerifiedAt ?? new Date().toISOString());
+          setShowVerifyGuard(false);
+        }}
+        onClose={() => {
+          // mandatory=true impede o usuário de fechar — este callback é obrigatório pela interface
+        }}
+      />
+    </>
+  );
 }
 /** Loads subscription data once the user is authenticated. */
 function SubscriptionLoader() {

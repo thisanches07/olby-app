@@ -164,6 +164,8 @@ export function ExpenseFormModal({
   const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
   const [pendingReceiptName, setPendingReceiptName] = useState<string | null>(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [deleteReceiptConfirmVisible, setDeleteReceiptConfirmVisible] = useState(false);
+  const [deletingReceipt, setDeletingReceipt] = useState(false);
   const [showCaptureOptions, setShowCaptureOptions] = useState(false);
 
   // Evita re-hidratar o form e sobrescrever seleção do usuário enquanto o modal está aberto.
@@ -296,6 +298,21 @@ export function ExpenseFormModal({
       showToast({ title: "Erro", message: "Falha ao enviar comprovante", tone: "error" });
     } finally {
       setUploadingReceipt(false);
+    }
+  };
+
+  const handleDeleteReceipt = async () => {
+    if (!pendingReceiptId) return;
+    setDeletingReceipt(true);
+    try {
+      await documentsService.remove(projectId, pendingReceiptId);
+      setPendingReceiptId(null);
+      setPendingReceiptName(null);
+    } catch {
+      showToast({ title: "Erro", message: "Falha ao remover comprovante", tone: "error" });
+    } finally {
+      setDeletingReceipt(false);
+      setDeleteReceiptConfirmVisible(false);
     }
   };
 
@@ -596,13 +613,15 @@ export function ExpenseFormModal({
                   {pendingReceiptName ?? "Comprovante anexado"}
                 </Text>
                 <TouchableOpacity
-                  onPress={() => {
-                    setPendingReceiptId(null);
-                    setPendingReceiptName(null);
-                  }}
+                  onPress={() => setDeleteReceiptConfirmVisible(true)}
+                  disabled={deletingReceipt}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <MaterialIcons name="close" size={16} color="#9CA3AF" />
+                  {deletingReceipt ? (
+                    <ActivityIndicator size="small" color="#9CA3AF" />
+                  ) : (
+                    <MaterialIcons name="close" size={16} color="#9CA3AF" />
+                  )}
                 </TouchableOpacity>
               </View>
             ) : (
@@ -678,6 +697,18 @@ export function ExpenseFormModal({
           }
         }}
         onClose={() => setDeleteConfirmVisible(false)}
+      />
+
+      <ConfirmSheet
+        visible={deleteReceiptConfirmVisible}
+        icon="delete-outline"
+        iconColor="#EF4444"
+        title="Remover comprovante?"
+        message="O comprovante será removido permanentemente."
+        confirmLabel="Remover"
+        confirmVariant="destructive"
+        onConfirm={handleDeleteReceipt}
+        onClose={() => setDeleteReceiptConfirmVisible(false)}
       />
 
       <CaptureOptionsSheet
