@@ -13,9 +13,7 @@
       "bundleIdentifier": "com.tsanc.obraapp",
       "supportsTablet": false,
       "usesAppleSignIn": true,
-      "associatedDomains": [
-        "applinks:oblyapp.com"
-      ],
+      "associatedDomains": ["applinks:oblyapp.com"],
       "infoPlist": {
         "CFBundleDisplayName": "Obly App",
         "NSAppTransportSecurity": {
@@ -50,10 +48,7 @@
               "pathPrefix": "/invite"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
@@ -73,6 +68,14 @@
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
           }
         }
       ],
