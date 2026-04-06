@@ -27,6 +27,7 @@ import {
 } from "@/utils/project-role";
 
 import { BudgetAdjustmentModal } from "@/components/projeto/budget-adjustment-modal";
+import { ExpenseDocumentSheet } from "@/components/projeto/expense-document-sheet";
 import { ExpenseFormModal } from "@/components/projeto/expense-form-modal";
 import { HoursAdjustmentModal } from "@/components/projeto/hours-adjustment-modal";
 import {
@@ -105,6 +106,18 @@ export default function ObraDetalheScreen() {
   const [editingExpense, setEditingExpense] = useState<Gasto | undefined>(
     undefined,
   );
+
+  // Document sheet state
+  const [docSheetExpense, setDocSheetExpense] = useState<Gasto | null>(null);
+  const [docCounts, setDocCounts] = useState<Record<string, number>>({});
+
+  const handleDocumentsPress = useCallback((expense: Gasto) => {
+    setDocSheetExpense(expense);
+  }, []);
+
+  const handleDocumentCountChange = useCallback((expenseId: string, count: number) => {
+    setDocCounts((prev) => ({ ...prev, [expenseId]: count }));
+  }, []);
 
   const { updateObra, deleteObra } = useProjects();
   const { refresh: refreshSubscription } = useSubscription();
@@ -447,6 +460,8 @@ export default function ObraDetalheScreen() {
           onViewDiary={handleViewDiary}
           onEnableFinancial={handleEnableFinancial}
           onDisableFinancial={handleDisableFinancial}
+          docCounts={docCounts}
+          onDocumentsPress={handleDocumentsPress}
         />
       )}
 
@@ -481,12 +496,22 @@ export default function ObraDetalheScreen() {
         visible={showExpenseModal}
         expense={editingExpense}
         tarefas={obraView.tarefas}
+        projectId={obraView.id}
         onSave={handleSaveExpense}
         onDelete={handleDeleteExpense}
         onClose={() => {
           setShowExpenseModal(false);
           setEditingExpense(undefined);
         }}
+      />
+
+      <ExpenseDocumentSheet
+        visible={!!docSheetExpense}
+        projectId={obraView.id}
+        expense={docSheetExpense}
+        projectRole={projectRole}
+        onClose={() => setDocSheetExpense(null)}
+        onDocumentCountChange={handleDocumentCountChange}
       />
 
       <BudgetAdjustmentModal

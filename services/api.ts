@@ -1,4 +1,4 @@
-import { getIdToken } from "./auth.service";
+import { getIdToken } from "./token";
 
 const RAW_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");

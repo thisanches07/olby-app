@@ -26,6 +26,34 @@ export interface Gasto {
     | "CONTINGENCY"
     | "OTHER";
   tarefaId?: string;
+  documentCount?: number;
+  receiptDocumentId?: string | null;
+  receiptUrl?: string | null;
+}
+
+export type DocumentKind =
+  | "RECEIPT"
+  | "INVOICE"
+  | "CONTRACT"
+  | "REPORT"
+  | "PHOTO"
+  | "OTHER";
+
+export type DocumentSource = "CAMERA" | "SCAN" | "GALLERY" | "FILE_PICKER";
+
+export type DocumentStatus = "PENDING_UPLOAD" | "READY" | "FAILED";
+
+export interface DocumentAttachment {
+  id: string;
+  projectId: string;
+  expenseId: string;
+  kind: DocumentKind;
+  source: DocumentSource;
+  status: DocumentStatus;
+  originalFileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
 }
 
 export interface ObraDetalhe extends Obra {

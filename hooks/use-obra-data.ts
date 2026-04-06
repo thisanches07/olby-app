@@ -133,6 +133,9 @@ function buildObraDetalhe(
     data: e.date,
     categoria: fromApiCategory(e.category),
     tarefaId: e.taskId ?? undefined,
+    receiptDocumentId: e.receiptDocumentId ?? null,
+    receiptUrl: e.receiptUrl ?? null,
+    documentCount: e.receiptDocumentId ? 1 : 0,
   }));
 
   const concluidas = tarefas.filter((t) => t.concluida).length;
@@ -330,6 +333,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         description: trimmedDescription || undefined,
         amountCents: Math.round(expenseData.valor * 100),
         date: expenseData.data,
+        receiptDocumentId: expenseData.receiptDocumentId ?? undefined,
       });
       setExpenses((prev) => [created, ...prev]);
     },
@@ -349,6 +353,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         dto.amountCents = Math.round(updates.valor * 100);
       if (updates.data !== undefined) dto.date = updates.data;
       if ("tarefaId" in updates) dto.taskId = updates.tarefaId ?? null;
+      if ("receiptDocumentId" in updates) dto.receiptDocumentId = updates.receiptDocumentId ?? null;
 
       const updated = await expensesService.update(id, dto);
       setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));

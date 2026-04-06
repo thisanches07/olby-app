@@ -146,6 +146,8 @@ interface ObraViewEngProps {
   projectRole: ProjectApiRole;
   onTabChange?: (isPrimary: boolean) => void;
   onRefresh?: () => Promise<void>;
+  docCounts?: Record<string, number>;
+  onDocumentsPress?: (expense: Gasto) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -172,11 +174,22 @@ export function ObraViewEng({
   projectRole,
   onTabChange,
   onRefresh,
+  docCounts = {},
+  onDocumentsPress,
 }: ObraViewEngProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<EngTabId>("projetos");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const gastosMerged = useMemo(
+    () =>
+      obra.gastos.map((g) => ({
+        ...g,
+        documentCount: docCounts[g.id] ?? g.documentCount ?? 0,
+      })),
+    [obra.gastos, docCounts],
+  );
 
   const handleRefresh = useCallback(async () => {
     if (!onRefresh) return;
@@ -412,10 +425,11 @@ export function ObraViewEng({
 
           {activeTab === "gastos" && (
             <EngExpensesList
-              gastos={obra.gastos}
+              gastos={gastosMerged}
               tarefas={obra.tarefas}
               onEdit={onEditExpense}
               onDelete={onDeleteExpense}
+              onDocumentsPress={onDocumentsPress}
               readOnly={isReadOnly}
               readOnlyReason={readOnlyReason}
               trackFinancial={obra.trackFinancial}
@@ -454,6 +468,7 @@ export function ObraViewEng({
       {activeTab !== "projetos" && (
         <View {...edgeSwipe.panHandlers} style={styles.edgeSwipeZone} />
       )}
+
     </>
   );
 }

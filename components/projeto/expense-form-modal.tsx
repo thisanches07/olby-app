@@ -12,7 +12,7 @@ import React, {
 } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
-  SafeAreaView,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +20,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { CaptureOptionsSheet } from "./capture-options-sheet";
+import {
+  uploadDocumentToExpense,
+  type LocalDocumentAsset,
+} from "@/utils/document-upload";
+import type { DocumentSource } from "@/data/obras";
 
 const PRIMARY = "#2563EB";
 const MAX_EXPENSE_DESCRIPTION = 30;
@@ -129,6 +136,7 @@ interface ExpenseFormModalProps {
   visible: boolean;
   expense?: Gasto;
   tarefas: Tarefa[];
+  projectId: string;
   onSave: (expense: Omit<Gasto, "id">) => void;
   onDelete?: (id: string) => void;
   onClose: () => void;
@@ -138,6 +146,7 @@ export function ExpenseFormModal({
   visible,
   expense,
   tarefas,
+  projectId,
   onSave,
   onDelete,
   onClose,
@@ -151,6 +160,10 @@ export function ExpenseFormModal({
   const [saveAttempted, setSaveAttempted] = useState(false);
   const [categoria, setCategoria] = useState<ExpenseCategory>("MATERIAL");
   const [tarefaId, setTarefaId] = useState<string | undefined>(undefined);
+  const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
+  const [pendingReceiptName, setPendingReceiptName] = useState<string | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [showCaptureOptions, setShowCaptureOptions] = useState(false);
 
   // Evita re-hidratar o form e sobrescrever seleção do usuário enquanto o modal está aberto.
   const lastInitKeyRef = useRef<string | null>(null);
@@ -163,6 +176,8 @@ export function ExpenseFormModal({
     setSaveAttempted(false);
     setCategoria("MATERIAL");
     setTarefaId(undefined);
+    setPendingReceiptId(null);
+    setPendingReceiptName(null);
   }, []);
 
   const initFromExpense = useCallback(() => {
@@ -172,6 +187,8 @@ export function ExpenseFormModal({
       setDateText(isoToBRDate(expense.data));
       setCategoria(expense.categoria as ExpenseCategory);
       setTarefaId(expense.tarefaId);
+      setPendingReceiptId(expense.receiptDocumentId ?? null);
+      setPendingReceiptName(expense.receiptDocumentId ? "Comprovante anexado" : null);
     } else {
       resetForm();
     }
@@ -234,6 +251,26 @@ export function ExpenseFormModal({
     return null;
   }, [shouldShowDateValidation, dateText, dateDigitsLen]);
 
+  const handleReceiptSelected = async (
+    asset: LocalDocumentAsset,
+    source: DocumentSource,
+  ) => {
+    setUploadingReceipt(true);
+    try {
+      const doc = await uploadDocumentToExpense(asset, {
+        projectId,
+        kind: "RECEIPT",
+        source,
+      });
+      setPendingReceiptId(doc.id);
+      setPendingReceiptName(asset.fileName);
+    } catch {
+      showToast({ title: "Erro", message: "Falha ao enviar comprovante", tone: "error" });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
   const handleSave = () => {
     setSaveAttempted(true);
     const trimmedDescricao = descricao.trim();
@@ -270,6 +307,7 @@ export function ExpenseFormModal({
       data: `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`,
       categoria,
       tarefaId,
+      receiptDocumentId: pendingReceiptId,
     });
 
     onClose();
@@ -520,6 +558,43 @@ export function ExpenseFormModal({
               })}
             </View>
           </View>
+          {/* ── Comprovante ── */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Comprovante</Text>
+            {pendingReceiptId ? (
+              <View style={styles.receiptRow}>
+                <MaterialIcons name="attach-file" size={16} color={PRIMARY} />
+                <Text style={styles.receiptName} numberOfLines={1}>
+                  {pendingReceiptName ?? "Comprovante anexado"}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setPendingReceiptId(null);
+                    setPendingReceiptName(null);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialIcons name="close" size={16} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.addReceiptBtn, uploadingReceipt && { opacity: 0.7 }]}
+                onPress={() => setShowCaptureOptions(true)}
+                disabled={uploadingReceipt}
+                activeOpacity={0.8}
+              >
+                {uploadingReceipt ? (
+                  <ActivityIndicator size="small" color={PRIMARY} />
+                ) : (
+                  <MaterialIcons name="add-photo-alternate" size={18} color={PRIMARY} />
+                )}
+                <Text style={styles.addReceiptText}>
+                  {uploadingReceipt ? "Enviando..." : "Adicionar comprovante"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </ScrollView>
 
         {/* ── Footer (onde faz mais sentido UX): Delete sempre visível quando editando ── */}
@@ -575,6 +650,15 @@ export function ExpenseFormModal({
           }
         }}
         onClose={() => setDeleteConfirmVisible(false)}
+      />
+
+      <CaptureOptionsSheet
+        visible={showCaptureOptions}
+        onAssetSelected={(asset, source) => {
+          setShowCaptureOptions(false);
+          handleReceiptSelected(asset, source);
+        }}
+        onClose={() => setShowCaptureOptions(false)}
       />
     </Modal>
   );
@@ -750,6 +834,41 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   prioText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
+
+  receiptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  receiptName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: PRIMARY,
+  },
+  addReceiptBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderStyle: "dashed",
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+  },
+  addReceiptText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: PRIMARY,
+  },
 
   footer: {
     flexDirection: "row",

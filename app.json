@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.tsanc.obraapp",
       "supportsTablet": false,
       "usesAppleSignIn": true,
-      "associatedDomains": ["applinks:oblyapp.com"],
+      "associatedDomains": [
+        "applinks:oblyapp.com"
+      ],
       "infoPlist": {
         "CFBundleDisplayName": "Obly App",
         "NSAppTransportSecurity": {
@@ -48,7 +50,10 @@
               "pathPrefix": "/invite"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -72,7 +77,9 @@
         }
       ],
       "expo-iap",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-document-picker",
+      "react-native-document-scanner-plugin"
     ],
     "experiments": {
       "typedRoutes": true,

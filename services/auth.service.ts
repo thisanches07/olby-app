@@ -125,11 +125,7 @@ export async function logout() {
   return signOut(firebaseAuth);
 }
 
-export async function getIdToken(): Promise<string | null> {
-  const user = firebaseAuth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
-}
+export { getIdToken } from "./token";
 
 // ─── Phone Verification ───────────────────────────────────────────────────────
 

@@ -467,12 +467,26 @@ export default function ProfileScreen() {
 
   const [name, setName] = useState(user?.displayName ?? "");
   const [phone, setPhone] = useState(user?.phoneNumber ?? "");
+  const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [draftName, setDraftName] = useState(name);
   const [draftPhone, setDraftPhone] = useState(phone);
   const [nameError, setNameError] = useState("");
 
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
   const [toastState, setToastState] = useState<ToastState | null>(null);
+
+  useEffect(() => {
+    api.get<{ phone?: string | null; phoneVerifiedAt?: string | null }>("/users/me")
+      .then((u) => {
+        if (u.phone) {
+          setPhone(u.phone);
+          setDraftPhone(u.phone);
+        }
+        setPhoneVerifiedAt(u.phoneVerifiedAt ?? null);
+      })
+      .catch(() => {});
+  }, []);
 
   const saveBarAnim = useRef(new Animated.Value(0)).current;
 
@@ -710,6 +724,24 @@ export default function ProfileScreen() {
               onChangeText={setDraftPhone}
               keyboardType="phone-pad"
               autoCapitalize="none"
+              badge={
+                phone && !isEditing ? (
+                  phoneVerifiedAt ? (
+                    <View style={styles.verifiedBadge}>
+                      <MaterialIcons name="verified" size={12} color={colors.success} />
+                      <Text style={styles.verifiedText}>Verificado</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.verifyBtn}
+                      onPress={() => setShowPhoneVerify(true)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.verifyBtnText}>Verificar</Text>
+                    </TouchableOpacity>
+                  )
+                ) : undefined
+              }
             />
             <InfoRow
               icon="mail-outline"
@@ -856,6 +888,18 @@ export default function ProfileScreen() {
 
       {/* Toast */}
       <Toast state={toastState} onHide={() => setToastState(null)} />
+
+      {/* Phone Verify Modal */}
+      <PhoneVerifyModal
+        visible={showPhoneVerify}
+        initialPhone={phone}
+        onSuccess={(updatedUser) => {
+          if (updatedUser.phone) setPhone(updatedUser.phone);
+          setPhoneVerifiedAt(updatedUser.phoneVerifiedAt ?? new Date().toISOString());
+          showToast("Número verificado com sucesso!", "success");
+        }}
+        onClose={() => setShowPhoneVerify(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1111,6 +1155,30 @@ const styles = StyleSheet.create({
   },
   infoInputError: {
     borderBottomColor: colors.danger,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 2,
+  },
+  verifiedText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.success,
+  },
+  verifyBtn: {
+    marginTop: 2,
+    paddingHorizontal: spacing[8],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.tintBlue,
+    alignSelf: "flex-start",
+  },
+  verifyBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
   },
   infoErrorRow: {
     flexDirection: "row",

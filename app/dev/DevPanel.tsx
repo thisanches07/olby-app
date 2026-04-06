@@ -4,8 +4,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useSubscription } from "@/contexts/subscription-context";
 import type { AppRole } from "@/hooks/use-app-session";
-import type { DevUser } from "./mock-users";
-import { DEV_USERS } from "./mock-users";
+import type { DevUser } from "@/constants/dev-users";
+import { DEV_USERS } from "@/constants/dev-users";
 
 type DataState = "filled" | "empty" | "loading" | "error";
 

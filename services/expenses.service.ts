@@ -13,6 +13,8 @@ export interface ExpenseResponseDto {
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  receiptDocumentId?: string | null;
+  receiptUrl?: string | null;
 }
 
 export interface CreateExpenseDto {
@@ -22,6 +24,7 @@ export interface CreateExpenseDto {
   description?: string;
   amountCents: number;
   date: string; // YYYY-MM-DD
+  receiptDocumentId?: string | null;
 }
 
 export interface UpdateExpenseDto {
@@ -30,6 +33,7 @@ export interface UpdateExpenseDto {
   description?: string | null;
   amountCents?: number;
   date?: string;
+  receiptDocumentId?: string | null;
 }
 
 export const expensesService = {

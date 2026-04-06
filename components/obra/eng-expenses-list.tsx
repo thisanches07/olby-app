@@ -47,6 +47,7 @@ interface EngExpensesListProps {
   tarefas: Tarefa[];
   onEdit: (expense: Gasto) => void;
   onDelete: (id: string) => void;
+  onDocumentsPress?: (expense: Gasto) => void;
   readOnly?: boolean;
   readOnlyReason?: "concluida" | "pausada";
   trackFinancial?: boolean;
@@ -60,6 +61,7 @@ export function EngExpensesList({
   tarefas,
   onEdit,
   onDelete,
+  onDocumentsPress,
   readOnly = false,
   readOnlyReason,
   trackFinancial = true,
@@ -200,7 +202,8 @@ export function EngExpensesList({
             expense={expense}
             tarefas={tarefas}
             onEdit={readOnly ? undefined : onEdit}
-            onMorePress={readOnly ? undefined : () => setActionExpense(expense)}
+            onMorePress={() => setActionExpense(expense)}
+            onDocumentsPress={onDocumentsPress}
             readOnly={readOnly}
           />
         ))
@@ -223,35 +226,58 @@ export function EngExpensesList({
               {actionExpense?.descricao}
             </Text>
 
-            <TouchableOpacity
-              style={styles.actionSheetItem}
-              onPress={() => {
-                if (actionExpense) {
-                  onEdit(actionExpense);
-                  setActionExpense(null);
-                }
-              }}
-            >
-              <MaterialIcons name="edit" size={20} color="#374151" />
-              <Text style={styles.actionSheetItemText}>Editar gasto</Text>
-            </TouchableOpacity>
+            {!readOnly && (
+              <TouchableOpacity
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  if (actionExpense) {
+                    onEdit(actionExpense);
+                    setActionExpense(null);
+                  }
+                }}
+              >
+                <MaterialIcons name="edit" size={20} color="#374151" />
+                <Text style={styles.actionSheetItemText}>Editar gasto</Text>
+              </TouchableOpacity>
+            )}
 
-            <View style={styles.actionSheetDivider} />
+            {onDocumentsPress && (
+              <>
+                {!readOnly && <View style={styles.actionSheetDivider} />}
+                <TouchableOpacity
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    if (actionExpense) {
+                      onDocumentsPress(actionExpense);
+                      setActionExpense(null);
+                    }
+                  }}
+                >
+                  <MaterialIcons name="attach-file" size={20} color="#2563EB" />
+                  <Text style={styles.actionSheetItemText}>Ver comprovantes</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-            <TouchableOpacity
-              style={styles.actionSheetItem}
-              onPress={() => {
-                if (actionExpense) {
-                  onDelete(actionExpense.id);
-                  setActionExpense(null);
-                }
-              }}
-            >
-              <MaterialIcons name="delete-outline" size={20} color="#EF4444" />
-              <Text style={[styles.actionSheetItemText, styles.actionSheetItemDanger]}>
-                Excluir gasto
-              </Text>
-            </TouchableOpacity>
+            {!readOnly && (
+              <>
+                <View style={styles.actionSheetDivider} />
+                <TouchableOpacity
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    if (actionExpense) {
+                      onDelete(actionExpense.id);
+                      setActionExpense(null);
+                    }
+                  }}
+                >
+                  <MaterialIcons name="delete-outline" size={20} color="#EF4444" />
+                  <Text style={[styles.actionSheetItemText, styles.actionSheetItemDanger]}>
+                    Excluir gasto
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

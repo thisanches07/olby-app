@@ -15,6 +15,7 @@ interface ExpenseItemProps {
   tarefas?: Tarefa[];
   onEdit?: (expense: Gasto) => void;
   onMorePress?: () => void;
+  onDocumentsPress?: (expense: Gasto) => void;
   readOnly?: boolean;
 }
 
@@ -44,6 +45,7 @@ export function ExpenseItem({
   tarefas,
   onEdit,
   onMorePress,
+  onDocumentsPress,
   readOnly = false,
 }: ExpenseItemProps) {
   const [taskExpanded, setTaskExpanded] = useState(false);
@@ -99,19 +101,32 @@ export function ExpenseItem({
 
         <View style={styles.footer}>
           <Text style={styles.date}>{isoToBR(expense.data)}</Text>
-          <View
-            style={[
-              styles.categoryBadge,
-              { backgroundColor: categoryConfig.color },
-            ]}
-          >
-            <MaterialIcons
-              name={categoryConfig.icon as any}
-              size={12}
-              color="#FFFFFF"
-              style={styles.categoryIcon}
-            />
-            <Text style={styles.categoryLabel}>{categoryConfig.label}</Text>
+          <View style={styles.footerRight}>
+            {(expense.documentCount ?? 0) > 0 && (
+              <TouchableOpacity
+                style={styles.docBadge}
+                onPress={() => onDocumentsPress?.(expense)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="attach-file" size={12} color={PRIMARY} />
+                <Text style={styles.docBadgeText}>{expense.documentCount}</Text>
+              </TouchableOpacity>
+            )}
+            <View
+              style={[
+                styles.categoryBadge,
+                { backgroundColor: categoryConfig.color },
+              ]}
+            >
+              <MaterialIcons
+                name={categoryConfig.icon as any}
+                size={12}
+                color="#FFFFFF"
+                style={styles.categoryIcon}
+              />
+              <Text style={styles.categoryLabel}>{categoryConfig.label}</Text>
+            </View>
           </View>
         </View>
 
@@ -204,6 +219,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+  },
+  footerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  docBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  docBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: PRIMARY,
   },
   date: {
     fontSize: 12,

@@ -17,7 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 SplashScreen.preventAutoHideAsync();
 
 import DevPanel from "@/app/dev/DevPanel";
-import type { DevUser } from "@/app/dev/mock-users";
+import type { DevUser } from "@/constants/dev-users";
 import { ToastProvider } from "@/components/obra/toast";
 import { ProjectsProvider } from "@/contexts/projects-context";
 import {
