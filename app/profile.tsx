@@ -470,7 +470,6 @@ export default function ProfileScreen() {
   const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [draftName, setDraftName] = useState(name);
-  const [draftPhone, setDraftPhone] = useState(phone);
   const [nameError, setNameError] = useState("");
 
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
@@ -496,7 +495,6 @@ export default function ProfileScreen() {
 
   const enterEdit = useCallback(() => {
     setDraftName(name);
-    setDraftPhone(phone);
     setNameError("");
     setIsEditing(true);
     Animated.spring(saveBarAnim, {
@@ -509,7 +507,6 @@ export default function ProfileScreen() {
 
   const cancelEdit = useCallback(() => {
     setDraftName(name);
-    setDraftPhone(phone);
     setNameError("");
     Animated.timing(saveBarAnim, {
       toValue: 0,
@@ -531,14 +528,10 @@ export default function ProfileScreen() {
       if (firebaseUser && trimmedName !== name) {
         await updateProfile(firebaseUser, { displayName: trimmedName });
       }
-      if (trimmedName !== name || draftPhone !== phone) {
-        await api.patch("/users/me", {
-          name: trimmedName,
-          ...(draftPhone.trim() ? { phone: draftPhone.trim() } : {}),
-        });
+      if (trimmedName !== name) {
+        await api.patch("/users/me", { name: trimmedName });
       }
       setName(trimmedName);
-      setPhone(draftPhone);
       Animated.timing(saveBarAnim, {
         toValue: 0,
         duration: 180,
@@ -550,7 +543,7 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [draftName, draftPhone, name, phone, saveBarAnim, showToast]);
+  }, [draftName, name, saveBarAnim, showToast]);
 
   const handleLogout = useCallback(() => {
     setSheetConfig({
@@ -718,26 +711,41 @@ export default function ProfileScreen() {
             <InfoRow
               icon="phone"
               label="Telefone"
-              value={isEditing ? draftPhone : phone}
-              editable
+              value={phone}
+              editable={false}
               isEditing={isEditing}
-              onChangeText={setDraftPhone}
               keyboardType="phone-pad"
               autoCapitalize="none"
               badge={
-                phone && !isEditing ? (
+                !isEditing ? (
                   phoneVerifiedAt ? (
-                    <View style={styles.verifiedBadge}>
-                      <MaterialIcons name="verified" size={12} color={colors.success} />
-                      <Text style={styles.verifiedText}>Verificado</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={styles.verifiedBadge}>
+                        <MaterialIcons name="verified" size={12} color={colors.success} />
+                        <Text style={styles.verifiedText}>Verificado</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setShowPhoneVerify(true)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.verifyBtnText}>Alterar</Text>
+                      </TouchableOpacity>
                     </View>
-                  ) : (
+                  ) : phone ? (
                     <TouchableOpacity
                       style={styles.verifyBtn}
                       onPress={() => setShowPhoneVerify(true)}
                       activeOpacity={0.75}
                     >
                       <Text style={styles.verifyBtnText}>Verificar</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.verifyBtn}
+                      onPress={() => setShowPhoneVerify(true)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.verifyBtnText}>Adicionar</Text>
                     </TouchableOpacity>
                   )
                 ) : undefined

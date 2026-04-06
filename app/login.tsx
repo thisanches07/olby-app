@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
+import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import * as AppleAuthentication from "expo-apple-authentication";
 
 import {
@@ -49,6 +50,13 @@ const PASSWORD_RULES = [
   { label: "1 letra maiúscula", test: (p: string) => /[A-Z]/.test(p) },
   { label: "1 caractere especial", test: (p: string) => /[^a-zA-Z0-9]/.test(p) },
 ] as const;
+
+function formatBRPhone(digits: string): string {
+  const d = digits.slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
 
 function validatePassword(password: string): string | null {
   for (const rule of PASSWORD_RULES) {
@@ -262,6 +270,8 @@ export default function LoginScreen() {
   const [senha, setSenha] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
   const [nome, setNome] = useState("");
+  const [phoneRaw, setPhoneRaw] = useState("");
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -281,6 +291,7 @@ export default function LoginScreen() {
 
   // Refs para navegação entre campos
   const nomeRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const senhaRef = useRef<TextInput>(null);
   const confirmSenhaRef = useRef<TextInput>(null);
@@ -365,6 +376,10 @@ export default function LoginScreen() {
       showError("Preencha todos os campos para criar sua conta.");
       return;
     }
+    if (phoneRaw.length !== 11) {
+      showError("Informe seu celular com DDD (11 dígitos).");
+      return;
+    }
     const ruleError = validatePassword(senha);
     if (ruleError) {
       showError(`A senha precisa ter ${ruleError.toLowerCase()}.`);
@@ -377,7 +392,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await registerWithEmail(email, senha, nome);
-      router.replace("/(tabs)");
+      setShowPhoneVerify(true);
     } catch (err) {
       showError(getAuthErrorMessage(err));
     } finally {
@@ -464,6 +479,7 @@ export default function LoginScreen() {
     setSenha("");
     setConfirmSenha("");
     setNome("");
+    setPhoneRaw("");
     clearError();
   };
 
@@ -585,18 +601,32 @@ export default function LoginScreen() {
             {/* Form */}
             <View style={styles.form}>
               {mode === "register" && (
-                <InputField
-                  ref={nomeRef}
-                  label="Nome completo"
-                  placeholder="Seu nome"
-                  value={nome}
-                  onChangeText={setNome}
-                  icon="person-outline"
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                  submitBehavior="submit"
-                  onSubmitEditing={() => emailRef.current?.focus()}
-                />
+                <>
+                  <InputField
+                    ref={nomeRef}
+                    label="Nome completo"
+                    placeholder="Seu nome"
+                    value={nome}
+                    onChangeText={setNome}
+                    icon="person-outline"
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    onSubmitEditing={() => phoneRef.current?.focus()}
+                  />
+                  <InputField
+                    ref={phoneRef}
+                    label="Celular"
+                    placeholder="(11) 99999-8888"
+                    value={formatBRPhone(phoneRaw)}
+                    onChangeText={(text) => setPhoneRaw(text.replace(/\D/g, "").slice(0, 11))}
+                    icon="phone"
+                    keyboardType="phone-pad"
+                    returnKeyType="next"
+                    submitBehavior="submit"
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                  />
+                </>
               )}
 
               <InputField
@@ -698,6 +728,14 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <PhoneVerifyModal
+        visible={showPhoneVerify}
+        initialPhone={`+55${phoneRaw}`}
+        mandatory
+        onSuccess={(_updatedUser) => router.replace("/(tabs)")}
+        onClose={() => setShowPhoneVerify(false)}
+      />
     </SafeAreaView>
   );
 }

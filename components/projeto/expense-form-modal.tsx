@@ -27,6 +27,7 @@ import {
   type LocalDocumentAsset,
 } from "@/utils/document-upload";
 import type { DocumentSource } from "@/data/obras";
+import { documentsService } from "@/services/documents.service";
 
 const PRIMARY = "#2563EB";
 const MAX_EXPENSE_DESCRIPTION = 30;
@@ -211,6 +212,33 @@ export function ExpenseFormModal({
     lastInitKeyRef.current = null;
     resetForm();
   }, [visible, resetForm]);
+
+  // ✅ Fallback: se expense não tem receiptDocumentId mas pode ter um
+  // documento RECEIPT vinculado via tela Documentos
+  useEffect(() => {
+    if (!visible) return;
+    if (!expense?.id) return;
+    if (expense.receiptDocumentId) return;
+
+    let cancelled = false;
+    documentsService
+      .listByExpense(projectId, expense.id)
+      .then((docs) => {
+        if (cancelled) return;
+        const receipt = docs.find((d) => d.kind === "RECEIPT");
+        if (receipt) {
+          setPendingReceiptId(receipt.id);
+          setPendingReceiptName(receipt.originalFileName);
+        }
+      })
+      .catch(() => {
+        // falha silenciosa — campo fica como "Adicionar comprovante"
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, expense?.id, expense?.receiptDocumentId, projectId]);
 
   const handleDateChange = (t: string) => {
     setDateTouched(true);

@@ -15,6 +15,7 @@ export interface UploadDocumentOptions {
   projectId: string;
   kind: DocumentKind;
   source: DocumentSource;
+  expenseId?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ export async function uploadDocumentToExpense(
       sizeBytes,
       kind: options.kind,
       source: options.source,
+      ...(options.expenseId ? { expenseId: options.expenseId } : {}),
     },
   );
 

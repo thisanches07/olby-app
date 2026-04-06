@@ -11,6 +11,7 @@ export interface PresignDocumentDto {
   sizeBytes: number;
   kind: DocumentKind;
   source: DocumentSource;
+  expenseId?: string;
 }
 
 export interface PresignDocumentResponseDto {

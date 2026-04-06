@@ -9,6 +9,7 @@ import React, {
 import {
   Animated,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   StyleSheet,
@@ -61,6 +62,7 @@ interface PhoneVerifyModalProps {
   initialPhone?: string;
   onSuccess: (updatedUser: BackendUser) => void;
   onClose: () => void;
+  mandatory?: boolean;
 }
 
 type Step = "phone" | "otp" | "success";
@@ -124,6 +126,7 @@ export function PhoneVerifyModal({
   initialPhone = "",
   onSuccess,
   onClose,
+  mandatory = false,
 }: PhoneVerifyModalProps) {
   const [step, setStep] = useState<Step>("phone");
   const [phoneRaw, setPhoneRaw] = useState("");
@@ -349,7 +352,7 @@ export function PhoneVerifyModal({
       animationType="none"
       statusBarTranslucent
       onRequestClose={() => {
-        if (step !== "success") dismiss();
+        if (step !== "success" && !mandatory) dismiss();
       }}
     >
       {/* reCAPTCHA verifier — invisible */}
@@ -369,12 +372,13 @@ export function PhoneVerifyModal({
         >
           <TouchableOpacity
             style={{ flex: 1 }}
-            onPress={() => step !== "success" && dismiss()}
+            onPress={() => step !== "success" && !mandatory && dismiss()}
             activeOpacity={1}
           />
         </Animated.View>
 
         {/* Card */}
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.handle} />
 
@@ -520,6 +524,7 @@ export function PhoneVerifyModal({
             </>
           )}
         </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

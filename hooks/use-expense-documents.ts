@@ -67,6 +67,7 @@ export function useExpenseDocuments({
       try {
         const doc = await uploadDocumentToExpense(asset, {
           projectId,
+          expenseId,
           kind,
           source,
         });

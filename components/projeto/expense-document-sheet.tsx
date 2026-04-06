@@ -1,9 +1,9 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
-import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   StyleSheet,
@@ -78,7 +78,6 @@ export function ExpenseDocumentSheet({
 
   const [showCapture, setShowCapture] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<DocumentAttachment | null>(null);
-  const [deletingDoc, setDeletingDoc] = useState<DocumentAttachment | null>(null);
 
   useEffect(() => {
     if (visible && expense?.id) {
@@ -94,10 +93,19 @@ export function ExpenseDocumentSheet({
     await addDocument(asset, "RECEIPT", source);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!deletingDoc) return;
-    await removeDocument(deletingDoc.id);
-    setDeletingDoc(null);
+  const handleDeletePress = (doc: DocumentAttachment) => {
+    Alert.alert(
+      "Remover documento?",
+      `"${doc.originalFileName}" será removido permanentemente.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: () => removeDocument(doc.id),
+        },
+      ],
+    );
   };
 
   return (
@@ -179,7 +187,7 @@ export function ExpenseDocumentSheet({
                 doc={item}
                 canManage={canManage}
                 onView={() => setViewingDoc(item)}
-                onDelete={() => setDeletingDoc(item)}
+                onDelete={() => handleDeletePress(item)}
               />
             )}
           />
@@ -205,18 +213,6 @@ export function ExpenseDocumentSheet({
           document={viewingDoc}
           projectId={projectId}
           onClose={() => setViewingDoc(null)}
-        />
-
-        <ConfirmSheet
-          visible={!!deletingDoc}
-          icon="delete-forever"
-          iconColor="#EF4444"
-          title="Remover documento?"
-          message={`"${deletingDoc?.originalFileName ?? "documento"}" será removido permanentemente.`}
-          confirmLabel="Remover"
-          confirmVariant="destructive"
-          onConfirm={handleDeleteConfirm}
-          onClose={() => setDeletingDoc(null)}
         />
       </SafeAreaView>
     </Modal>

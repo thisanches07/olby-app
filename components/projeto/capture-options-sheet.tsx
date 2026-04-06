@@ -73,51 +73,65 @@ export function CaptureOptionsSheet({
     );
   };
 
-  const handleScan = async () => {
+  const handleScan = () => {
     onClose();
-    try {
-      const DocumentScanner = (await import("react-native-document-scanner-plugin")).default;
-      const { scannedImages } = await DocumentScanner.scanDocument({ maxNumDocuments: 1 });
-      if (!scannedImages?.length) return;
-      const uri = scannedImages[0];
-      onAssetSelected(
-        {
-          uri,
-          mimeType: "image/jpeg",
-          fileName: `digitalizacao_${Date.now()}.jpg`,
-        },
-        "SCAN",
-      );
-    } catch {
-      showToast({
-        title: "Indisponível",
-        message: "Digitalização não disponível neste dispositivo",
-        tone: "error",
-      });
-    }
+    setTimeout(async () => {
+      try {
+        const DocumentScanner = (
+          await import("react-native-document-scanner-plugin")
+        ).default;
+        const { scannedImages } = await DocumentScanner.scanDocument({
+          maxNumDocuments: 1,
+        });
+        if (!scannedImages?.length) return;
+        const uri = scannedImages[0];
+        onAssetSelected(
+          {
+            uri,
+            mimeType: "image/jpeg",
+            fileName: `digitalizacao_${Date.now()}.jpg`,
+          },
+          "SCAN",
+        );
+      } catch (err) {
+        const detail = err instanceof Error ? ` (${err.message})` : "";
+        showToast({
+          title: "Indisponível",
+          message: `Digitalização não disponível neste dispositivo${detail}`,
+          tone: "error",
+        });
+      }
+    }, 500);
   };
 
-  const handleFilePicker = async () => {
+  const handleFilePicker = () => {
     onClose();
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*"],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets[0]) return;
-      const file = result.assets[0];
-      onAssetSelected(
-        {
-          uri: file.uri,
-          mimeType: file.mimeType ?? "application/pdf",
-          fileName: file.name,
-          fileSize: file.size,
-        },
-        "FILE_PICKER",
-      );
-    } catch {
-      showToast({ title: "Erro", message: "Erro ao abrir gerenciador de arquivos", tone: "error" });
-    }
+    setTimeout(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ["application/pdf", "image/*"],
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || !result.assets[0]) return;
+        const file = result.assets[0];
+        onAssetSelected(
+          {
+            uri: file.uri,
+            mimeType: file.mimeType ?? "application/pdf",
+            fileName: file.name,
+            fileSize: file.size,
+          },
+          "FILE_PICKER",
+        );
+      } catch (err) {
+        const detail = err instanceof Error ? ` (${err.message})` : "";
+        showToast({
+          title: "Erro",
+          message: `Erro ao abrir gerenciador de arquivos${detail}`,
+          tone: "error",
+        });
+      }
+    }, 500);
   };
 
   return (
