@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { StatusType } from "@/components/obra-card";
-import type { Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
+import type { DocumentSource, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
 import { useAuth } from "@/hooks/use-auth";
 import {
   dailyLogEntriesService,
   type DailyLogEntryResponseDto,
 } from "@/services/daily-log-entries.service";
+import { documentsService } from "@/services/documents.service";
 import {
   expensesService,
   type ExpenseResponseDto,
@@ -16,6 +17,11 @@ import {
   type ProjectResponseDto,
 } from "@/services/projects.service";
 import { tasksService, type TaskResponseDto } from "@/services/tasks.service";
+import {
+  getFileSize,
+  putBinaryFile,
+  type LocalDocumentAsset,
+} from "@/utils/document-upload";
 
 type LocalPriority = "ALTA" | "MEDIA" | "BAIXA";
 const MAX_EXPENSE_DESCRIPTION = 30;
@@ -190,7 +196,10 @@ export interface UseObraDataReturn {
   toggleTask: (id: string) => Promise<void>;
   deleteAllTasks: () => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
-  addExpense: (expense: Omit<Gasto, "id">) => Promise<void>;
+  addExpense: (
+    expense: Omit<Gasto, "id">,
+    pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
+  ) => Promise<void>;
   updateExpense: (id: string, updates: Partial<Gasto>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   deleteAllExpenses: () => Promise<void>;
@@ -322,10 +331,14 @@ export function useObraData(projectId: string): UseObraDataReturn {
   );
 
   const addExpense = useCallback(
-    async (expenseData: Omit<Gasto, "id">) => {
+    async (
+      expenseData: Omit<Gasto, "id">,
+      pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
+    ) => {
       const trimmedDescription = expenseData.descricao
         .trim()
         .slice(0, MAX_EXPENSE_DESCRIPTION);
+
       const created = await expensesService.create({
         projectId,
         taskId: expenseData.tarefaId ?? null,
@@ -333,8 +346,36 @@ export function useObraData(projectId: string): UseObraDataReturn {
         description: trimmedDescription || undefined,
         amountCents: Math.round(expenseData.valor * 100),
         date: expenseData.data,
-        receiptDocumentId: expenseData.receiptDocumentId ?? undefined,
+        ...(pendingDoc
+          ? {
+              receiptDocument: {
+                originalFileName: pendingDoc.asset.fileName,
+                contentType: pendingDoc.asset.mimeType,
+                sizeBytes:
+                  pendingDoc.asset.fileSize ??
+                  (await getFileSize(pendingDoc.asset.uri)),
+                kind: "RECEIPT" as const,
+                source: pendingDoc.source,
+              },
+            }
+          : { receiptDocumentId: expenseData.receiptDocumentId ?? undefined }),
       });
+
+      if (pendingDoc && created.receiptDocument?.uploadUrl) {
+        try {
+          await putBinaryFile(
+            created.receiptDocument.uploadUrl,
+            pendingDoc.asset.uri,
+            pendingDoc.asset.mimeType,
+          );
+          await documentsService.confirm(projectId, created.receiptDocument.id);
+        } catch {
+          // Expense was created; document stays PENDING_UPLOAD.
+          // The caller is responsible for showing a user-facing error.
+          throw new Error("UPLOAD_FAILED");
+        }
+      }
+
       setExpenses((prev) => [created, ...prev]);
     },
     [projectId],

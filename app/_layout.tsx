@@ -36,7 +36,7 @@ export const unstable_settings = {
 };
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, phoneVerifiedAt, isBackendLoading, setPhoneVerified } = useAuth();
+  const { user, isLoading, phoneVerifiedAt, isBackendLoading, setPhoneVerified, registrationInProgress } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const navigatingRef = useRef(false);
@@ -54,7 +54,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (user && onLoginPage) {
+    if (user && onLoginPage && !registrationInProgress) {
       if (navigatingRef.current) return;
       navigatingRef.current = true;
       pendingInviteToken.get().then((pending) => {
@@ -69,11 +69,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else {
       navigatingRef.current = false;
     }
-  }, [user, isLoading, pathname, router]);
+  }, [user, isLoading, pathname, router, registrationInProgress]);
 
   // Guard: bloqueia acesso ao app para usuários email/senha sem telefone verificado
   useEffect(() => {
-    if (isLoading || isBackendLoading) return;
+    if (isLoading || isBackendLoading || registrationInProgress) return;
     if (!user) return;
     const isEmailUser = user.providerData.some((p) => p.providerId === "password");
     if (isEmailUser && phoneVerifiedAt === null) {
@@ -81,7 +81,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else {
       setShowVerifyGuard(false);
     }
-  }, [user, isLoading, isBackendLoading, phoneVerifiedAt]);
+  }, [user, isLoading, isBackendLoading, phoneVerifiedAt, registrationInProgress]);
 
   if (isLoading) {
     return (

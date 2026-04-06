@@ -1,4 +1,5 @@
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   OAuthProvider,
   PhoneAuthProvider,
@@ -167,4 +168,44 @@ export async function linkPhoneWithCode(
   // Force-refresh so the ID token carries the updated phone_number claim
   await firebaseAuth.currentUser!.getIdToken(true);
   return api.patch<BackendUser>("/users/me", { phone: phoneNumber });
+}
+
+/**
+ * Finaliza o cadastro com telefone já verificado.
+ * Deve ser chamado dentro do onVerified do PhoneVerifyModal, após confirm() ter
+ * criado um usuário phone-auth temporário no Firebase.
+ * Vincula email+senha a esse usuário, atualiza o displayName e registra no backend.
+ * O token gerado já carrega o claim phone_number, então o backend seta phoneVerifiedAt=NOW.
+ */
+export async function completeRegistrationWithPhone(
+  email: string,
+  password: string,
+  name: string,
+  phoneNumber: string, // E.164 ex: "+5511999998888"
+): Promise<void> {
+  const phoneUser = firebaseAuth.currentUser!; // definido pelo confirm() no modal
+  const emailCredential = EmailAuthProvider.credential(email, password);
+  try {
+    await linkWithCredential(phoneUser, emailCredential);
+  } catch (err: unknown) {
+    // Se falhar (ex: email já em uso), remove o usuário phone temporário e relança
+    await signOut(firebaseAuth);
+    throw err;
+  }
+  await updateProfile(phoneUser, { displayName: name });
+  // Force-refresh para o token carregar o claim phone_number
+  const idToken = await phoneUser.getIdToken(true);
+  const response = await fetch(`${BASE_URL}/users/register`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, phone: phoneNumber }),
+  });
+  if (!response.ok) {
+    await signOut(firebaseAuth);
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message ?? body?.error ?? `Erro ${response.status}`);
+  }
 }

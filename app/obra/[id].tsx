@@ -15,7 +15,8 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import type { Gasto, Tarefa } from "@/data/obras";
+import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
+import type { LocalDocumentAsset } from "@/utils/document-upload";
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
 import { useObraData } from "@/hooks/use-obra-data";
@@ -242,10 +243,29 @@ export default function ObraDetalheScreen() {
     setShowExpenseModal(true);
   };
 
-  const handleSaveExpense = async (expense: Omit<Gasto, "id">) => {
+  const handleSaveExpense = async (
+    expense: Omit<Gasto, "id">,
+    pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
+  ) => {
     try {
-      if (editingExpense) await updateExpense(editingExpense.id, expense);
-      else await addExpense(expense);
+      if (editingExpense) {
+        await updateExpense(editingExpense.id, expense);
+      } else {
+        try {
+          await addExpense(expense, pendingDoc);
+        } catch (e: any) {
+          if (e?.message === "UPLOAD_FAILED") {
+            Alert.alert(
+              "Gasto criado",
+              "O comprovante não foi enviado. Tente novamente pela tela de documentos.",
+            );
+            setShowExpenseModal(false);
+            setEditingExpense(undefined);
+            return;
+          }
+          throw e;
+        }
+      }
 
       setShowExpenseModal(false);
       setEditingExpense(undefined);

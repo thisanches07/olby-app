@@ -902,8 +902,8 @@ export default function ProfileScreen() {
         visible={showPhoneVerify}
         initialPhone={phone}
         onSuccess={(updatedUser) => {
-          if (updatedUser.phone) setPhone(updatedUser.phone);
-          setPhoneVerifiedAt(updatedUser.phoneVerifiedAt ?? new Date().toISOString());
+          if (updatedUser?.phone) setPhone(updatedUser.phone);
+          setPhoneVerifiedAt(updatedUser?.phoneVerifiedAt ?? new Date().toISOString());
           showToast("Número verificado com sucesso!", "success");
         }}
         onClose={() => setShowPhoneVerify(false)}

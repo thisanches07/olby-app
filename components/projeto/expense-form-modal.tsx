@@ -28,6 +28,7 @@ import {
 } from "@/utils/document-upload";
 import type { DocumentSource } from "@/data/obras";
 import { documentsService } from "@/services/documents.service";
+import { expensesService } from "@/services/expenses.service";
 
 const PRIMARY = "#2563EB";
 const MAX_EXPENSE_DESCRIPTION = 30;
@@ -138,7 +139,10 @@ interface ExpenseFormModalProps {
   expense?: Gasto;
   tarefas: Tarefa[];
   projectId: string;
-  onSave: (expense: Omit<Gasto, "id">) => void;
+  onSave: (
+    expense: Omit<Gasto, "id">,
+    pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
+  ) => void;
   onDelete?: (id: string) => void;
   onClose: () => void;
 }
@@ -163,6 +167,11 @@ export function ExpenseFormModal({
   const [tarefaId, setTarefaId] = useState<string | undefined>(undefined);
   const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
   const [pendingReceiptName, setPendingReceiptName] = useState<string | null>(null);
+  // Creation mode: document staged locally, uploaded only after expense is created.
+  const [pendingDocAsset, setPendingDocAsset] = useState<{
+    asset: LocalDocumentAsset;
+    source: DocumentSource;
+  } | null>(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [deleteReceiptConfirmVisible, setDeleteReceiptConfirmVisible] = useState(false);
   const [deletingReceipt, setDeletingReceipt] = useState(false);
@@ -181,6 +190,7 @@ export function ExpenseFormModal({
     setTarefaId(undefined);
     setPendingReceiptId(null);
     setPendingReceiptName(null);
+    setPendingDocAsset(null);
   }, []);
 
   const initFromExpense = useCallback(() => {
@@ -285,6 +295,13 @@ export function ExpenseFormModal({
     asset: LocalDocumentAsset,
     source: DocumentSource,
   ) => {
+    if (!expense) {
+      // Creation mode: stage locally, upload happens after expense is created.
+      setPendingDocAsset({ asset, source });
+      return;
+    }
+
+    // Edit mode: presign → upload → confirm → immediate PATCH.
     setUploadingReceipt(true);
     try {
       const doc = await uploadDocumentToExpense(asset, {
@@ -292,6 +309,7 @@ export function ExpenseFormModal({
         kind: "RECEIPT",
         source,
       });
+      await expensesService.update(expense.id, { receiptDocumentId: doc.id });
       setPendingReceiptId(doc.id);
       setPendingReceiptName(asset.fileName);
     } catch {
@@ -302,10 +320,10 @@ export function ExpenseFormModal({
   };
 
   const handleDeleteReceipt = async () => {
-    if (!pendingReceiptId) return;
+    if (!pendingReceiptId || !expense) return;
     setDeletingReceipt(true);
     try {
-      await documentsService.remove(projectId, pendingReceiptId);
+      await expensesService.update(expense.id, { receiptDocumentId: null });
       setPendingReceiptId(null);
       setPendingReceiptName(null);
     } catch {
@@ -346,14 +364,17 @@ export function ExpenseFormModal({
       return;
     }
 
-    onSave({
-      descricao: trimmedDescricao,
-      valor: parsedValor,
-      data: `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`,
-      categoria,
-      tarefaId,
-      receiptDocumentId: pendingReceiptId,
-    });
+    onSave(
+      {
+        descricao: trimmedDescricao,
+        valor: parsedValor,
+        data: `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`,
+        categoria,
+        tarefaId,
+        receiptDocumentId: pendingReceiptId,
+      },
+      pendingDocAsset ?? undefined,
+    );
 
     onClose();
   };
@@ -606,14 +627,24 @@ export function ExpenseFormModal({
           {/* ── Comprovante ── */}
           <View style={styles.field}>
             <Text style={styles.label}>Comprovante</Text>
-            {pendingReceiptId ? (
+            {pendingReceiptId || pendingDocAsset ? (
               <View style={styles.receiptRow}>
                 <MaterialIcons name="attach-file" size={16} color={PRIMARY} />
                 <Text style={styles.receiptName} numberOfLines={1}>
-                  {pendingReceiptName ?? "Comprovante anexado"}
+                  {pendingDocAsset
+                    ? pendingDocAsset.asset.fileName
+                    : (pendingReceiptName ?? "Comprovante anexado")}
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setDeleteReceiptConfirmVisible(true)}
+                  onPress={() => {
+                    if (!expense) {
+                      // Creation mode: doc not created yet, just clear.
+                      setPendingDocAsset(null);
+                    } else {
+                      // Edit mode: confirm before unlinking.
+                      setDeleteReceiptConfirmVisible(true);
+                    }
+                  }}
                   disabled={deletingReceipt}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >

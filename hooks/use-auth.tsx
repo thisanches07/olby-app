@@ -15,8 +15,11 @@ interface AuthContextValue {
   /** true enquanto a chamada GET /users/me ainda está em andamento */
   isBackendLoading: boolean;
   isLoading: boolean;
+  /** true durante o fluxo de cadastro com telefone (entre confirm() e conta criada) */
+  registrationInProgress: boolean;
   signOut: () => Promise<void>;
   setPhoneVerified: (at: string) => void;
+  setRegistrationInProgress: (v: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendLoading, setIsBackendLoading] = useState(false);
+  const [registrationInProgress, setRegistrationInProgressState] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -66,6 +70,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPhoneVerifiedAt(at);
   }, []);
 
+  const handleSetRegistrationInProgress = useCallback((v: boolean) => {
+    setRegistrationInProgressState(v);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -74,8 +82,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phoneVerifiedAt,
         isBackendLoading,
         isLoading,
+        registrationInProgress,
         signOut: logout,
         setPhoneVerified: handleSetPhoneVerified,
+        setRegistrationInProgress: handleSetRegistrationInProgress,
       }}
     >
       {children}

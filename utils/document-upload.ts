@@ -45,9 +45,9 @@ export async function uploadDocumentToExpense(
   return await documentsService.confirm(options.projectId, documentId);
 }
 
-// ── Helpers internos ──────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function getFileSize(uri: string): Promise<number> {
+export async function getFileSize(uri: string): Promise<number> {
   try {
     const info = await FileSystem.getInfoAsync(uri);
     if (info.exists) return (info as any).size ?? 0;
@@ -57,7 +57,7 @@ async function getFileSize(uri: string): Promise<number> {
   return 0;
 }
 
-async function putBinaryFile(
+export async function putBinaryFile(
   url: string,
   fileUri: string,
   contentType: string,

@@ -46,6 +46,8 @@ function mapFirebaseError(err: unknown): string {
       return "O código expirou. Reenvie o SMS.";
     case "auth/credential-already-in-use":
       return "Este número já está associado a outra conta.";
+    case "auth/email-already-in-use":
+      return "Este e-mail já está cadastrado. Tente fazer login.";
     case "auth/too-many-requests":
       return "Muitas tentativas. Aguarde alguns minutos.";
     case "auth/invalid-phone-number":
@@ -60,9 +62,12 @@ function mapFirebaseError(err: unknown): string {
 interface PhoneVerifyModalProps {
   visible: boolean;
   initialPhone?: string;
-  onSuccess: (updatedUser: BackendUser) => void;
+  onSuccess: (updatedUser?: BackendUser) => void;
   onClose: () => void;
   mandatory?: boolean;
+  /** Se presente, o modal opera em modo de cadastro: após confirm() chama onVerified(phoneE164)
+   *  e o parent é responsável por criar a conta. O linkPhoneWithCode não é chamado. */
+  onVerified?: (phoneE164: string) => Promise<void>;
 }
 
 type Step = "phone" | "otp" | "success";
@@ -127,6 +132,7 @@ export function PhoneVerifyModal({
   onSuccess,
   onClose,
   mandatory = false,
+  onVerified,
 }: PhoneVerifyModalProps) {
   const [step, setStep] = useState<Step>("phone");
   const [phoneRaw, setPhoneRaw] = useState("");
@@ -286,9 +292,30 @@ export function PhoneVerifyModal({
     setIsLoading(true);
     setError("");
     try {
-      const verificationId = confirmationRef.current.verificationId;
       const e164 = `+55${phoneRaw}`;
-      const updatedUser = await linkPhoneWithCode(verificationId, code, e164);
+
+      if (onVerified) {
+        // Modo cadastro: confirm() cria usuário phone-auth temporário, parent finaliza o registro
+        await confirmationRef.current.confirm(code);
+        await onVerified(e164);
+      } else {
+        // Modo perfil: vincula/atualiza telefone na conta existente
+        const verificationId = confirmationRef.current.verificationId;
+        const updatedUser = await linkPhoneWithCode(verificationId, code, e164);
+        setStep("success");
+        Animated.spring(successScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }).start();
+        setTimeout(() => {
+          onSuccess(updatedUser);
+          onClose();
+        }, 1500);
+        return;
+      }
+
       setStep("success");
       Animated.spring(successScale, {
         toValue: 1,
@@ -297,7 +324,7 @@ export function PhoneVerifyModal({
         useNativeDriver: true,
       }).start();
       setTimeout(() => {
-        onSuccess(updatedUser);
+        onSuccess();
         onClose();
       }, 1500);
     } catch (err) {
@@ -306,7 +333,7 @@ export function PhoneVerifyModal({
     } finally {
       setIsLoading(false);
     }
-  }, [otp, phoneRaw, shake, successScale, onSuccess, onClose]);
+  }, [otp, phoneRaw, onVerified, shake, successScale, onSuccess, onClose]);
 
   const handleOtpChange = useCallback(
     (text: string, index: number) => {

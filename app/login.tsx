@@ -26,11 +26,13 @@ import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import * as AppleAuthentication from "expo-apple-authentication";
 
 import {
+  completeRegistrationWithPhone,
   loginWithApple,
   loginWithEmail,
   loginWithGoogleIdToken,
   registerWithEmail,
 } from "@/services/auth.service";
+import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 
@@ -265,6 +267,7 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
 
 export default function LoginScreen() {
   const { showToast } = useToast();
+  const { setRegistrationInProgress } = useAuth();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -376,7 +379,8 @@ export default function LoginScreen() {
       showError("Preencha todos os campos para criar sua conta.");
       return;
     }
-    if (phoneRaw.length !== 11) {
+    // Telefone é opcional — se preenchido precisa ter 11 dígitos (DDD + número)
+    if (phoneRaw.length > 0 && phoneRaw.length !== 11) {
       showError("Informe seu celular com DDD (11 dígitos).");
       return;
     }
@@ -389,14 +393,22 @@ export default function LoginScreen() {
       showError("As senhas não coincidem. Verifique e tente novamente.");
       return;
     }
-    try {
-      setLoading(true);
-      await registerWithEmail(email, senha, nome);
+
+    if (phoneRaw.length === 11) {
+      // Telefone preenchido → verificar primeiro, depois criar conta dentro do onVerified
+      setRegistrationInProgress(true);
       setShowPhoneVerify(true);
-    } catch (err) {
-      showError(getAuthErrorMessage(err));
-    } finally {
-      setLoading(false);
+    } else {
+      // Sem telefone → fluxo direto sem modal
+      try {
+        setLoading(true);
+        await registerWithEmail(email, senha, nome);
+        router.replace("/(tabs)");
+      } catch (err) {
+        showError(getAuthErrorMessage(err));
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -733,8 +745,17 @@ export default function LoginScreen() {
         visible={showPhoneVerify}
         initialPhone={`+55${phoneRaw}`}
         mandatory
-        onSuccess={(_updatedUser) => router.replace("/(tabs)")}
-        onClose={() => setShowPhoneVerify(false)}
+        onVerified={async (phoneE164) => {
+          await completeRegistrationWithPhone(email, senha, nome, phoneE164);
+        }}
+        onSuccess={() => {
+          setRegistrationInProgress(false);
+          router.replace("/(tabs)");
+        }}
+        onClose={() => {
+          setRegistrationInProgress(false);
+          setShowPhoneVerify(false);
+        }}
       />
     </SafeAreaView>
   );
