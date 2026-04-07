@@ -1,8 +1,14 @@
-import type { Gasto, Tarefa } from "@/data/obras";
+import type { DocumentAttachment, Gasto, Tarefa } from "@/data/obras";
+import { documentsService } from "@/services/documents.service";
+import { ExpenseItem } from "@/components/projeto/expense-item";
+import { DocumentViewerModal } from "@/components/projeto/document-viewer-modal";
+import { FadeSlideIn } from "@/components/ui/fade-slide-in";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { formatBRL } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PRIMARY = "#2563EB";
 
@@ -36,6 +42,7 @@ function toDisplayDate(data: string): string {
 interface ClienteExpensesSummaryProps {
   gastos: Gasto[];
   tarefas: Tarefa[];
+  projectId?: string;
 }
 
 const CATEGORY_CONFIG: Record<
@@ -60,17 +67,34 @@ const CATEGORIES = [
 export function ClienteExpensesSummary({
   gastos,
   tarefas,
+  projectId,
 }: ClienteExpensesSummaryProps) {
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
+  const [viewingReceipt, setViewingReceipt] = useState<DocumentAttachment | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<Gasto | null>(null);
 
-  const toggleTask = useCallback((gastoId: string) => {
-    setExpandedTaskIds((prev) => {
-      const next = new Set(prev);
-      next.has(gastoId) ? next.delete(gastoId) : next.add(gastoId);
-      return next;
-    });
-  }, []);
+  const handleReceiptPress = useCallback(
+    projectId
+      ? async (expense: Gasto) => {
+          if (!expense.receiptDocumentId) return;
+          try {
+            const doc = await documentsService.getById(projectId, expense.receiptDocumentId);
+            setViewingReceipt(doc);
+          } catch {
+            // silently ignore
+          }
+        }
+      : async (_: Gasto) => {},
+    [projectId],
+  );
+
+  const handleViewSelectedReceipt = useCallback(async () => {
+    if (!selectedExpense) return;
+    const expense = selectedExpense;
+    setSelectedExpense(null);
+    await handleReceiptPress(expense);
+  }, [selectedExpense, handleReceiptPress]);
 
   const sortedGastos = useMemo(
     () =>
@@ -103,7 +127,6 @@ export function ClienteExpensesSummary({
     {} as Record<string, number>,
   );
 
-  // Só categorias com algum valor
   const activeCats = CATEGORIES.filter((cat) => categoryTotals[cat] > 0);
 
   if (gastos.length === 0) {
@@ -220,89 +243,27 @@ export function ClienteExpensesSummary({
               : "Nenhum gasto registrado"}
           </Text>
         </View>
-      ) : null}
-
-      {filteredGastos.map((gasto) => {
-        const conf = CATEGORY_CONFIG[gasto.categoria];
-        const tarefaVinculada = tarefas.find((t) => t.id === gasto.tarefaId);
-
-        const isExpanded = expandedTaskIds.has(gasto.id);
-
-        return (
-          <View key={gasto.id} style={styles.expenseCard}>
-            {/* Ícone da categoria */}
-            <View
-              style={[
-                styles.expenseIcon,
-                { backgroundColor: conf.color + "18" },
-              ]}
-            >
-              <MaterialIcons name={conf.icon} size={22} color={conf.color} />
-            </View>
-
-            {/* Conteúdo */}
-            <View style={styles.expenseContent}>
-              <View style={styles.expenseTopRow}>
-                <Text style={styles.expenseDesc} numberOfLines={2}>
-                  {gasto.descricao}
-                </Text>
-                <Text style={styles.expenseValue}>
-                  {formatBRL(gasto.valor, false)}
-                </Text>
-              </View>
-              <View style={styles.expenseMeta}>
-                <Text style={styles.expenseDate}>{toDisplayDate(gasto.data)}</Text>
-                <Text style={styles.metaDot}>·</Text>
-                <View
-                  style={[
-                    styles.catPill,
-                    { backgroundColor: conf.color + "14" },
-                  ]}
-                >
-                  <Text style={[styles.catPillText, { color: conf.color }]}>
-                    {conf.label}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Etapa vinculada — bloco expansível */}
-              {tarefaVinculada && (
-                <TouchableOpacity
-                  style={styles.taskBlock}
-                  onPress={() => toggleTask(gasto.id)}
-                  activeOpacity={tarefaVinculada.descricao ? 0.75 : 1}
-                  disabled={!tarefaVinculada.descricao}
-                >
-                  <View style={styles.taskBlockHeader}>
-                    <View style={styles.taskBlockHeaderLeft}>
-                      <MaterialIcons name="link" size={11} color={PRIMARY} />
-                      <Text style={styles.taskBlockLabel}>ETAPA VINCULADA</Text>
-                    </View>
-                    {tarefaVinculada.descricao ? (
-                      <MaterialIcons
-                        name={isExpanded ? "expand-less" : "expand-more"}
-                        size={15}
-                        color="#93C5FD"
-                      />
-                    ) : null}
-                  </View>
-                  <Text
-                    style={styles.taskBlockTitle}
-                    numberOfLines={isExpanded ? undefined : 1}
-                  >
-                    {tarefaVinculada.titulo}
-                  </Text>
-                  {isExpanded && tarefaVinculada.descricao ? (
-                    <Text style={styles.taskBlockDesc}>
-                      {tarefaVinculada.descricao}
-                    </Text>
-                  ) : null}
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        );
-      })}
+      ) : (
+        <View style={styles.listWrap}>
+          {filteredGastos.map((expense, index) => (
+            <FadeSlideIn key={expense.id} index={index}>
+              <ExpenseItem
+                expense={expense}
+                tarefas={tarefas}
+                readOnly
+                onReceiptPress={
+                  expense.receiptDocumentId ? handleReceiptPress : undefined
+                }
+                onPress={
+                  expense.receiptDocumentId
+                    ? (e) => setSelectedExpense(e)
+                    : undefined
+                }
+              />
+            </FadeSlideIn>
+          ))}
+        </View>
+      )}
 
       {/* Rodapé informativo */}
       <View style={styles.footer}>
@@ -311,6 +272,50 @@ export function ClienteExpensesSummary({
           Os gastos são registrados pela equipe de obra
         </Text>
       </View>
+
+      {/* Sheet: opções do gasto */}
+      <Modal
+        visible={!!selectedExpense}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedExpense(null)}
+        statusBarTranslucent
+      >
+        <Pressable style={sheetStyles.backdrop} onPress={() => setSelectedExpense(null)} />
+        <View style={[sheetStyles.sheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+          <View style={sheetStyles.handleContainer}>
+            <View style={sheetStyles.handle} />
+          </View>
+          <PressableScale
+            style={sheetStyles.actionRow}
+            onPress={handleViewSelectedReceipt}
+            scaleTo={0.97}
+          >
+            <View style={sheetStyles.actionIcon}>
+              <MaterialIcons name="receipt-long" size={20} color="#2563EB" />
+            </View>
+            <Text style={sheetStyles.actionLabel}>Ver comprovante</Text>
+            <MaterialIcons name="chevron-right" size={20} color="#9CA3AF" />
+          </PressableScale>
+          <PressableScale
+            style={sheetStyles.cancelRow}
+            onPress={() => setSelectedExpense(null)}
+            scaleTo={0.98}
+          >
+            <Text style={sheetStyles.cancelLabel}>Fechar</Text>
+          </PressableScale>
+        </View>
+      </Modal>
+
+      {/* Visualizador de comprovante */}
+      {projectId && (
+        <DocumentViewerModal
+          visible={!!viewingReceipt}
+          document={viewingReceipt}
+          projectId={projectId}
+          onClose={() => setViewingReceipt(null)}
+        />
+      )}
     </>
   );
 }
@@ -401,6 +406,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
   },
+  listWrap: {
+    paddingHorizontal: 16,
+  },
 
   // ── Distribuição card ───────────────────────────────────
   card: {
@@ -474,119 +482,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // ── Expense card ────────────────────────────────────────
-  expenseCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 14,
-    marginHorizontal: 16,
-    marginBottom: 10,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  expenseIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  expenseContent: {
-    flex: 1,
-    gap: 5,
-  },
-  expenseTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  expenseDesc: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    lineHeight: 19,
-  },
-  expenseValue: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#111827",
-    letterSpacing: -0.3,
-    paddingTop: 1,
-  },
-  expenseMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
-  },
-  expenseDate: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    fontWeight: "400",
-  },
-  metaDot: {
-    fontSize: 12,
-    color: "#D1D5DB",
-  },
-  catPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
-  catPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-
-  // ── Bloco de etapa vinculada ─────────────────────────────
-  taskBlock: {
-    marginTop: 8,
-    backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderLeftWidth: 3,
-    borderLeftColor: PRIMARY,
-  },
-  taskBlockHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  taskBlockHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  taskBlockLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#93C5FD",
-    letterSpacing: 0.5,
-  },
-  taskBlockTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1E40AF",
-    lineHeight: 18,
-  },
-  taskBlockDesc: {
-    fontSize: 12,
-    color: "#3B82F6",
-    fontWeight: "400",
-    lineHeight: 17,
-    marginTop: 6,
-    opacity: 0.9,
-  },
-
   // ── Rodapé ──────────────────────────────────────────────
   footer: {
     flexDirection: "row",
@@ -601,5 +496,65 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#9CA3AF",
     fontWeight: "400",
+  },
+});
+
+const sheetStyles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 16,
+  },
+  handleContainer: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  actionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  cancelRow: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  cancelLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });

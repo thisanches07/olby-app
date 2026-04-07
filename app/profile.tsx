@@ -33,7 +33,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/contexts/subscription-context";
 import { getStatusBadge } from "@/services/subscription.service";
 import { api } from "@/services/api";
-import { type BackendUser } from "@/services/auth.service";
+import { unlinkPhone } from "@/services/auth.service";
 import { firebaseAuth } from "@/services/firebase";
 import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
@@ -406,6 +406,90 @@ function InfoRow({
   );
 }
 
+// ─── Phone Row ───────────────────────────────────────────────────────────────
+
+function PhoneRow({
+  phone,
+  phoneVerifiedAt,
+  isEditing,
+  isEmailUser,
+  onAdd,
+  onEdit,
+  onRemove,
+}: {
+  phone: string;
+  phoneVerifiedAt: string | null;
+  isEditing: boolean;
+  isEmailUser: boolean;
+  onAdd: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const hasPhone = !!phone;
+  const isVerified = !!phoneVerifiedAt;
+
+  return (
+    <View style={[styles.infoRowWrap, styles.rowBorder]}>
+      <View style={styles.infoRow}>
+        <View style={styles.infoIconWrap}>
+          <MaterialIcons name="phone" size={18} color={colors.primary} />
+        </View>
+        <View style={styles.rowContent}>
+          <Text style={styles.rowLabel}>Telefone</Text>
+          <Text
+            style={[styles.rowValue, !hasPhone && styles.rowValueReadonly]}
+            numberOfLines={1}
+          >
+            {phone || "Não informado"}
+          </Text>
+          {!isEditing && (
+            <View style={styles.phoneActions}>
+              {isVerified && (
+                <View style={styles.verifiedBadge}>
+                  <MaterialIcons name="verified" size={11} color={colors.success} />
+                  <Text style={styles.verifiedText}>Verificado</Text>
+                </View>
+              )}
+              {hasPhone ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.phoneChip}
+                    onPress={onEdit}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.phoneChipText}>
+                      {isVerified ? "Alterar" : "Verificar"}
+                    </Text>
+                  </TouchableOpacity>
+                  {!isEmailUser && (
+                    <TouchableOpacity
+                      style={[styles.phoneChip, styles.phoneChipDanger]}
+                      onPress={onRemove}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.phoneChipText, styles.phoneChipTextDanger]}>
+                        Remover
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.phoneChip}
+                  onPress={onAdd}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.phoneChipText}>Adicionar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Action Row ──────────────────────────────────────────────────────────────
 
 function ActionRow({
@@ -609,6 +693,25 @@ export default function ProfileScreen() {
     });
   }, []);
 
+  const handleRemovePhone = useCallback(() => {
+    setSheetConfig({
+      icon: "phone-disabled",
+      iconBg: "#FEE2E2",
+      iconColor: colors.danger,
+      title: "Remover celular",
+      description:
+        "Seu número será desvinculado da conta. Você poderá adicionar outro número depois.",
+      confirmLabel: "Remover número",
+      confirmBg: colors.danger,
+      successMessage: "Número removido com sucesso.",
+      onConfirm: async () => {
+        await unlinkPhone();
+        setPhone("");
+        setPhoneVerifiedAt(null);
+      },
+    });
+  }, []);
+
   const initials = getInitials(user?.displayName ?? name, user?.email ?? null);
   const firstName = getFirstName(user?.displayName ?? name);
   const photoUrl = user?.photoURL ?? null;
@@ -683,6 +786,11 @@ export default function ProfileScreen() {
                   <Text style={styles.avatarText}>{initials}</Text>
                 )}
               </View>
+              {isEditing && (
+                <View style={styles.avatarEditBadge}>
+                  <MaterialIcons name="edit" size={12} color={colors.white} />
+                </View>
+              )}
             </View>
             <Text style={styles.heroName}>{name || "Usuário"}</Text>
             {user?.email ? (
@@ -708,48 +816,14 @@ export default function ProfileScreen() {
               }}
               autoCapitalize="words"
             />
-            <InfoRow
-              icon="phone"
-              label="Telefone"
-              value={phone}
-              editable={false}
+            <PhoneRow
+              phone={phone}
+              phoneVerifiedAt={phoneVerifiedAt}
               isEditing={isEditing}
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              badge={
-                !isEditing ? (
-                  phoneVerifiedAt ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <View style={styles.verifiedBadge}>
-                        <MaterialIcons name="verified" size={12} color={colors.success} />
-                        <Text style={styles.verifiedText}>Verificado</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => setShowPhoneVerify(true)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.verifyBtnText}>Alterar</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : phone ? (
-                    <TouchableOpacity
-                      style={styles.verifyBtn}
-                      onPress={() => setShowPhoneVerify(true)}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={styles.verifyBtnText}>Verificar</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.verifyBtn}
-                      onPress={() => setShowPhoneVerify(true)}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={styles.verifyBtnText}>Adicionar</Text>
-                    </TouchableOpacity>
-                  )
-                ) : undefined
-              }
+              isEmailUser={isGoogleUser === false && (user?.providerData?.some(p => p.providerId === "password") ?? false)}
+              onAdd={() => setShowPhoneVerify(true)}
+              onEdit={() => setShowPhoneVerify(true)}
+              onRemove={handleRemovePhone}
             />
             <InfoRow
               icon="mail-outline"
@@ -1045,18 +1119,20 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radius["2xl"],
   },
   avatarRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.5)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing[14],
   },
   avatar: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
@@ -1065,6 +1141,19 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: "100%",
     height: "100%",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
     fontSize: 28,
@@ -1085,7 +1174,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     paddingHorizontal: spacing[20],
-    paddingTop: spacing[24],
+    paddingTop: spacing[28],
     paddingBottom: spacing[8],
   },
   sectionTitle: {
@@ -1175,19 +1264,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.success,
   },
-  verifyBtn: {
-    marginTop: 2,
-    paddingHorizontal: spacing[8],
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    backgroundColor: colors.tintBlue,
-    alignSelf: "flex-start",
-  },
-  verifyBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.primary,
-  },
   infoErrorRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1199,6 +1275,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.danger,
     fontWeight: "500",
+  },
+  phoneActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+  },
+  phoneChip: {
+    paddingHorizontal: spacing[10],
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.tintBlue,
+  },
+  phoneChipDanger: {
+    backgroundColor: "#FEE2E2",
+  },
+  phoneChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  phoneChipTextDanger: {
+    color: colors.danger,
   },
 
   // Action row

@@ -216,6 +216,7 @@ export function ObraViewCliente({
           <ClienteExpensesSummary
             gastos={obra.gastos}
             tarefas={obra.tarefas}
+            projectId={obra.id}
           />
         </ScrollView>
       )}

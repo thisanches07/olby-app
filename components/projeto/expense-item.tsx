@@ -21,6 +21,8 @@ interface ExpenseItemProps {
   onDocumentsPress?: (expense: Gasto) => void;
   /** Abre diretamente o comprovante vinculado (sem abrir o sheet de documentos) */
   onReceiptPress?: (expense: Gasto) => void;
+  /** Toque no card inteiro (funciona mesmo em readOnly) */
+  onPress?: (expense: Gasto) => void;
   readOnly?: boolean;
   isLoading?: boolean;
 }
@@ -53,6 +55,7 @@ export function ExpenseItem({
   onMorePress,
   onDocumentsPress,
   onReceiptPress,
+  onPress,
   readOnly = false,
   isLoading = false,
 }: ExpenseItemProps) {
@@ -77,7 +80,7 @@ export function ExpenseItem({
     [tarefas, expense.tarefaId],
   );
 
-  const canTap = !readOnly && !!onEdit;
+  const canTap = (!readOnly && !!onEdit) || !!onPress;
 
   // Loading pulse animation
   const loadingOpacity = useSharedValue(1);
@@ -101,7 +104,7 @@ export function ExpenseItem({
   return (
     <PressableScale
       style={styles.container}
-      onPress={canTap ? () => onEdit!(expense) : undefined}
+      onPress={canTap ? () => (onPress ? onPress(expense) : onEdit!(expense)) : undefined}
       disabled={!canTap}
       scaleTo={0.975}
       haptic={canTap ? "light" : "none"}

@@ -476,7 +476,6 @@ export function PhoneVerifyModal({
                     placeholder="(11) 99999-8888"
                     placeholderTextColor={colors.subtext}
                     keyboardType="phone-pad"
-                    autoFocus
                     selectionColor={colors.primary}
                   />
                 </View>

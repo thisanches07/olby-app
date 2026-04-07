@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   linkWithCredential,
   sendPasswordResetEmail,
+  unlink,
   updatePhoneNumber,
   signInWithCredential,
   signInWithEmailAndPassword,
@@ -168,6 +169,22 @@ export async function linkPhoneWithCode(
   // Force-refresh so the ID token carries the updated phone_number claim
   await firebaseAuth.currentUser!.getIdToken(true);
   return api.patch<BackendUser>("/users/me", { phone: phoneNumber });
+}
+
+export async function unlinkPhone(): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user) throw new Error("Usuário não encontrado.");
+  try {
+    await unlink(user, PhoneAuthProvider.PROVIDER_ID);
+  } catch (err: unknown) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? (err as { code: string }).code
+        : "";
+    if (code !== "auth/no-such-provider") throw err;
+  }
+  await user.getIdToken(true);
+  await api.patch("/users/me", { phone: null });
 }
 
 /**
