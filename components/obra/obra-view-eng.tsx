@@ -148,6 +148,8 @@ interface ObraViewEngProps {
   onRefresh?: () => Promise<void>;
   docCounts?: Record<string, number>;
   onDocumentsPress?: (expense: Gasto) => void;
+  isExpenseLoading?: (expenseId: string) => boolean;
+  creatingExpenseId?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -176,6 +178,8 @@ export function ObraViewEng({
   onRefresh,
   docCounts = {},
   onDocumentsPress,
+  isExpenseLoading,
+  creatingExpenseId,
 }: ObraViewEngProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -201,10 +205,13 @@ export function ObraViewEng({
     }
   }, [onRefresh]);
 
-  const changeTab = useCallback((tab: EngTabId) => {
-    setActiveTab(tab);
-    onTabChange?.(tab === "projetos");
-  }, [onTabChange]);
+  const changeTab = useCallback(
+    (tab: EngTabId) => {
+      setActiveTab(tab);
+      onTabChange?.(tab === "projetos");
+    },
+    [onTabChange],
+  );
 
   // ── Tab-aware back: secondary tabs → projetos; projetos → home ────────────
   const handleBack = useCallback(() => {
@@ -322,132 +329,142 @@ export function ObraViewEng({
           ) : undefined
         }
       >
-          {activeTab === "projetos" && (
-            <>
-              <EngHeroSection
-                progresso={obra.progresso}
-                etapaAtual={obra.etapaAtual}
-                endereco={obra.endereco}
-                dataPrevisaoEntrega={entregaLabel}
-                onEditPress={onEditProject}
-                status={obra.status}
-              />
+        {activeTab === "projetos" && (
+          <>
+            <EngHeroSection
+              progresso={obra.progresso}
+              etapaAtual={obra.etapaAtual}
+              endereco={obra.endereco}
+              dataPrevisaoEntrega={entregaLabel}
+              onEditPress={onEditProject}
+              status={obra.status}
+            />
 
-              {showCompletionBanner && (
-                <Animated.View
-                  entering={FadeInDown.duration(380).springify().damping(15)}
-                  exiting={FadeOutUp.duration(220)}
-                >
-                  <TouchableOpacity
-                    style={styles.completionBanner}
-                    onPress={onConcludeProject}
-                    activeOpacity={0.88}
-                    disabled={isConcluding}
-                  >
-                    <MaterialIcons name="emoji-events" size={24} color={colors.success} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.completionTitle}>Todas as tarefas concluídas!</Text>
-                      <Text style={styles.completionSub}>Pronto para marcar a obra como concluída?</Text>
-                    </View>
-                    <View style={[styles.completionBtn, isConcluding && { opacity: 0.7 }]}>
-                      {isConcluding ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={styles.completionBtnText}>Concluir</Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-              )}
-
-              <TouchableOpacity
-                style={styles.diarioBtn}
-                onPress={onViewDiary}
-                activeOpacity={0.85}
+            {showCompletionBanner && (
+              <Animated.View
+                entering={FadeInDown.duration(380).springify().damping(15)}
+                exiting={FadeOutUp.duration(220)}
               >
-                <MaterialIcons
-                  name="assignment"
-                  size={18}
-                  color={colors.primary}
-                />
-                <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
-                <MaterialIcons
-                  name="arrow-forward-ios"
-                  size={13}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-
-              <EngHoursCompactCard
-                obra={obra}
-                onPress={isReadOnly ? undefined : onEditHours}
-              />
-
-              {/* Financeiro: card normal ou CTA de ativação */}
-              {obra.trackFinancial ? (
-                <EngFinancialCompactCard
-                  obra={obra}
-                  onEditPress={isReadOnly ? undefined : onEditBudget}
-                />
-              ) : !isReadOnly ? (
                 <TouchableOpacity
-                  style={styles.financialOffCard}
-                  onPress={onEnableFinancial}
-                  activeOpacity={0.8}
+                  style={styles.completionBanner}
+                  onPress={onConcludeProject}
+                  activeOpacity={0.88}
+                  disabled={isConcluding}
                 >
-                  <View style={styles.financialOffIcon}>
-                    <MaterialIcons name="show-chart" size={20} color="#9CA3AF" />
-                  </View>
+                  <MaterialIcons
+                    name="emoji-events"
+                    size={24}
+                    color={colors.success}
+                  />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.financialOffTitle}>
-                      Financeiro desativado
+                    <Text style={styles.completionTitle}>
+                      Todas as tarefas concluídas!
                     </Text>
-                    <Text style={styles.financialOffSub}>
-                      Toque para ativar orçamento e gastos
+                    <Text style={styles.completionSub}>
+                      Pronto para marcar a obra como concluída?
                     </Text>
                   </View>
-                  <View style={styles.financialOffChip}>
-                    <Text style={styles.financialOffChipText}>Ativar</Text>
+                  <View
+                    style={[
+                      styles.completionBtn,
+                      isConcluding && { opacity: 0.7 },
+                    ]}
+                  >
+                    {isConcluding ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.completionBtnText}>Concluir</Text>
+                    )}
                   </View>
                 </TouchableOpacity>
-              ) : null}
+              </Animated.View>
+            )}
 
-              <EngTasksList
-                tarefas={obra.tarefas}
-                onToggle={onToggleTask}
-                onDelete={onDeleteTask}
-                onAddTask={isReadOnly ? undefined : onAddTask}
-                readOnly={isReadOnly}
-                readOnlyReason={readOnlyReason}
+            <TouchableOpacity
+              style={styles.diarioBtn}
+              onPress={onViewDiary}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons
+                name="assignment"
+                size={18}
+                color={colors.primary}
               />
-            </>
-          )}
+              <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
+              <MaterialIcons
+                name="arrow-forward-ios"
+                size={13}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
 
-          {activeTab === "gastos" && (
-            <EngExpensesList
-              gastos={gastosMerged}
+            <EngHoursCompactCard
+              obra={obra}
+              onPress={isReadOnly ? undefined : onEditHours}
+            />
+
+            {/* Financeiro: card normal ou CTA de ativação */}
+            {obra.trackFinancial ? (
+              <EngFinancialCompactCard
+                obra={obra}
+                onEditPress={isReadOnly ? undefined : onEditBudget}
+              />
+            ) : !isReadOnly ? (
+              <TouchableOpacity
+                style={styles.financialOffCard}
+                onPress={onEnableFinancial}
+                activeOpacity={0.8}
+              >
+                <View style={styles.financialOffIcon}>
+                  <MaterialIcons name="show-chart" size={20} color="#9CA3AF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.financialOffTitle}>
+                    Financeiro desativado
+                  </Text>
+                  <Text style={styles.financialOffSub}>
+                    Toque para ativar orçamento e gastos
+                  </Text>
+                </View>
+                <View style={styles.financialOffChip}>
+                  <Text style={styles.financialOffChipText}>Ativar</Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
+
+            <EngTasksList
               tarefas={obra.tarefas}
-              onEdit={onEditExpense}
-              onDelete={onDeleteExpense}
-              onDocumentsPress={onDocumentsPress}
+              onToggle={onToggleTask}
+              onDelete={onDeleteTask}
+              onAddTask={isReadOnly ? undefined : onAddTask}
               readOnly={isReadOnly}
               readOnlyReason={readOnlyReason}
-              trackFinancial={obra.trackFinancial}
-              onEnableFinancial={isReadOnly ? undefined : onEnableFinancial}
-              onDeleteAll={isReadOnly ? undefined : onDeleteAllExpenses}
-              onDisableTracking={isReadOnly ? undefined : onDisableFinancial}
             />
-          )}
+          </>
+        )}
 
-          {activeTab === "financeiro" && <EngFinancialSummary obra={obra} />}
-        </ScrollView>
+        {activeTab === "gastos" && (
+          <EngExpensesList
+            gastos={gastosMerged}
+            tarefas={obra.tarefas}
+            onEdit={onEditExpense}
+            onDelete={onDeleteExpense}
+            onDocumentsPress={onDocumentsPress}
+            isExpenseLoading={isExpenseLoading}
+            creatingExpenseId={creatingExpenseId}
+            readOnly={isReadOnly}
+            readOnlyReason={readOnlyReason}
+            trackFinancial={obra.trackFinancial}
+            onEnableFinancial={isReadOnly ? undefined : onEnableFinancial}
+            onDeleteAll={isReadOnly ? undefined : onDeleteAllExpenses}
+            onDisableTracking={isReadOnly ? undefined : onDisableFinancial}
+          />
+        )}
 
-      <View
-        style={[
-          styles.bottomArea,
-          { backgroundColor: colors.white },
-        ]}
-      >
+        {activeTab === "financeiro" && <EngFinancialSummary obra={obra} />}
+      </ScrollView>
+
+      <View style={[styles.bottomArea, { backgroundColor: colors.white }]}>
         {showCTA && (
           <EngCTARow
             activeTab={activeTab}
@@ -468,7 +485,6 @@ export function ObraViewEng({
       {activeTab !== "projetos" && (
         <View {...edgeSwipe.panHandlers} style={styles.edgeSwipeZone} />
       )}
-
     </>
   );
 }

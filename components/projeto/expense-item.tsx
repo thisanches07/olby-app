@@ -2,6 +2,7 @@ import { Gasto, Tarefa } from "@/data/obras";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -17,6 +18,7 @@ interface ExpenseItemProps {
   onMorePress?: () => void;
   onDocumentsPress?: (expense: Gasto) => void;
   readOnly?: boolean;
+  isLoading?: boolean;
 }
 
 const CATEGORY_CONFIG: Record<
@@ -47,6 +49,7 @@ export function ExpenseItem({
   onMorePress,
   onDocumentsPress,
   readOnly = false,
+  isLoading = false,
 }: ExpenseItemProps) {
   const [taskExpanded, setTaskExpanded] = useState(false);
 
@@ -102,17 +105,18 @@ export function ExpenseItem({
         <View style={styles.footer}>
           <Text style={styles.date}>{isoToBR(expense.data)}</Text>
           <View style={styles.footerRight}>
-            {(expense.documentCount ?? 0) > 0 && (
+            {isLoading ? (
+              <ActivityIndicator size="small" color={PRIMARY} />
+            ) : expense.receiptDocumentId ? (
               <TouchableOpacity
                 style={styles.docBadge}
                 onPress={() => onDocumentsPress?.(expense)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 activeOpacity={0.7}
               >
-                <MaterialIcons name="attach-file" size={12} color={PRIMARY} />
-                <Text style={styles.docBadgeText}>{expense.documentCount}</Text>
+                <MaterialIcons name="attach-file" size={14} color={PRIMARY} />
               </TouchableOpacity>
-            )}
+            ) : null}
             <View
               style={[
                 styles.categoryBadge,
@@ -226,18 +230,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   docBadge: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    justifyContent: "center",
     backgroundColor: "#EFF6FF",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    width: 28,
+    height: 28,
     borderRadius: 6,
-  },
-  docBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: PRIMARY,
   },
   date: {
     fontSize: 12,

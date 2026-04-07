@@ -139,9 +139,9 @@ function buildObraDetalhe(
     data: e.date,
     categoria: fromApiCategory(e.category),
     tarefaId: e.taskId ?? undefined,
-    receiptDocumentId: e.receiptDocumentId ?? null,
+    receiptDocumentId: e.receiptDocumentId ?? e.receiptDocument?.id ?? null,
     receiptUrl: e.receiptUrl ?? null,
-    documentCount: e.receiptDocumentId ? 1 : 0,
+    documentCount: e.receiptDocumentId || e.receiptDocument?.id ? 1 : 0,
   }));
 
   const concluidas = tarefas.filter((t) => t.concluida).length;
@@ -189,6 +189,9 @@ export interface UseObraDataReturn {
   obra: ObraDetalhe | null;
   loading: boolean;
   error: string | null;
+  loadingExpenseIds: Set<string>;
+  isExpenseLoading: (expenseId: string) => boolean;
+  creatingExpenseId: string | null;
   refresh: () => Promise<void>;
   addTask: (task: Omit<Tarefa, "id">) => Promise<void>;
   updateTask: (id: string, updates: Partial<Tarefa>) => Promise<void>;
@@ -217,6 +220,12 @@ export function useObraData(projectId: string): UseObraDataReturn {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingExpenseIds, setLoadingExpenseIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [creatingExpenseId, setCreatingExpenseId] = useState<string | null>(
+    null,
+  );
 
   const fetchProject = useCallback(
     async (id: string): Promise<ProjectResponseDto> => {
@@ -335,69 +344,93 @@ export function useObraData(projectId: string): UseObraDataReturn {
       expenseData: Omit<Gasto, "id">,
       pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
     ) => {
-      const trimmedDescription = expenseData.descricao
-        .trim()
-        .slice(0, MAX_EXPENSE_DESCRIPTION);
+      const tempId = `temp-${Date.now()}`;
+      setCreatingExpenseId(tempId);
 
-      const created = await expensesService.create({
-        projectId,
-        taskId: expenseData.tarefaId ?? null,
-        category: toApiCategory(expenseData.categoria),
-        description: trimmedDescription || undefined,
-        amountCents: Math.round(expenseData.valor * 100),
-        date: expenseData.data,
-        ...(pendingDoc
-          ? {
-              receiptDocument: {
-                originalFileName: pendingDoc.asset.fileName,
-                contentType: pendingDoc.asset.mimeType,
-                sizeBytes:
-                  pendingDoc.asset.fileSize ??
-                  (await getFileSize(pendingDoc.asset.uri)),
-                kind: "RECEIPT" as const,
-                source: pendingDoc.source,
-              },
-            }
-          : { receiptDocumentId: expenseData.receiptDocumentId ?? undefined }),
-      });
+      try {
+        const trimmedDescription = expenseData.descricao
+          .trim()
+          .slice(0, MAX_EXPENSE_DESCRIPTION);
 
-      if (pendingDoc && created.receiptDocument?.uploadUrl) {
-        try {
-          await putBinaryFile(
-            created.receiptDocument.uploadUrl,
-            pendingDoc.asset.uri,
-            pendingDoc.asset.mimeType,
-          );
-          await documentsService.confirm(projectId, created.receiptDocument.id);
-        } catch {
-          // Expense was created; document stays PENDING_UPLOAD.
-          // The caller is responsible for showing a user-facing error.
-          throw new Error("UPLOAD_FAILED");
+        const created = await expensesService.create({
+          projectId,
+          taskId: expenseData.tarefaId ?? null,
+          category: toApiCategory(expenseData.categoria),
+          description: trimmedDescription || undefined,
+          amountCents: Math.round(expenseData.valor * 100),
+          date: expenseData.data,
+          ...(pendingDoc
+            ? {
+                receiptDocument: {
+                  originalFileName: pendingDoc.asset.fileName,
+                  contentType: pendingDoc.asset.mimeType,
+                  sizeBytes:
+                    pendingDoc.asset.fileSize ??
+                    (await getFileSize(pendingDoc.asset.uri)),
+                  kind: "RECEIPT" as const,
+                  source: pendingDoc.source,
+                },
+              }
+            : {
+                receiptDocumentId: expenseData.receiptDocumentId ?? undefined,
+              }),
+        });
+
+        if (pendingDoc && created.receiptDocument?.uploadUrl) {
+          try {
+            await putBinaryFile(
+              created.receiptDocument.uploadUrl,
+              pendingDoc.asset.uri,
+              pendingDoc.asset.mimeType,
+            );
+            await documentsService.confirm(
+              projectId,
+              created.receiptDocument.id,
+            );
+          } catch {
+            // Expense was created; document stays PENDING_UPLOAD.
+            // The caller is responsible for showing a user-facing error.
+            throw new Error("UPLOAD_FAILED");
+          }
         }
-      }
 
-      setExpenses((prev) => [created, ...prev]);
+        // Only add to list after everything is complete (creation, upload, confirmation)
+        setExpenses((prev) => [created, ...prev]);
+      } finally {
+        setCreatingExpenseId(null);
+      }
     },
     [projectId],
   );
 
   const updateExpense = useCallback(
     async (id: string, updates: Partial<Gasto>) => {
-      const dto: Record<string, unknown> = {};
-      if (updates.descricao !== undefined) {
-        dto.description =
-          updates.descricao.trim().slice(0, MAX_EXPENSE_DESCRIPTION) || null;
-      }
-      if (updates.categoria !== undefined)
-        dto.category = toApiCategory(updates.categoria);
-      if (updates.valor !== undefined)
-        dto.amountCents = Math.round(updates.valor * 100);
-      if (updates.data !== undefined) dto.date = updates.data;
-      if ("tarefaId" in updates) dto.taskId = updates.tarefaId ?? null;
-      if ("receiptDocumentId" in updates) dto.receiptDocumentId = updates.receiptDocumentId ?? null;
+      setLoadingExpenseIds((prev) => new Set(prev).add(id));
 
-      const updated = await expensesService.update(id, dto);
-      setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
+      try {
+        const dto: Record<string, unknown> = {};
+        if (updates.descricao !== undefined) {
+          dto.description =
+            updates.descricao.trim().slice(0, MAX_EXPENSE_DESCRIPTION) || null;
+        }
+        if (updates.categoria !== undefined)
+          dto.category = toApiCategory(updates.categoria);
+        if (updates.valor !== undefined)
+          dto.amountCents = Math.round(updates.valor * 100);
+        if (updates.data !== undefined) dto.date = updates.data;
+        if ("tarefaId" in updates) dto.taskId = updates.tarefaId ?? null;
+        if ("receiptDocumentId" in updates)
+          dto.receiptDocumentId = updates.receiptDocumentId ?? null;
+
+        const updated = await expensesService.update(id, dto);
+        setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
+      } finally {
+        setLoadingExpenseIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
     },
     [],
   );
@@ -489,10 +522,18 @@ export function useObraData(projectId: string): UseObraDataReturn {
     [projectId],
   );
 
+  const isExpenseLoading = useCallback(
+    (expenseId: string) => loadingExpenseIds.has(expenseId),
+    [loadingExpenseIds],
+  );
+
   return {
     obra,
     loading,
     error,
+    loadingExpenseIds,
+    isExpenseLoading,
+    creatingExpenseId,
     refresh: loadData,
     addTask,
     updateTask,

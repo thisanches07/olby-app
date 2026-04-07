@@ -1,10 +1,11 @@
-import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { ExpenseItem } from "@/components/projeto/expense-item";
+import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import type { Gasto, Tarefa } from "@/data/obras";
 import { PRIMARY } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   StyleSheet,
   Text,
@@ -55,6 +56,8 @@ interface EngExpensesListProps {
   onEnableFinancial?: () => void;
   onDeleteAll?: () => void;
   onDisableTracking?: () => void;
+  isExpenseLoading?: (expenseId: string) => boolean;
+  creatingExpenseId?: string | null;
 }
 
 export function EngExpensesList({
@@ -69,11 +72,14 @@ export function EngExpensesList({
   onEnableFinancial,
   onDeleteAll,
   onDisableTracking,
+  isExpenseLoading,
+  creatingExpenseId,
 }: EngExpensesListProps) {
   const [query, setQuery] = useState("");
   const [actionExpense, setActionExpense] = useState<Gasto | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-  const [deleteConfirmExpense, setDeleteConfirmExpense] = useState<Gasto | null>(null);
+  const [deleteConfirmExpense, setDeleteConfirmExpense] =
+    useState<Gasto | null>(null);
 
   // Sempre ordenado por data decrescente (mais recente primeiro)
   const sortedGastos = useMemo(
@@ -188,6 +194,15 @@ export function EngExpensesList({
         </View>
       )}
 
+      {creatingExpenseId && (
+        <View style={styles.loadingExpenseContainer}>
+          <View style={styles.loadingExpenseContent}>
+            <View style={styles.loadingExpenseSkeleton} />
+            <ActivityIndicator size="small" color={PRIMARY} />
+          </View>
+        </View>
+      )}
+
       {filteredGastos.length === 0 ? (
         <View style={styles.emptyState}>
           <MaterialIcons name="receipt" size={48} color="#D1D5DB" />
@@ -207,6 +222,7 @@ export function EngExpensesList({
             onMorePress={() => setActionExpense(expense)}
             onDocumentsPress={onDocumentsPress}
             readOnly={readOnly}
+            isLoading={isExpenseLoading?.(expense.id) ?? false}
           />
         ))
       )}
@@ -256,7 +272,9 @@ export function EngExpensesList({
                   }}
                 >
                   <MaterialIcons name="attach-file" size={20} color="#2563EB" />
-                  <Text style={styles.actionSheetItemText}>Ver comprovantes</Text>
+                  <Text style={styles.actionSheetItemText}>
+                    Ver comprovantes
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
@@ -273,8 +291,17 @@ export function EngExpensesList({
                     }
                   }}
                 >
-                  <MaterialIcons name="delete-outline" size={20} color="#EF4444" />
-                  <Text style={[styles.actionSheetItemText, styles.actionSheetItemDanger]}>
+                  <MaterialIcons
+                    name="delete-outline"
+                    size={20}
+                    color="#EF4444"
+                  />
+                  <Text
+                    style={[
+                      styles.actionSheetItemText,
+                      styles.actionSheetItemDanger,
+                    ]}
+                  >
                     Excluir gasto
                   </Text>
                 </TouchableOpacity>
@@ -315,7 +342,9 @@ export function EngExpensesList({
           onPress={() => setShowHeaderMenu(false)}
         >
           <View style={styles.actionSheet}>
-            <Text style={styles.actionSheetTitle}>Opções de acompanhamento</Text>
+            <Text style={styles.actionSheetTitle}>
+              Opções de acompanhamento
+            </Text>
 
             {gastos.length > 0 && onDeleteAll && (
               <>
@@ -326,12 +355,23 @@ export function EngExpensesList({
                     onDeleteAll();
                   }}
                 >
-                  <MaterialIcons name="delete-sweep" size={20} color="#EF4444" />
-                  <Text style={[styles.actionSheetItemText, styles.actionSheetItemDanger]}>
+                  <MaterialIcons
+                    name="delete-sweep"
+                    size={20}
+                    color="#EF4444"
+                  />
+                  <Text
+                    style={[
+                      styles.actionSheetItemText,
+                      styles.actionSheetItemDanger,
+                    ]}
+                  >
                     Excluir todos os gastos
                   </Text>
                 </TouchableOpacity>
-                {onDisableTracking && <View style={styles.actionSheetDivider} />}
+                {onDisableTracking && (
+                  <View style={styles.actionSheetDivider} />
+                )}
               </>
             )}
 
@@ -344,7 +384,12 @@ export function EngExpensesList({
                 }}
               >
                 <MaterialIcons name="toggle-off" size={20} color="#DC2626" />
-                <Text style={[styles.actionSheetItemText, { color: "#DC2626", fontWeight: "700" }]}>
+                <Text
+                  style={[
+                    styles.actionSheetItemText,
+                    { color: "#DC2626", fontWeight: "700" },
+                  ]}
+                >
                   Desativar acompanhamento financeiro
                 </Text>
               </TouchableOpacity>
@@ -357,6 +402,29 @@ export function EngExpensesList({
 }
 
 const styles = StyleSheet.create({
+  // ── Loading skeleton while creating ────────────────────────────────────────
+  loadingExpenseContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    marginBottom: 8,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  loadingExpenseContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingExpenseSkeleton: {
+    flex: 1,
+    height: 60,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+  },
+
   // ── Disabled state ──────────────────────────────────────────────────────────
   disabledContainer: {
     alignItems: "center",

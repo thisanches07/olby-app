@@ -1,7 +1,18 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+  Stack,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,12 +26,12 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
-import type { LocalDocumentAsset } from "@/utils/document-upload";
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
+import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
 import { useObraData } from "@/hooks/use-obra-data";
 import { api } from "@/services/api";
+import type { LocalDocumentAsset } from "@/utils/document-upload";
 import {
   canEditProject,
   isClientView,
@@ -31,9 +42,7 @@ import { BudgetAdjustmentModal } from "@/components/projeto/budget-adjustment-mo
 import { ExpenseDocumentSheet } from "@/components/projeto/expense-document-sheet";
 import { ExpenseFormModal } from "@/components/projeto/expense-form-modal";
 import { HoursAdjustmentModal } from "@/components/projeto/hours-adjustment-modal";
-import {
-  ProjectSettingsModal,
-} from "@/components/projeto/project-settings-modal";
+import { ProjectSettingsModal } from "@/components/projeto/project-settings-modal";
 import { TaskFormModal } from "@/components/projeto/task-form-modal";
 
 import { ObraViewCliente } from "@/components/obra/obra-view-cliente";
@@ -116,9 +125,12 @@ export default function ObraDetalheScreen() {
     setDocSheetExpense(expense);
   }, []);
 
-  const handleDocumentCountChange = useCallback((expenseId: string, count: number) => {
-    setDocCounts((prev) => ({ ...prev, [expenseId]: count }));
-  }, []);
+  const handleDocumentCountChange = useCallback(
+    (expenseId: string, count: number) => {
+      setDocCounts((prev) => ({ ...prev, [expenseId]: count }));
+    },
+    [],
+  );
 
   const { updateObra, deleteObra } = useProjects();
   const { refresh: refreshSubscription } = useSubscription();
@@ -140,6 +152,8 @@ export default function ObraDetalheScreen() {
     deleteAllExpenses,
     updateBudget,
     updateTrackFinancial,
+    isExpenseLoading,
+    creatingExpenseId,
   } = useObraData(id!);
 
   const [obraOverride, setObraOverride] = useState<any | null>(null);
@@ -175,7 +189,9 @@ export default function ObraDetalheScreen() {
   if (error && !obra) return <ErrorScreen message={error} onRetry={refresh} />;
   if (!obra) return null;
 
-  const projectRole = (obraView?.myRole ?? obra?.myRole ?? null) as ProjectApiRole;
+  const projectRole = (obraView?.myRole ??
+    obra?.myRole ??
+    null) as ProjectApiRole;
 
   const isCliente = isClientView(projectRole);
   const isEng = !isCliente;
@@ -206,29 +222,20 @@ export default function ObraDetalheScreen() {
       setShowTaskModal(false);
       setEditingTask(undefined);
     } catch (e: unknown) {
-      Alert.alert(
-        "Erro",
-        "Não foi possível salvar a tarefa.",
-      );
+      Alert.alert("Erro", "Não foi possível salvar a tarefa.");
       throw e;
     }
   };
 
   const handleToggleTask = (taskId: string) => {
     toggleTask(taskId).catch(() => {
-      Alert.alert(
-        "Erro",
-        "Não foi possível atualizar a tarefa.",
-      );
+      Alert.alert("Erro", "Não foi possível atualizar a tarefa.");
     });
   };
 
   const handleDeleteTask = (taskId: string) => {
     deleteTask(taskId).catch(() => {
-      Alert.alert(
-        "Erro",
-        "Não foi possível remover a tarefa.",
-      );
+      Alert.alert("Erro", "Não foi possível remover a tarefa.");
     });
   };
 
@@ -270,19 +277,13 @@ export default function ObraDetalheScreen() {
       setShowExpenseModal(false);
       setEditingExpense(undefined);
     } catch {
-      Alert.alert(
-        "Erro",
-        "Não foi possível salvar o gasto.",
-      );
+      Alert.alert("Erro", "Não foi possível salvar o gasto.");
     }
   };
 
   const handleDeleteExpense = (expenseId: string) => {
     deleteExpense(expenseId).catch(() => {
-      Alert.alert(
-        "Erro",
-        "Não foi possível remover o gasto.",
-      );
+      Alert.alert("Erro", "Não foi possível remover o gasto.");
     });
   };
 
@@ -352,10 +353,7 @@ export default function ObraDetalheScreen() {
             try {
               await deleteAllTasks();
             } catch {
-              Alert.alert(
-                "Erro",
-                "Não foi possível excluir as tarefas.",
-              );
+              Alert.alert("Erro", "Não foi possível excluir as tarefas.");
             }
           },
         },
@@ -378,10 +376,7 @@ export default function ObraDetalheScreen() {
             try {
               await deleteAllExpenses();
             } catch {
-              Alert.alert(
-                "Erro",
-                "Não foi possível excluir os gastos.",
-              );
+              Alert.alert("Erro", "Não foi possível excluir os gastos.");
             }
           },
         },
@@ -401,7 +396,9 @@ export default function ObraDetalheScreen() {
           onPress: async () => {
             setIsConcluding(true);
             try {
-              await api.patch(`/projects/${obraView.id}`, { status: "COMPLETED" });
+              await api.patch(`/projects/${obraView.id}`, {
+                status: "COMPLETED",
+              });
               await refresh();
               setObraOverride(null);
             } catch {
@@ -482,6 +479,8 @@ export default function ObraDetalheScreen() {
           onDisableFinancial={handleDisableFinancial}
           docCounts={docCounts}
           onDocumentsPress={handleDocumentsPress}
+          isExpenseLoading={isExpenseLoading}
+          creatingExpenseId={creatingExpenseId}
         />
       )}
 

@@ -1,6 +1,14 @@
-import { Gasto, Tarefa } from "@/data/obras";
 import { useToast } from "@/components/obra/toast";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
+import type { DocumentSource } from "@/data/obras";
+import { Gasto, Tarefa } from "@/data/obras";
+import { documentsService } from "@/services/documents.service";
+import { expensesService } from "@/services/expenses.service";
+import {
+  uploadDocumentToExpense,
+  type LocalDocumentAsset,
+} from "@/utils/document-upload";
 import { formatBRLInput } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, {
@@ -10,7 +18,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   ScrollView,
@@ -22,13 +29,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CaptureOptionsSheet } from "./capture-options-sheet";
-import {
-  uploadDocumentToExpense,
-  type LocalDocumentAsset,
-} from "@/utils/document-upload";
-import type { DocumentSource } from "@/data/obras";
-import { documentsService } from "@/services/documents.service";
-import { expensesService } from "@/services/expenses.service";
 
 const PRIMARY = "#2563EB";
 const MAX_EXPENSE_DESCRIPTION = 30;
@@ -166,14 +166,17 @@ export function ExpenseFormModal({
   const [categoria, setCategoria] = useState<ExpenseCategory>("MATERIAL");
   const [tarefaId, setTarefaId] = useState<string | undefined>(undefined);
   const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
-  const [pendingReceiptName, setPendingReceiptName] = useState<string | null>(null);
+  const [pendingReceiptName, setPendingReceiptName] = useState<string | null>(
+    null,
+  );
   // Creation mode: document staged locally, uploaded only after expense is created.
   const [pendingDocAsset, setPendingDocAsset] = useState<{
     asset: LocalDocumentAsset;
     source: DocumentSource;
   } | null>(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const [deleteReceiptConfirmVisible, setDeleteReceiptConfirmVisible] = useState(false);
+  const [deleteReceiptConfirmVisible, setDeleteReceiptConfirmVisible] =
+    useState(false);
   const [deletingReceipt, setDeletingReceipt] = useState(false);
   const [showCaptureOptions, setShowCaptureOptions] = useState(false);
 
@@ -201,7 +204,9 @@ export function ExpenseFormModal({
       setCategoria(expense.categoria as ExpenseCategory);
       setTarefaId(expense.tarefaId);
       setPendingReceiptId(expense.receiptDocumentId ?? null);
-      setPendingReceiptName(expense.receiptDocumentId ? "Comprovante anexado" : null);
+      setPendingReceiptName(
+        expense.receiptDocumentId ? "Comprovante anexado" : null,
+      );
     } else {
       resetForm();
     }
@@ -271,9 +276,7 @@ export function ExpenseFormModal({
 
   const shouldShowDateValidation = useMemo(
     () =>
-      dateDigitsLen === 8 ||
-      saveAttempted ||
-      (dateTouched && !dateText.trim()),
+      dateDigitsLen === 8 || saveAttempted || (dateTouched && !dateText.trim()),
     [dateDigitsLen, saveAttempted, dateTouched, dateText],
   );
 
@@ -304,6 +307,14 @@ export function ExpenseFormModal({
     // Edit mode: presign → upload → confirm → immediate PATCH.
     setUploadingReceipt(true);
     try {
+      console.warn("DEBUG receiptDocument upload (edit mode)", {
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+        fileSize: asset.fileSize,
+        source,
+        kind: "RECEIPT",
+      });
+
       const doc = await uploadDocumentToExpense(asset, {
         projectId,
         kind: "RECEIPT",
@@ -312,8 +323,13 @@ export function ExpenseFormModal({
       await expensesService.update(expense.id, { receiptDocumentId: doc.id });
       setPendingReceiptId(doc.id);
       setPendingReceiptName(asset.fileName);
-    } catch {
-      showToast({ title: "Erro", message: "Falha ao enviar comprovante", tone: "error" });
+    } catch (err) {
+      console.error("Erro ao fazer upload de comprovante:", err);
+      showToast({
+        title: "Erro",
+        message: "Falha ao enviar comprovante",
+        tone: "error",
+      });
     } finally {
       setUploadingReceipt(false);
     }
@@ -323,11 +339,19 @@ export function ExpenseFormModal({
     if (!pendingReceiptId || !expense) return;
     setDeletingReceipt(true);
     try {
+      // 1. Delete the document from storage/backend
+      await documentsService.remove(projectId, pendingReceiptId);
+      // 2. Unlink from expense
       await expensesService.update(expense.id, { receiptDocumentId: null });
       setPendingReceiptId(null);
       setPendingReceiptName(null);
-    } catch {
-      showToast({ title: "Erro", message: "Falha ao remover comprovante", tone: "error" });
+    } catch (err) {
+      console.error("Erro ao remover comprovante:", err);
+      showToast({
+        title: "Erro",
+        message: "Falha ao remover comprovante",
+        tone: "error",
+      });
     } finally {
       setDeletingReceipt(false);
       setDeleteReceiptConfirmVisible(false);
@@ -338,7 +362,11 @@ export function ExpenseFormModal({
     setSaveAttempted(true);
     const trimmedDescricao = descricao.trim();
     if (!trimmedDescricao) {
-      showToast({ title: "Descrição obrigatória", message: "Informe uma descrição para o gasto.", tone: "error" });
+      showToast({
+        title: "Descrição obrigatória",
+        message: "Informe uma descrição para o gasto.",
+        tone: "error",
+      });
       return;
     }
     if (trimmedDescricao.length > MAX_EXPENSE_DESCRIPTION) {
@@ -350,7 +378,11 @@ export function ExpenseFormModal({
       return;
     }
     if (isNaN(parsedValor) || parsedValor <= 0) {
-      showToast({ title: "Valor inválido", message: "Informe um valor maior que zero.", tone: "error" });
+      showToast({
+        title: "Valor inválido",
+        message: "Informe um valor maior que zero.",
+        tone: "error",
+      });
       return;
     }
     const rawDate = dateText.trim();
@@ -657,7 +689,10 @@ export function ExpenseFormModal({
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.addReceiptBtn, uploadingReceipt && { opacity: 0.7 }]}
+                style={[
+                  styles.addReceiptBtn,
+                  uploadingReceipt && { opacity: 0.7 },
+                ]}
                 onPress={() => setShowCaptureOptions(true)}
                 disabled={uploadingReceipt}
                 activeOpacity={0.8}
@@ -665,7 +700,11 @@ export function ExpenseFormModal({
                 {uploadingReceipt ? (
                   <ActivityIndicator size="small" color={PRIMARY} />
                 ) : (
-                  <MaterialIcons name="add-photo-alternate" size={18} color={PRIMARY} />
+                  <MaterialIcons
+                    name="add-photo-alternate"
+                    size={18}
+                    color={PRIMARY}
+                  />
                 )}
                 <Text style={styles.addReceiptText}>
                   {uploadingReceipt ? "Enviando..." : "Adicionar comprovante"}

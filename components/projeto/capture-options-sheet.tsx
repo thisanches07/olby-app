@@ -10,8 +10,8 @@ import {
   View,
 } from "react-native";
 
-import { AppModal as Modal } from "@/components/ui/app-modal";
 import { useToast } from "@/components/obra/toast";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import type { DocumentSource } from "@/data/obras";
 import type { LocalDocumentAsset } from "@/utils/document-upload";
 
@@ -32,7 +32,11 @@ export function CaptureOptionsSheet({
     onClose();
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      showToast({ title: "Permissão negada", message: "Permissão de câmera negada", tone: "error" });
+      showToast({
+        title: "Permissão negada",
+        message: "Permissão de câmera negada",
+        tone: "error",
+      });
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -53,7 +57,11 @@ export function CaptureOptionsSheet({
     onClose();
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      showToast({ title: "Permissão negada", message: "Permissão de galeria negada", tone: "error" });
+      showToast({
+        title: "Permissão negada",
+        message: "Permissão de galeria negada",
+        tone: "error",
+      });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -146,7 +154,10 @@ export function CaptureOptionsSheet({
         activeOpacity={1}
         onPress={onClose}
       >
-        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+        >
           <View style={styles.sheet}>
             <View style={styles.handle} />
             <Text style={styles.title}>Adicionar comprovante</Text>
@@ -204,7 +215,11 @@ function Option({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.option} onPress={onPress} activeOpacity={0.75}>
+    <TouchableOpacity
+      style={styles.option}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
       <View style={[styles.optionIcon, { backgroundColor: `${color}18` }]}>
         <MaterialIcons name={icon} size={26} color={color} />
       </View>

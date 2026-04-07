@@ -10,12 +10,14 @@ interface ProjectExpensesSectionProps {
   tarefas: Tarefa[];
   onEdit?: (expense: Gasto) => void;
   onDelete?: (id: string) => void;
+  isExpenseLoading?: (expenseId: string) => boolean;
 }
 
 export function ProjectExpensesSection({
   gastos,
   tarefas,
   onEdit,
+  isExpenseLoading,
 }: ProjectExpensesSectionProps) {
   return (
     <>
@@ -38,6 +40,7 @@ export function ProjectExpensesSection({
             expense={expense}
             tarefas={tarefas}
             onEdit={onEdit}
+            isLoading={isExpenseLoading?.(expense.id) ?? false}
           />
         ))
       )}
