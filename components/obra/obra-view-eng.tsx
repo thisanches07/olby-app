@@ -447,6 +447,7 @@ export function ObraViewEng({
           <EngExpensesList
             gastos={gastosMerged}
             tarefas={obra.tarefas}
+            projectId={obra.id}
             onEdit={onEditExpense}
             onDelete={onDeleteExpense}
             onDocumentsPress={onDocumentsPress}

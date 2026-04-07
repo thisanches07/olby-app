@@ -1,13 +1,15 @@
+import { Skeleton } from "@/components/ui/skeleton";
+import { PressableScale } from "@/components/ui/pressable-scale";
 import { Gasto, Tarefa } from "@/data/obras";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 const PRIMARY = "#2563EB";
 
@@ -17,6 +19,8 @@ interface ExpenseItemProps {
   onEdit?: (expense: Gasto) => void;
   onMorePress?: () => void;
   onDocumentsPress?: (expense: Gasto) => void;
+  /** Abre diretamente o comprovante vinculado (sem abrir o sheet de documentos) */
+  onReceiptPress?: (expense: Gasto) => void;
   readOnly?: boolean;
   isLoading?: boolean;
 }
@@ -48,6 +52,7 @@ export function ExpenseItem({
   onEdit,
   onMorePress,
   onDocumentsPress,
+  onReceiptPress,
   readOnly = false,
   isLoading = false,
 }: ExpenseItemProps) {
@@ -74,20 +79,41 @@ export function ExpenseItem({
 
   const canTap = !readOnly && !!onEdit;
 
+  // Loading pulse animation
+  const loadingOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (isLoading) {
+      loadingOpacity.value = withRepeat(
+        withTiming(0.45, { duration: 700 }),
+        -1,
+        true,
+      );
+    } else {
+      loadingOpacity.value = withTiming(1, { duration: 300 });
+    }
+  }, [isLoading]);
+
+  const loadingStyle = useAnimatedStyle(() => ({
+    opacity: loadingOpacity.value,
+  }));
+
   return (
-    <TouchableOpacity
+    <PressableScale
       style={styles.container}
       onPress={canTap ? () => onEdit!(expense) : undefined}
-      activeOpacity={canTap ? 0.82 : 1}
       disabled={!canTap}
+      scaleTo={0.975}
+      haptic={canTap ? "light" : "none"}
     >
-      <View style={styles.content}>
+      <Animated.View style={[styles.content, loadingStyle]}>
+        {/* ── Header: amount + menu ─────────────────────────── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
+            <Text style={styles.value}>{formattedValue}</Text>
             <Text style={styles.description} numberOfLines={2}>
               {expense.descricao}
             </Text>
-            <Text style={styles.value}>{formattedValue}</Text>
           </View>
 
           {!readOnly && onMorePress && (
@@ -102,93 +128,90 @@ export function ExpenseItem({
           )}
         </View>
 
+        {/* ── Thin divider ─────────────────────────────────── */}
+        <View style={styles.divider} />
+
+        {/* ── Footer: date | category dot | attachment ─────── */}
         <View style={styles.footer}>
           <Text style={styles.date}>{isoToBR(expense.data)}</Text>
           <View style={styles.footerRight}>
-            {isLoading ? (
-              <ActivityIndicator size="small" color={PRIMARY} />
-            ) : expense.receiptDocumentId ? (
-              <TouchableOpacity
-                style={styles.docBadge}
-                onPress={() => onDocumentsPress?.(expense)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="attach-file" size={14} color={PRIMARY} />
-              </TouchableOpacity>
-            ) : null}
-            <View
-              style={[
-                styles.categoryBadge,
-                { backgroundColor: categoryConfig.color },
-              ]}
-            >
-              <MaterialIcons
-                name={categoryConfig.icon as any}
-                size={12}
-                color="#FFFFFF"
-                style={styles.categoryIcon}
+            <View style={styles.categoryRow}>
+              <View
+                style={[
+                  styles.categoryDot,
+                  { backgroundColor: categoryConfig.color },
+                ]}
               />
               <Text style={styles.categoryLabel}>{categoryConfig.label}</Text>
             </View>
+            {expense.receiptDocumentId ? (
+              <TouchableOpacity
+                onPress={() =>
+                  onReceiptPress
+                    ? onReceiptPress(expense)
+                    : onDocumentsPress?.(expense)
+                }
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                activeOpacity={0.6}
+              >
+                <MaterialIcons name="attach-file" size={15} color="#9CA3AF" />
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
-        {/* Etapa vinculada — bloco expansível */}
+        {/* ── Linked task: compact row ─────────────────────── */}
         {tarefaVinculada && (
           <TouchableOpacity
-            style={styles.taskBlock}
             onPress={() => setTaskExpanded((v) => !v)}
-            activeOpacity={tarefaVinculada.descricao ? 0.75 : 1}
+            activeOpacity={tarefaVinculada.descricao ? 0.7 : 1}
             disabled={!tarefaVinculada.descricao}
           >
-            <View style={styles.taskBlockHeader}>
-              <View style={styles.taskBlockHeaderLeft}>
-                <MaterialIcons name="link" size={11} color={PRIMARY} />
-                <Text style={styles.taskBlockLabel}>ETAPA VINCULADA</Text>
-              </View>
+            <View style={styles.taskRow}>
+              <MaterialIcons
+                name="link"
+                size={13}
+                color={PRIMARY}
+                style={styles.taskIcon}
+              />
+              <Text
+                style={styles.taskTitle}
+                numberOfLines={taskExpanded ? undefined : 1}
+              >
+                {tarefaVinculada.titulo}
+              </Text>
               {tarefaVinculada.descricao ? (
                 <MaterialIcons
                   name={taskExpanded ? "expand-less" : "expand-more"}
-                  size={15}
-                  color="#93C5FD"
+                  size={14}
+                  color={PRIMARY}
                 />
               ) : null}
             </View>
-
-            <Text
-              style={styles.taskBlockTitle}
-              numberOfLines={taskExpanded ? undefined : 1}
-            >
-              {tarefaVinculada.titulo}
-            </Text>
-
             {taskExpanded && tarefaVinculada.descricao ? (
-              <Text style={styles.taskBlockDesc}>
-                {tarefaVinculada.descricao}
-              </Text>
+              <Text style={styles.taskDesc}>{tarefaVinculada.descricao}</Text>
             ) : null}
           </TouchableOpacity>
         )}
-      </View>
-    </TouchableOpacity>
+      </Animated.View>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
     elevation: 2,
   },
   content: {
-    gap: 8,
+    gap: 0,
   },
   header: {
     flexDirection: "row",
@@ -200,16 +223,17 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  description: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    lineHeight: 20,
-  },
   value: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: "700",
-    color: PRIMARY,
+    color: "#111827",
+    letterSpacing: -0.3,
+  },
+  description: {
+    fontSize: 13,
+    fontWeight: "400",
+    color: "#6B7280",
+    lineHeight: 18,
   },
   moreBtn: {
     width: 28,
@@ -218,86 +242,118 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: -2,
   },
+  divider: {
+    height: 1,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 12,
+  },
   footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
   },
   footerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-  },
-  docBadge: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EFF6FF",
-    width: 28,
-    height: 28,
-    borderRadius: 6,
+    gap: 10,
   },
   date: {
     fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
+    color: "#9CA3AF",
+    fontWeight: "400",
   },
-  categoryBadge: {
+  categoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    gap: 5,
   },
-  categoryIcon: {
-    marginRight: 2,
+  categoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   categoryLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#9CA3AF",
+    fontWeight: "400",
   },
-
-  // ── Bloco de etapa vinculada ──────────────────────────────
-  taskBlock: {
+  taskRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     marginTop: 10,
-    backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderLeftWidth: 3,
-    borderLeftColor: PRIMARY,
   },
-  taskBlockHeader: {
+  taskIcon: {
+    marginTop: 1,
+  },
+  taskTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "500",
+    color: PRIMARY,
+    lineHeight: 18,
+  },
+  taskDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    lineHeight: 17,
+    marginTop: 4,
+    marginLeft: 18,
+  },
+});
+
+// ─── Skeleton card (mirrors real card layout) ──────────────────────────────
+
+export function ExpenseSkeletonCard() {
+  return (
+    <View style={skeletonStyles.container}>
+      <Skeleton width="40%" height={20} borderRadius={6} />
+      <Skeleton
+        width="65%"
+        height={13}
+        borderRadius={5}
+        style={skeletonStyles.mt6}
+      />
+      <View style={skeletonStyles.divider} />
+      <View style={skeletonStyles.footerRow}>
+        <Skeleton width={70} height={11} borderRadius={4} />
+        <View style={skeletonStyles.footerRight}>
+          <Skeleton width={50} height={11} borderRadius={4} />
+          <Skeleton width={14} height={14} borderRadius={3} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  mt6: {
+    marginTop: 6,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 12,
+  },
+  footerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
   },
-  taskBlockHeaderLeft: {
+  footerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-  },
-  taskBlockLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#93C5FD",
-    letterSpacing: 0.5,
-  },
-  taskBlockTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1E40AF",
-    lineHeight: 18,
-  },
-  taskBlockDesc: {
-    fontSize: 12,
-    color: "#3B82F6",
-    fontWeight: "400",
-    lineHeight: 17,
-    marginTop: 6,
-    opacity: 0.9,
+    gap: 8,
   },
 });

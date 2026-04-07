@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
+import { FirebaseRecaptchaVerifierModal } from "@/components/firebase-recaptcha-verifier";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -140,7 +140,7 @@ export function PhoneVerifyModal({
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(60);
 
-  const recaptchaRef = useRef<FirebaseRecaptchaVerifierModal>(null);
+  const recaptchaRef = useRef<import("firebase/auth").ApplicationVerifier>(null);
   const confirmationRef = useRef<Awaited<
     ReturnType<typeof sendPhoneCode>
   > | null>(null);

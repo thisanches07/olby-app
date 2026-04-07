@@ -1,11 +1,13 @@
-import { ExpenseItem } from "@/components/projeto/expense-item";
+import { ExpenseItem, ExpenseSkeletonCard } from "@/components/projeto/expense-item";
+import { DocumentViewerModal } from "@/components/projeto/document-viewer-modal";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
-import type { Gasto, Tarefa } from "@/data/obras";
+import { FadeSlideIn } from "@/components/ui/fade-slide-in";
+import type { DocumentAttachment, Gasto, Tarefa } from "@/data/obras";
+import { documentsService } from "@/services/documents.service";
 import { PRIMARY } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Modal,
   StyleSheet,
   Text,
@@ -47,6 +49,7 @@ function toDisplayDate(data: string): string {
 interface EngExpensesListProps {
   gastos: Gasto[];
   tarefas: Tarefa[];
+  projectId?: string;
   onEdit: (expense: Gasto) => void;
   onDelete: (id: string) => void;
   onDocumentsPress?: (expense: Gasto) => void;
@@ -63,6 +66,7 @@ interface EngExpensesListProps {
 export function EngExpensesList({
   gastos,
   tarefas,
+  projectId,
   onEdit,
   onDelete,
   onDocumentsPress,
@@ -76,6 +80,20 @@ export function EngExpensesList({
   creatingExpenseId,
 }: EngExpensesListProps) {
   const [query, setQuery] = useState("");
+
+  const [viewingReceipt, setViewingReceipt] = useState<DocumentAttachment | null>(null);
+
+  const handleReceiptPress = projectId
+    ? async (expense: Gasto) => {
+        if (!expense.receiptDocumentId) return;
+        try {
+          const doc = await documentsService.getById(projectId, expense.receiptDocumentId);
+          setViewingReceipt(doc);
+        } catch {
+          // silently ignore — user can still tap "ver documentos" via the action sheet
+        }
+      }
+    : undefined;
   const [actionExpense, setActionExpense] = useState<Gasto | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [deleteConfirmExpense, setDeleteConfirmExpense] =
@@ -195,12 +213,9 @@ export function EngExpensesList({
       )}
 
       {creatingExpenseId && (
-        <View style={styles.loadingExpenseContainer}>
-          <View style={styles.loadingExpenseContent}>
-            <View style={styles.loadingExpenseSkeleton} />
-            <ActivityIndicator size="small" color={PRIMARY} />
-          </View>
-        </View>
+        <FadeSlideIn index={0} staggerMs={0}>
+          <ExpenseSkeletonCard />
+        </FadeSlideIn>
       )}
 
       {filteredGastos.length === 0 ? (
@@ -213,17 +228,19 @@ export function EngExpensesList({
           </Text>
         </View>
       ) : (
-        filteredGastos.map((expense) => (
-          <ExpenseItem
-            key={expense.id}
-            expense={expense}
-            tarefas={tarefas}
-            onEdit={readOnly ? undefined : onEdit}
-            onMorePress={() => setActionExpense(expense)}
-            onDocumentsPress={onDocumentsPress}
-            readOnly={readOnly}
-            isLoading={isExpenseLoading?.(expense.id) ?? false}
-          />
+        filteredGastos.map((expense, index) => (
+          <FadeSlideIn key={expense.id} index={index}>
+            <ExpenseItem
+              expense={expense}
+              tarefas={tarefas}
+              onEdit={readOnly ? undefined : onEdit}
+              onMorePress={() => setActionExpense(expense)}
+              onDocumentsPress={onDocumentsPress}
+              onReceiptPress={handleReceiptPress}
+              readOnly={readOnly}
+              isLoading={isExpenseLoading?.(expense.id) ?? false}
+            />
+          </FadeSlideIn>
         ))
       )}
 
@@ -397,34 +414,20 @@ export function EngExpensesList({
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {projectId && (
+        <DocumentViewerModal
+          visible={!!viewingReceipt}
+          document={viewingReceipt}
+          projectId={projectId}
+          onClose={() => setViewingReceipt(null)}
+        />
+      )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  // ── Loading skeleton while creating ────────────────────────────────────────
-  loadingExpenseContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 8,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  loadingExpenseContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  loadingExpenseSkeleton: {
-    flex: 1,
-    height: 60,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 8,
-  },
-
   // ── Disabled state ──────────────────────────────────────────────────────────
   disabledContainer: {
     alignItems: "center",

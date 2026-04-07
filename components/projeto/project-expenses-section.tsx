@@ -1,4 +1,5 @@
 import { ExpenseItem } from "@/components/projeto/expense-item";
+import { FadeSlideIn } from "@/components/ui/fade-slide-in";
 import type { Gasto, Tarefa } from "@/data/obras";
 import { PRIMARY } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -34,14 +35,15 @@ export function ProjectExpensesSection({
           <Text style={styles.emptyStateText}>Nenhum gasto registrado</Text>
         </View>
       ) : (
-        gastos.map((expense) => (
-          <ExpenseItem
-            key={expense.id}
-            expense={expense}
-            tarefas={tarefas}
-            onEdit={onEdit}
-            isLoading={isExpenseLoading?.(expense.id) ?? false}
-          />
+        gastos.map((expense, index) => (
+          <FadeSlideIn key={expense.id} index={index}>
+            <ExpenseItem
+              expense={expense}
+              tarefas={tarefas}
+              onEdit={onEdit}
+              isLoading={isExpenseLoading?.(expense.id) ?? false}
+            />
+          </FadeSlideIn>
         ))
       )}
     </>
