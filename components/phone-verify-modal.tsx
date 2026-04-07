@@ -6,6 +6,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   StyleSheet,
   Text,
@@ -158,6 +159,44 @@ export function PhoneVerifyModal({
   const slideAnim = useRef(new Animated.Value(320)).current;
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Swipe-to-dismiss
+  const panY = useRef(new Animated.Value(0)).current;
+
+  // Refs espelho para evitar stale closures no PanResponder
+  const stepRef = useRef<Step>(step);
+  const mandatoryRef = useRef<boolean>(mandatory);
+  const dismissRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    mandatoryRef.current = mandatory;
+  }, [mandatory]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) =>
+        gs.dy > 5 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) panY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (
+          (gs.dy > 100 || gs.vy > 0.5) &&
+          stepRef.current !== "success" &&
+          !mandatoryRef.current
+        ) {
+          dismissRef.current();
+        } else {
+          Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
+
   // Pre-fill phone digits from prop (strip non-digits, remove leading +55)
   useEffect(() => {
     if (visible && initialPhone) {
@@ -196,6 +235,8 @@ export function PhoneVerifyModal({
       setCountdown(60);
       confirmationRef.current = null;
       if (countdownRef.current) clearInterval(countdownRef.current);
+      successScale.setValue(0);
+      panY.setValue(0);
     }
   }, [visible]);
 
@@ -227,6 +268,7 @@ export function PhoneVerifyModal({
 
   const dismiss = useCallback(() => {
     Keyboard.dismiss();
+    panY.setValue(0);
     Animated.parallel([
       Animated.timing(overlayAnim, {
         toValue: 0,
@@ -239,7 +281,11 @@ export function PhoneVerifyModal({
         useNativeDriver: true,
       }),
     ]).start(() => onClose());
-  }, [overlayAnim, slideAnim, onClose]);
+  }, [overlayAnim, slideAnim, onClose, panY]);
+
+  useEffect(() => {
+    dismissRef.current = dismiss;
+  }, [dismiss]);
 
   const shake = useCallback(() => {
     Animated.sequence([
@@ -427,7 +473,11 @@ export function PhoneVerifyModal({
         cancelLabel="Cancelar"
       />
 
-      <View style={styles.root}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
         {/* Overlay */}
         <Animated.View
           style={[styles.overlay, { opacity: overlayAnim }]}
@@ -435,19 +485,26 @@ export function PhoneVerifyModal({
         >
           <TouchableOpacity
             style={{ flex: 1 }}
-            onPress={() => step !== "success" && !mandatory && dismiss()}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (step !== "success" && !mandatory) dismiss();
+            }}
             activeOpacity={1}
           />
         </Animated.View>
 
         {/* Card */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        <Animated.View
+          style={[
+            styles.card,
+            { transform: [{ translateY: Animated.add(slideAnim, panY) }] },
+          ]}
         >
-          <Animated.View
-            style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
-          >
-            <View style={styles.handle} />
+          <View
+            style={styles.handle}
+            hitSlop={{ top: 20, bottom: 20, left: 80, right: 80 }}
+            {...panResponder.panHandlers}
+          />
 
             {/* ── Phone Step ── */}
             {step === "phone" && (
@@ -613,9 +670,8 @@ export function PhoneVerifyModal({
                 </Text>
               </>
             )}
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
