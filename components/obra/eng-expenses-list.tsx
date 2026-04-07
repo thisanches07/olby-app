@@ -1,3 +1,4 @@
+import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { ExpenseItem } from "@/components/projeto/expense-item";
 import type { Gasto, Tarefa } from "@/data/obras";
 import { PRIMARY } from "@/utils/obra-utils";
@@ -72,6 +73,7 @@ export function EngExpensesList({
   const [query, setQuery] = useState("");
   const [actionExpense, setActionExpense] = useState<Gasto | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [deleteConfirmExpense, setDeleteConfirmExpense] = useState<Gasto | null>(null);
 
   // Sempre ordenado por data decrescente (mais recente primeiro)
   const sortedGastos = useMemo(
@@ -266,7 +268,7 @@ export function EngExpensesList({
                   style={styles.actionSheetItem}
                   onPress={() => {
                     if (actionExpense) {
-                      onDelete(actionExpense.id);
+                      setDeleteConfirmExpense(actionExpense);
                       setActionExpense(null);
                     }
                   }}
@@ -281,6 +283,24 @@ export function EngExpensesList({
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ── Confirmação de exclusão de gasto ─────────────────────────────────── */}
+      <ConfirmSheet
+        visible={!!deleteConfirmExpense}
+        icon="delete-outline"
+        iconColor="#EF4444"
+        title="Excluir gasto?"
+        message="Essa ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (deleteConfirmExpense) {
+            onDelete(deleteConfirmExpense.id);
+            setDeleteConfirmExpense(null);
+          }
+        }}
+        onClose={() => setDeleteConfirmExpense(null)}
+      />
 
       {/* ── Action sheet — menu do header (ações destrutivas) ────────────────── */}
       <Modal
