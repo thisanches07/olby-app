@@ -267,7 +267,7 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
 
 export default function LoginScreen() {
   const { showToast } = useToast();
-  const { setRegistrationInProgress } = useAuth();
+  const { setRegistrationInProgress, setPhoneVerified } = useAuth();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -749,6 +749,7 @@ export default function LoginScreen() {
           await completeRegistrationWithPhone(email, senha, nome, phoneE164);
         }}
         onSuccess={() => {
+          setPhoneVerified(new Date().toISOString());
           setRegistrationInProgress(false);
           router.replace("/(tabs)");
         }}

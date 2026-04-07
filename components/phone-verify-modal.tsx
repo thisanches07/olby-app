@@ -1,11 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Keyboard,
@@ -19,7 +14,11 @@ import {
   View,
 } from "react-native";
 
-import { type BackendUser, linkPhoneWithCode, sendPhoneCode } from "@/services/auth.service";
+import {
+  type BackendUser,
+  linkPhoneWithCode,
+  sendPhoneCode,
+} from "@/services/auth.service";
 import { firebaseApp } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -142,8 +141,17 @@ export function PhoneVerifyModal({
   const [countdown, setCountdown] = useState(60);
 
   const recaptchaRef = useRef<FirebaseRecaptchaVerifierModal>(null);
-  const confirmationRef = useRef<Awaited<ReturnType<typeof sendPhoneCode>> | null>(null);
-  const otpRefs = useRef<Array<TextInput | null>>([null, null, null, null, null, null]);
+  const confirmationRef = useRef<Awaited<
+    ReturnType<typeof sendPhoneCode>
+  > | null>(null);
+  const otpRefs = useRef<Array<TextInput | null>>([
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ]);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -235,11 +243,31 @@ export function PhoneVerifyModal({
 
   const shake = useCallback(() => {
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, {
+        toValue: 8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 0,
+        duration: 60,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, [shakeAnim]);
 
@@ -413,152 +441,180 @@ export function PhoneVerifyModal({
         </Animated.View>
 
         {/* Card */}
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <Animated.View style={[styles.card, { transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.handle} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Animated.View
+            style={[styles.card, { transform: [{ translateY: slideAnim }] }]}
+          >
+            <View style={styles.handle} />
 
-          {/* ── Phone Step ── */}
-          {step === "phone" && (
-            <>
-              <View style={styles.iconWrap}>
-                <MaterialIcons name="phone-iphone" size={30} color={colors.primary} />
-              </View>
-              <Text style={styles.title}>Verificar número</Text>
-              <Text style={styles.subtitle}>
-                Enviaremos um SMS com um código de 6 dígitos para confirmar seu número.
-              </Text>
-
-              <View style={styles.phoneRow}>
-                <View style={styles.ddiChip}>
-                  <Text style={styles.ddiText}>🇧🇷 +55</Text>
+            {/* ── Phone Step ── */}
+            {step === "phone" && (
+              <>
+                <View style={styles.iconWrap}>
+                  <MaterialIcons
+                    name="phone-iphone"
+                    size={30}
+                    color={colors.primary}
+                  />
                 </View>
-                <TextInput
-                  style={styles.phoneInput}
-                  value={formattedPhone}
-                  onChangeText={handlePhoneInput}
-                  placeholder="(11) 99999-8888"
-                  placeholderTextColor={colors.subtext}
-                  keyboardType="phone-pad"
-                  autoFocus
-                  selectionColor={colors.primary}
-                />
-              </View>
-
-              {!!error && (
-                <View style={styles.errorRow}>
-                  <MaterialIcons name="error-outline" size={14} color={colors.danger} />
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[styles.primaryBtn, !canSend && styles.primaryBtnDisabled]}
-                onPress={handleSendCode}
-                disabled={!canSend}
-                activeOpacity={0.85}
-              >
-                {isLoading ? (
-                  <Text style={styles.primaryBtnText}>Enviando...</Text>
-                ) : (
-                  <Text style={styles.primaryBtnText}>Continuar</Text>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
-
-          {/* ── OTP Step ── */}
-          {step === "otp" && (
-            <>
-              <View style={styles.iconWrap}>
-                <MaterialIcons name="sms" size={30} color={colors.primary} />
-              </View>
-              <Text style={styles.title}>Digite o código</Text>
-              <Text style={styles.subtitle}>
-                Enviamos um SMS para{"\n"}
-                <Text style={{ fontWeight: "700", color: colors.text }}>
-                  {maskedDisplay}
+                <Text style={styles.title}>Verificar número</Text>
+                <Text style={styles.subtitle}>
+                  Enviaremos um SMS com um código de 6 dígitos para confirmar
+                  seu número.
                 </Text>
-              </Text>
 
-              <OtpInput
-                otp={otp}
-                inputRefs={otpRefs}
-                shakeAnim={shakeAnim}
-                hasError={!!error}
-                onChange={handleOtpChange}
-                onKeyPress={handleOtpKeyPress}
-              />
-
-              {!!error && (
-                <View style={styles.errorRow}>
-                  <MaterialIcons name="error-outline" size={14} color={colors.danger} />
-                  <Text style={styles.errorText}>{error}</Text>
+                <View style={styles.phoneRow}>
+                  <View style={styles.ddiChip}>
+                    <Text style={styles.ddiText}>🇧🇷 +55</Text>
+                  </View>
+                  <TextInput
+                    style={styles.phoneInput}
+                    value={formattedPhone}
+                    onChangeText={handlePhoneInput}
+                    placeholder="(11) 99999-8888"
+                    placeholderTextColor={colors.subtext}
+                    keyboardType="phone-pad"
+                    autoFocus
+                    selectionColor={colors.primary}
+                  />
                 </View>
-              )}
 
-              <TouchableOpacity
-                style={[styles.primaryBtn, !canVerify && styles.primaryBtnDisabled]}
-                onPress={handleVerifyCode}
-                disabled={!canVerify}
-                activeOpacity={0.85}
-              >
-                {isLoading ? (
-                  <Text style={styles.primaryBtnText}>Verificando...</Text>
-                ) : (
-                  <Text style={styles.primaryBtnText}>Verificar</Text>
+                {!!error && (
+                  <View style={styles.errorRow}>
+                    <MaterialIcons
+                      name="error-outline"
+                      size={14}
+                      color={colors.danger}
+                    />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
                 )}
-              </TouchableOpacity>
 
-              {countdown > 0 ? (
-                <Text style={styles.resendTimer}>
-                  Reenviar código em{" "}
-                  <Text style={{ fontWeight: "700" }}>{countdownDisplay}</Text>
-                </Text>
-              ) : (
                 <TouchableOpacity
-                  onPress={handleResend}
-                  disabled={isLoading}
+                  style={[
+                    styles.primaryBtn,
+                    !canSend && styles.primaryBtnDisabled,
+                  ]}
+                  onPress={handleSendCode}
+                  disabled={!canSend}
+                  activeOpacity={0.85}
+                >
+                  {isLoading ? (
+                    <Text style={styles.primaryBtnText}>Enviando...</Text>
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Continuar</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* ── OTP Step ── */}
+            {step === "otp" && (
+              <>
+                <View style={styles.iconWrap}>
+                  <MaterialIcons name="sms" size={30} color={colors.primary} />
+                </View>
+                <Text style={styles.title}>Digite o código</Text>
+                <Text style={styles.subtitle}>
+                  Enviamos um SMS para{"\n"}
+                  <Text style={{ fontWeight: "700", color: colors.text }}>
+                    {maskedDisplay}
+                  </Text>
+                </Text>
+
+                <OtpInput
+                  otp={otp}
+                  inputRefs={otpRefs}
+                  shakeAnim={shakeAnim}
+                  hasError={!!error}
+                  onChange={handleOtpChange}
+                  onKeyPress={handleOtpKeyPress}
+                />
+
+                {!!error && (
+                  <View style={styles.errorRow}>
+                    <MaterialIcons
+                      name="error-outline"
+                      size={14}
+                      color={colors.danger}
+                    />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.primaryBtn,
+                    !canVerify && styles.primaryBtnDisabled,
+                  ]}
+                  onPress={handleVerifyCode}
+                  disabled={!canVerify}
+                  activeOpacity={0.85}
+                >
+                  {isLoading ? (
+                    <Text style={styles.primaryBtnText}>Verificando...</Text>
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Verificar</Text>
+                  )}
+                </TouchableOpacity>
+
+                {countdown > 0 ? (
+                  <Text style={styles.resendTimer}>
+                    Reenviar código em{" "}
+                    <Text style={{ fontWeight: "700" }}>
+                      {countdownDisplay}
+                    </Text>
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleResend}
+                    disabled={isLoading}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.resendLink}>
+                      Não recebi o código. Reenviar
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={() => {
+                    setStep("phone");
+                    setError("");
+                    setOtp(["", "", "", "", "", ""]);
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.resendLink}>
-                    Não recebi o código. Reenviar
-                  </Text>
+                  <Text style={styles.backBtnText}>Alterar número</Text>
                 </TouchableOpacity>
-              )}
+              </>
+            )}
 
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={() => {
-                  setStep("phone");
-                  setError("");
-                  setOtp(["", "", "", "", "", ""]);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.backBtnText}>Alterar número</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {/* ── Success Step ── */}
-          {step === "success" && (
-            <>
-              <Animated.View
-                style={[styles.successIcon, { transform: [{ scale: successScale }] }]}
-              >
-                <MaterialIcons
-                  name="check-circle"
-                  size={64}
-                  color={colors.success}
-                />
-              </Animated.View>
-              <Text style={styles.title}>Número verificado!</Text>
-              <Text style={styles.subtitle}>
-                Seu número foi verificado com sucesso.
-              </Text>
-            </>
-          )}
-        </Animated.View>
+            {/* ── Success Step ── */}
+            {step === "success" && (
+              <>
+                <Animated.View
+                  style={[
+                    styles.successIcon,
+                    { transform: [{ scale: successScale }] },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="check-circle"
+                    size={64}
+                    color={colors.success}
+                  />
+                </Animated.View>
+                <Text style={styles.title}>Número verificado!</Text>
+                <Text style={styles.subtitle}>
+                  Seu número foi verificado com sucesso.
+                </Text>
+              </>
+            )}
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
