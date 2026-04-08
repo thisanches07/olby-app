@@ -8,6 +8,7 @@ interface ClienteCTAButtonProps {
   onGaleria?: () => void;
   onDocumentos?: () => void;
   onGastos?: () => void;
+  onTarefas?: () => void;
   activeKey?: string;
 }
 
@@ -30,12 +31,12 @@ const ACTIONS = [
     label: "Gastos",
     color: "#059669",
   },
-  // {
-  //   key: "documentos" as const,
-  //   icon: "folder-open" as const,
-  //   label: "Docs",
-  //   color: "#7C3AED",
-  // },
+  {
+    key: "tarefas" as const,
+    icon: "task-alt" as const,
+    label: "Tarefas",
+    color: "#7C3AED",
+  },
 ];
 
 export function ClienteCTAButton({
@@ -52,6 +53,7 @@ export function ClienteCTAButton({
     galeria: onGaleria,
     gastos: onGastos,
     documentos: onDocumentos,
+    tarefas: onTarefas,
   };
 
   return (

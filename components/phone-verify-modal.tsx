@@ -473,15 +473,10 @@ export function PhoneVerifyModal({
         cancelLabel="Cancelar"
       />
 
-      <KeyboardAvoidingView
-        style={styles.root}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-      >
-        {/* Overlay */}
+      <View style={styles.root}>
+        {/* Overlay — fora do KAV para sempre cobrir a tela toda */}
         <Animated.View
           style={[styles.overlay, { opacity: overlayAnim }]}
-          pointerEvents="box-none"
         >
           <TouchableOpacity
             style={{ flex: 1 }}
@@ -493,18 +488,40 @@ export function PhoneVerifyModal({
           />
         </Animated.View>
 
-        {/* Card */}
-        <Animated.View
-          style={[
-            styles.card,
-            { transform: [{ translateY: Animated.add(slideAnim, panY) }] },
-          ]}
+        {/* KAV apenas para o card — behavior=padding em ambas as plataformas */}
+        <KeyboardAvoidingView
+          style={styles.kavContainer}
+          behavior="padding"
+          pointerEvents="box-none"
         >
-          <View
-            style={styles.handle}
-            hitSlop={{ top: 20, bottom: 20, left: 80, right: 80 }}
-            {...panResponder.panHandlers}
-          />
+          {/* Spacer transparente empurra o card para o fundo */}
+          <View style={{ flex: 1 }} pointerEvents="none" />
+
+          {/* Card */}
+          <Animated.View
+            style={[
+              styles.card,
+              { transform: [{ translateY: Animated.add(slideAnim, panY) }] },
+            ]}
+          >
+            {/* Header: handle + botão X */}
+            <View style={styles.cardHeader}>
+              <View
+                style={styles.handle}
+                hitSlop={{ top: 20, bottom: 20, left: 80, right: 80 }}
+                {...panResponder.panHandlers}
+              />
+              {step !== "success" && !mandatory && (
+                <TouchableOpacity
+                  style={styles.closeBtn}
+                  onPress={dismiss}
+                  hitSlop={12}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="close" size={22} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* ── Phone Step ── */}
             {step === "phone" && (
@@ -670,8 +687,9 @@ export function PhoneVerifyModal({
                 </Text>
               </>
             )}
-        </Animated.View>
-      </KeyboardAvoidingView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -680,12 +698,14 @@ export function PhoneVerifyModal({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
-    justifyContent: "flex-end",
+    ...StyleSheet.absoluteFillObject,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.48)",
+  },
+  kavContainer: {
+    ...StyleSheet.absoluteFillObject,
   },
   card: {
     backgroundColor: colors.surface,
@@ -696,12 +716,24 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? spacing[40] : spacing[32],
     alignItems: "center",
   },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    marginBottom: spacing[24],
+  },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.border,
-    marginBottom: spacing[24],
+  },
+  closeBtn: {
+    position: "absolute",
+    right: 0,
+    top: -6,
+    padding: spacing[4],
   },
   iconWrap: {
     width: 64,

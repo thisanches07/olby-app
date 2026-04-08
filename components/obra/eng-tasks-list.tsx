@@ -1,11 +1,14 @@
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
+import { FadeSlideIn } from "@/components/ui/fade-slide-in";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Tarefa } from "@/data/obras";
 import { PRIMARY, getPriorityConfig } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,7 +21,237 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from "react-native-draggable-flatlist";
 import { Swipeable } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
+// ─── Priority badge background colors ────────────────────────────────────────
+const PRIORITY_BG: Record<string, string> = {
+  ALTA: "#FEE2E2",
+  MEDIA: "#FFF7ED",
+  BAIXA: "#F0FDF4",
+};
+
+// ─── Animated checkbox sub-component ─────────────────────────────────────────
+function TaskCheckbox({
+  checked,
+  readOnly,
+  onPress,
+}: {
+  checked: boolean;
+  readOnly: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    scale.value = withSpring(1.3, { damping: 8, stiffness: 400 }, () => {
+      scale.value = withSpring(1, { damping: 12, stiffness: 300 });
+    });
+    onPress();
+  };
+
+  return (
+    <Pressable onPress={handlePress} disabled={readOnly} hitSlop={8}>
+      <Animated.View
+        style={[
+          styles.checkbox,
+          checked && styles.checkboxChecked,
+          readOnly && !checked && styles.checkboxReadOnly,
+          animStyle,
+        ]}
+      >
+        {checked && <MaterialIcons name="check" size={14} color="#FFFFFF" />}
+        {readOnly && !checked && (
+          <MaterialIcons name="lock" size={11} color="#9CA3AF" />
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ─── Animated progress bar ────────────────────────────────────────────────────
+function ProgressBar({ pct }: { pct: number }) {
+  const width = useSharedValue(0);
+
+  useEffect(() => {
+    width.value = withTiming(pct, { duration: 600 });
+  }, [pct]);
+
+  const barStyle = useAnimatedStyle(() => ({
+    width: `${width.value * 100}%` as any,
+  }));
+
+  return (
+    <View style={styles.progressTrack}>
+      <Animated.View style={[styles.progressFill, barStyle]} />
+    </View>
+  );
+}
+
+// ─── TaskCard props ───────────────────────────────────────────────────────────
+interface TaskCardProps {
+  tarefa: Tarefa;
+  readOnly: boolean;
+  showActions: boolean;
+  expandedIds: Set<string>;
+  onTogglePress: () => void;
+  onToggleExpand: (id: string) => void;
+  onEdit?: (task: Tarefa) => void;
+  onMorePress?: (task: Tarefa) => void;
+  drag?: () => void;
+  isActive?: boolean;
+}
+
+// ─── Individual task card (proper component to hold its own hooks) ────────────
+function TaskCard({
+  tarefa,
+  readOnly,
+  showActions,
+  expandedIds,
+  onTogglePress,
+  onToggleExpand,
+  onEdit,
+  onMorePress,
+  drag,
+  isActive,
+}: TaskCardProps) {
+  const prio = getPriorityConfig(tarefa.prioridade);
+  const isExpanded = expandedIds.has(tarefa.id);
+  const hasLongDesc =
+    !!tarefa.descricao &&
+    (tarefa.descricao.length > 70 || tarefa.descricao.includes("\n"));
+
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Pressable
+      onPressIn={
+        readOnly || drag
+          ? undefined
+          : () => {
+              scale.value = withSpring(0.975, { damping: 15, stiffness: 300 });
+            }
+      }
+      onPressOut={() => {
+        scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+      }}
+      onPress={readOnly || drag ? undefined : onTogglePress}
+    >
+      <Animated.View
+        style={[
+          styles.tarefaCard,
+          tarefa.concluida && styles.tarefaCardConcluida,
+          readOnly && styles.tarefaCardReadOnly,
+          isActive && styles.tarefaCardDragging,
+          animStyle,
+        ]}
+      >
+
+        {/* Checkbox */}
+        <TaskCheckbox
+          checked={tarefa.concluida}
+          readOnly={readOnly}
+          onPress={onTogglePress}
+        />
+
+        {/* Content */}
+        <View style={styles.tarefaInfo}>
+          <Text
+            style={[
+              styles.tarefaTitulo,
+              tarefa.concluida && styles.tarefaTituloConcluido,
+            ]}
+            numberOfLines={2}
+          >
+            {tarefa.titulo}
+          </Text>
+
+          {tarefa.descricao ? (
+            <>
+              <Text
+                style={styles.tarefaDesc}
+                numberOfLines={isExpanded ? undefined : 2}
+              >
+                {tarefa.descricao}
+              </Text>
+
+              {hasLongDesc && (
+                <TouchableOpacity
+                  onPress={() => onToggleExpand(tarefa.id)}
+                  hitSlop={{ top: 4, bottom: 8, left: 0, right: 16 }}
+                  activeOpacity={0.6}
+                  style={styles.expandRow}
+                >
+                  <Text style={styles.expandBtnText}>
+                    {isExpanded ? "Ver menos" : "Ver mais"}
+                  </Text>
+                  <MaterialIcons
+                    name={isExpanded ? "expand-less" : "expand-more"}
+                    size={14}
+                    color={PRIMARY}
+                  />
+                </TouchableOpacity>
+              )}
+            </>
+          ) : null}
+        </View>
+
+        {/* Priority badge */}
+        <View
+          style={[
+            styles.prioBadge,
+            { backgroundColor: PRIORITY_BG[tarefa.prioridade] ?? "#F3F4F6" },
+          ]}
+        >
+          <Text style={[styles.prioText, { color: prio.color }]}>
+            {prio.label}
+          </Text>
+        </View>
+
+        {/* Overflow menu */}
+        {showActions && onMorePress && !readOnly && (
+          <TouchableOpacity
+            onPress={() => onMorePress(tarefa)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+            style={styles.moreBtn}
+            activeOpacity={0.6}
+          >
+            <MaterialIcons name="more-vert" size={20} color="#C4C9D4" />
+          </TouchableOpacity>
+        )}
+
+        {/* Drag handle */}
+        {drag && (
+          <TouchableOpacity
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              drag();
+            }}
+            delayLongPress={150}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            activeOpacity={0.4}
+            style={styles.dragHandle}
+          >
+            <MaterialIcons name="drag-indicator" size={22} color="#C4C9D4" />
+          </TouchableOpacity>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ─── Main component props ─────────────────────────────────────────────────────
 interface EngTasksListProps {
   tarefas: Tarefa[];
   onToggle: (id: string) => void;
@@ -50,6 +283,10 @@ export function EngTasksList({
   scrollPadBottom,
 }: EngTasksListProps) {
   const ativas = tarefas.filter((t) => !t.concluida).length;
+  const total = tarefas.length;
+  const concluidas = tarefas.filter((t) => t.concluida).length;
+  const progressPct = total > 0 ? concluidas / total : 0;
+
   const [availableHeight, setAvailableHeight] = useState(0);
 
   // ── Busca ─────────────────────────────────────────────────────────────────
@@ -93,10 +330,6 @@ export function EngTasksList({
     !dragEnabled && !showActions && onDelete && !readOnly,
   );
 
-  // Descrição longa se > 70 chars ou contém quebras de linha
-  const isLongDesc = (desc: string) =>
-    desc.length > 70 || desc.includes("\n");
-
   // Fecha a linha anterior quando outra abre (padrão premium)
   const openRowRef = useRef<Swipeable | null>(null);
 
@@ -119,156 +352,53 @@ export function EngTasksList({
     </View>
   );
 
-  // ── Render single task card ────────────────────────────────────────────────
-  const renderCard = (
-    tarefa: Tarefa,
-    opts?: { drag?: () => void; isActive?: boolean },
-  ) => {
-    const prio = getPriorityConfig(tarefa.prioridade);
-    const isExpanded = expandedIds.has(tarefa.id);
-    const hasLongDesc = !!tarefa.descricao && isLongDesc(tarefa.descricao);
-
-    const handleTogglePress = () => {
-      if (readOnly) return;
-      // Only show confirm when marking as complete; undo is immediate
+  // ── Build task card handler ────────────────────────────────────────────────
+  const makeTogglePress = useCallback(
+    (tarefa: Tarefa) => {
+      if (readOnly) return () => {};
       if (!tarefa.concluida) {
-        setPendingToggleId(tarefa.id);
-      } else {
-        onToggle(tarefa.id);
+        return () => setPendingToggleId(tarefa.id);
       }
-    };
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.tarefaCard,
-          tarefa.concluida && styles.tarefaCardConcluida,
-          readOnly && styles.tarefaCardReadOnly,
-          opts?.isActive && styles.tarefaCardDragging,
-        ]}
-        onPress={readOnly ? undefined : handleTogglePress}
-        activeOpacity={readOnly ? 1 : 0.7}
-        disabled={readOnly}
-      >
-        {/* Checkbox */}
-        <View
-          style={[
-            styles.checkbox,
-            tarefa.concluida && styles.checkboxChecked,
-            readOnly && !tarefa.concluida && styles.checkboxReadOnly,
-          ]}
-        >
-          {tarefa.concluida && (
-            <MaterialIcons name="check" size={14} color="#FFFFFF" />
-          )}
-          {readOnly && !tarefa.concluida && (
-            <MaterialIcons name="lock" size={11} color="#9CA3AF" />
-          )}
-        </View>
-
-        {/* Conteúdo central */}
-        <View style={styles.tarefaInfo}>
-          <Text
-            style={[
-              styles.tarefaTitulo,
-              tarefa.concluida && styles.tarefaTituloConcluido,
-            ]}
-            numberOfLines={2}
-          >
-            {tarefa.titulo}
-          </Text>
-
-          {tarefa.descricao ? (
-            <>
-              <Text
-                style={styles.tarefaDesc}
-                numberOfLines={isExpanded ? undefined : 2}
-              >
-                {tarefa.descricao}
-              </Text>
-
-              {hasLongDesc && (
-                <TouchableOpacity
-                  onPress={() => toggleExpand(tarefa.id)}
-                  hitSlop={{ top: 4, bottom: 8, left: 0, right: 16 }}
-                  activeOpacity={0.6}
-                  style={styles.expandRow}
-                >
-                  <Text style={styles.expandBtnText}>
-                    {isExpanded ? "Ver menos" : "Ver mais"}
-                  </Text>
-                  <MaterialIcons
-                    name={isExpanded ? "expand-less" : "expand-more"}
-                    size={14}
-                    color={PRIMARY}
-                  />
-                </TouchableOpacity>
-              )}
-            </>
-          ) : null}
-        </View>
-
-        {/* Prioridade */}
-        <View
-          style={[
-            styles.prioBadge,
-            tarefa.prioridade === "ALTA" && styles.prioBadgeAlta,
-          ]}
-        >
-          <Text style={[styles.prioText, { color: prio.color }]}>
-            {prio.label}
-          </Text>
-        </View>
-
-        {/* Overflow menu */}
-        {showActions && onEdit && onDelete && !readOnly && (
-          <TouchableOpacity
-            onPress={() => setActionTask(tarefa)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-            style={styles.moreBtn}
-            activeOpacity={0.6}
-          >
-            <MaterialIcons name="more-vert" size={20} color="#C4C9D4" />
-          </TouchableOpacity>
-        )}
-
-        {/* Drag handle */}
-        {opts?.drag && (
-          <TouchableOpacity
-            onLongPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              opts.drag!();
-            }}
-            delayLongPress={150}
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-            activeOpacity={0.4}
-            style={styles.dragHandle}
-          >
-            <MaterialIcons name="drag-indicator" size={22} color="#C4C9D4" />
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    );
-  };
+      return () => onToggle(tarefa.id);
+    },
+    [readOnly, onToggle],
+  );
 
   // ── DraggableFlatList render item ──────────────────────────────────────────
   const renderDraggableItem = useCallback(
-    ({ item, drag, isActive }: RenderItemParams<Tarefa>) => (
-      <ScaleDecorator activeScale={1.02}>
-        {renderCard(item, { drag, isActive })}
-      </ScaleDecorator>
-    ),
+    ({ item, drag, isActive, getIndex }: RenderItemParams<Tarefa>) => {
+      const index =
+        typeof getIndex === "function"
+          ? (getIndex() ?? 0)
+          : filteredTarefas.findIndex((t) => t.id === item.id);
+
+      return (
+        <FadeSlideIn index={index}>
+          <ScaleDecorator activeScale={1.02}>
+            <TaskCard
+              tarefa={item}
+              readOnly={readOnly}
+              showActions={showActions}
+              expandedIds={expandedIds}
+              onTogglePress={makeTogglePress(item)}
+              onToggleExpand={toggleExpand}
+              onMorePress={setActionTask}
+              drag={drag}
+              isActive={isActive}
+            />
+          </ScaleDecorator>
+        </FadeSlideIn>
+      );
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tarefas, expandedIds, readOnly, showActions],
+    [filteredTarefas, expandedIds, readOnly, showActions],
   );
 
   // ── Header ─────────────────────────────────────────────────────────────────
   const header = (
     <>
       <View style={styles.engSectionHeader}>
-        <Text style={styles.engSectionTitle}>
-          {showActions ? "Tarefas" : "Tarefas"}
-        </Text>
+        <Text style={styles.engSectionTitle}>Tarefas</Text>
         <View style={styles.headerRight}>
           <View style={styles.ativasBadge}>
             <Text style={styles.ativasText}>
@@ -288,6 +418,21 @@ export function EngTasksList({
           )}
         </View>
       </View>
+
+      {/* Progress bar — only when there are tasks and no search query */}
+      {total > 0 && !query && (
+        <View style={styles.progressSection}>
+          <View style={styles.progressStatRow}>
+            <Text style={styles.progressLabel}>
+              {concluidas} de {total} concluída{total !== 1 ? "s" : ""}
+            </Text>
+            <Text style={styles.progressPct}>
+              {Math.round(progressPct * 100)}%
+            </Text>
+          </View>
+          <ProgressBar pct={progressPct} />
+        </View>
+      )}
 
       {showActions && (
         <View style={styles.searchBar}>
@@ -345,39 +490,65 @@ export function EngTasksList({
       </TouchableOpacity>
     ) : null;
 
-  // ── Shared nodes ────────────────────────────────────────────────────────────
+  // ── Empty state ─────────────────────────────────────────────────────────────
   const emptyNode = (
     <View style={styles.emptyState}>
-      <MaterialIcons name="check-circle-outline" size={48} color="#D1D5DB" />
-      <Text style={styles.emptyStateText}>
-        {query ? `Nenhuma tarefa encontrada para "${query}"` : emptyMessage}
+      <View style={styles.emptyIconWrap}>
+        <MaterialIcons name="check-circle-outline" size={36} color="#D1D5DB" />
+      </View>
+      <Text style={styles.emptyTitle}>
+        {query ? "Nenhuma tarefa encontrada" : emptyMessage}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {query
+          ? `Sem resultados para "${query}"`
+          : "As tarefas do projeto aparecerão aqui"}
       </Text>
     </View>
   );
 
-  const staticItems = filteredTarefas.map((tarefa) => {
-    if (!enableSwipeDelete) {
-      return <View key={tarefa.id}>{renderCard(tarefa)}</View>;
-    }
-    return (
-      <Swipeable
+  const staticItems = filteredTarefas.map((tarefa, index) => {
+    const card = (
+      <TaskCard
         key={tarefa.id}
-        overshootRight={false}
-        friction={2}
-        rightThreshold={24}
-        renderRightActions={() => renderRightActions(tarefa)}
-        onSwipeableWillOpen={() => {
-          if (openRowRef.current) openRowRef.current.close();
-        }}
-        onSwipeableOpen={(_, swipeable) => {
-          openRowRef.current = swipeable ?? null;
-        }}
-        onSwipeableWillClose={() => {
-          if (openRowRef.current) openRowRef.current = null;
-        }}
-      >
-        {renderCard(tarefa)}
-      </Swipeable>
+        tarefa={tarefa}
+        readOnly={readOnly}
+        showActions={showActions}
+        expandedIds={expandedIds}
+        onTogglePress={makeTogglePress(tarefa)}
+        onToggleExpand={toggleExpand}
+        onMorePress={setActionTask}
+      />
+    );
+
+    if (!enableSwipeDelete) {
+      return (
+        <FadeSlideIn key={tarefa.id} index={index}>
+          {card}
+        </FadeSlideIn>
+      );
+    }
+
+    return (
+      <FadeSlideIn key={tarefa.id} index={index}>
+        <Swipeable
+          overshootRight={false}
+          friction={2}
+          rightThreshold={24}
+          renderRightActions={() => renderRightActions(tarefa)}
+          onSwipeableWillOpen={() => {
+            if (openRowRef.current) openRowRef.current.close();
+          }}
+          onSwipeableOpen={(_, swipeable) => {
+            openRowRef.current = swipeable ?? null;
+          }}
+          onSwipeableWillClose={() => {
+            if (openRowRef.current) openRowRef.current = null;
+          }}
+        >
+          {card}
+        </Swipeable>
+      </FadeSlideIn>
     );
   });
 
@@ -421,7 +592,12 @@ export function EngTasksList({
               }}
             >
               <MaterialIcons name="delete-outline" size={20} color="#EF4444" />
-              <Text style={[styles.actionSheetItemText, styles.actionSheetItemDanger]}>
+              <Text
+                style={[
+                  styles.actionSheetItemText,
+                  styles.actionSheetItemDanger,
+                ]}
+              >
                 Excluir tarefa
               </Text>
             </TouchableOpacity>
@@ -486,9 +662,15 @@ export function EngTasksList({
               onDragEnd={({ data }) => onReorder!(data.map((t) => t.id))}
               scrollEnabled={true}
               activationDistance={10}
-              style={availableHeight > 0 ? { height: availableHeight } : styles.standaloneList}
+              style={
+                availableHeight > 0
+                  ? { height: availableHeight }
+                  : styles.standaloneList
+              }
               contentContainerStyle={[styles.standaloneContent, pad]}
-              ListHeaderComponent={<View style={styles.standaloneHeader}>{header}</View>}
+              ListHeaderComponent={
+                <View style={styles.standaloneHeader}>{header}</View>
+              }
               ListEmptyComponent={emptyNode}
               ListFooterComponent={footer ?? undefined}
             />
@@ -513,7 +695,9 @@ export function EngTasksList({
   return (
     <>
       {header}
-      {filteredTarefas.length === 0 ? emptyNode : dragEnabled ? (
+      {filteredTarefas.length === 0 ? (
+        emptyNode
+      ) : dragEnabled ? (
         <DraggableFlatList
           data={filteredTarefas}
           keyExtractor={(t) => t.id}
@@ -522,7 +706,9 @@ export function EngTasksList({
           scrollEnabled={false}
           activationDistance={10}
         />
-      ) : staticItems}
+      ) : (
+        staticItems
+      )}
       {footer}
       {overlays}
     </>
@@ -560,6 +746,38 @@ const styles = StyleSheet.create({
     color: PRIMARY,
   },
 
+  // ── Progress bar ──────────────────────────────────────────────────────────
+  progressSection: {
+    marginBottom: 14,
+  },
+  progressStatRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 7,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  progressPct: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: PRIMARY,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: PRIMARY,
+    borderRadius: 2,
+  },
+
   dragHint: {
     flexDirection: "row",
     alignItems: "center",
@@ -572,19 +790,20 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  // ── Task card ──────────────────────────────────────────────────────────────
   tarefaCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 12,
     gap: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 2,
   },
   tarefaCardConcluida: { opacity: 0.55 },
   tarefaCardReadOnly: {
@@ -649,16 +868,10 @@ const styles = StyleSheet.create({
 
   prioBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
     marginTop: 2,
     flexShrink: 0,
-  },
-  prioBadgeAlta: {
-    backgroundColor: "#FEE2E2",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
   },
   prioText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
 
@@ -674,13 +887,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "flex-end",
     paddingRight: 6,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   deleteAction: {
     height: "100%",
     minWidth: 108,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: "#EF4444",
     alignItems: "center",
     justifyContent: "center",
@@ -707,8 +920,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 
-  emptyState: { alignItems: "center", paddingVertical: 40, gap: 12 },
-  emptyStateText: { fontSize: 14, color: "#9CA3AF", fontWeight: "500" },
+  // ── Empty state ────────────────────────────────────────────────────────────
+  emptyState: { alignItems: "center", paddingVertical: 48, gap: 10 },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#F9FAFB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    textAlign: "center",
+    lineHeight: 19,
+  },
 
   dangerBtn: {
     flexDirection: "row",
@@ -797,4 +1031,43 @@ const styles = StyleSheet.create({
   standaloneList: { flex: 1 },
   standaloneContent: { paddingHorizontal: 20 },
   standaloneHeader: { paddingTop: 8 },
+});
+
+// ─── Skeleton card (mirrors real card layout) ─────────────────────────────────
+
+export function TaskSkeletonCard() {
+  return (
+    <View style={skeletonStyles.container}>
+      <Skeleton width={24} height={24} borderRadius={6} />
+      <View style={skeletonStyles.content}>
+        <Skeleton width="70%" height={15} borderRadius={5} />
+        <Skeleton
+          width="45%"
+          height={11}
+          borderRadius={4}
+          style={skeletonStyles.mt6}
+        />
+      </View>
+      <Skeleton width={40} height={22} borderRadius={6} />
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  content: { flex: 1 },
+  mt6: { marginTop: 6 },
 });

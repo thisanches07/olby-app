@@ -25,11 +25,12 @@ import { ClienteFinancialSummary } from "@/components/obra/cliente-financial-sum
 import { ClienteGallery } from "@/components/obra/cliente-gallery";
 import { ClienteHorasCard } from "@/components/obra/cliente-horas-card";
 import { ClienteStatusCard } from "@/components/obra/cliente-status-card";
+import { ClienteTasksView } from "@/components/obra/cliente-tasks-view";
 import { ClienteTitleSection } from "@/components/obra/cliente-title-section";
 import { ObraHeader } from "@/components/obra/obra-header";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type ClienteTabId = "visao_geral" | "documentos" | "galeria" | "gastos";
+type ClienteTabId = "visao_geral" | "documentos" | "galeria" | "gastos" | "tarefas";
 
 const BOTTOM_H = 84;
 
@@ -221,6 +222,29 @@ export function ObraViewCliente({
         </ScrollView>
       )}
 
+      {activeTab === "tarefas" && (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{
+            paddingBottom: scrollPadBottom,
+            paddingTop: spacing[12],
+          }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            ) : undefined
+          }
+        >
+          <ClienteTasksView tarefas={obra.tarefas} />
+        </ScrollView>
+      )}
+
       {activeTab === "documentos" && (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrap}>
@@ -249,6 +273,7 @@ export function ObraViewCliente({
           onGaleria={() => changeTab("galeria")}
           onGastos={() => changeTab("gastos")}
           onDocumentos={() => changeTab("documentos")}
+          onTarefas={() => changeTab("tarefas")}
           activeKey={activeTab}
         />
       </View>
