@@ -44,6 +44,7 @@ export function ClienteCTAButton({
   onGaleria,
   onDocumentos,
   onGastos,
+  onTarefas,
   activeKey,
 }: ClienteCTAButtonProps) {
   const insets = useSafeAreaInsets();
