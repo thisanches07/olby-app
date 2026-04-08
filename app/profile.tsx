@@ -1,17 +1,8 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import {
-  deleteUser,
-  sendPasswordResetEmail,
-  updateProfile,
-} from "firebase/auth";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { sendPasswordResetEmail, updateProfile } from "firebase/auth";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -29,18 +20,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "@/hooks/use-auth";
+import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import { useSubscription } from "@/contexts/subscription-context";
-import { getStatusBadge } from "@/services/subscription.service";
+import { useAccountDeletion } from "@/hooks/use-account-deletion";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
 import { unlinkPhone } from "@/services/auth.service";
 import { firebaseAuth } from "@/services/firebase";
-import { PhoneVerifyModal } from "@/components/phone-verify-modal";
-import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
+import { getStatusBadge } from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -291,9 +283,7 @@ function ConfirmSheet({
             {loading ? (
               <ActivityIndicator color={colors.white} size="small" />
             ) : (
-              <Text style={sheet.confirmText}>
-                {localConfig?.confirmLabel}
-              </Text>
+              <Text style={sheet.confirmText}>{localConfig?.confirmLabel}</Text>
             )}
           </TouchableOpacity>
 
@@ -373,10 +363,7 @@ function InfoRow({
           ) : (
             <>
               <Text
-                style={[
-                  styles.rowValue,
-                  !editable && styles.rowValueReadonly,
-                ]}
+                style={[styles.rowValue, !editable && styles.rowValueReadonly]}
                 numberOfLines={1}
               >
                 {value || "—"}
@@ -386,14 +373,14 @@ function InfoRow({
           )}
         </View>
         {!editable && (
-          <MaterialIcons
-            name="lock-outline"
-            size={14}
-            color={colors.subtext}
-          />
+          <MaterialIcons name="lock-outline" size={14} color={colors.subtext} />
         )}
         {editable && isEditing && (
-          <MaterialIcons name="edit" size={14} color={error ? colors.danger : colors.primary} />
+          <MaterialIcons
+            name="edit"
+            size={14}
+            color={error ? colors.danger : colors.primary}
+          />
         )}
       </View>
       {!!error && (
@@ -446,7 +433,11 @@ function PhoneRow({
             <View style={styles.phoneActions}>
               {isVerified && (
                 <View style={styles.verifiedBadge}>
-                  <MaterialIcons name="verified" size={11} color={colors.success} />
+                  <MaterialIcons
+                    name="verified"
+                    size={11}
+                    color={colors.success}
+                  />
                   <Text style={styles.verifiedText}>Verificado</Text>
                 </View>
               )}
@@ -467,7 +458,12 @@ function PhoneRow({
                       onPress={onRemove}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.phoneChipText, styles.phoneChipTextDanger]}>
+                      <Text
+                        style={[
+                          styles.phoneChipText,
+                          styles.phoneChipTextDanger,
+                        ]}
+                      >
                         Remover
                       </Text>
                     </TouchableOpacity>
@@ -521,9 +517,7 @@ function ActionRow({
         <MaterialIcons name={icon} size={18} color={iconColor} />
       </View>
       <View style={styles.rowContent}>
-        <Text style={[styles.actionLabel, { color: labelColor }]}>
-          {label}
-        </Text>
+        <Text style={[styles.actionLabel, { color: labelColor }]}>{label}</Text>
         {sublabel && <Text style={styles.actionSublabel}>{sublabel}</Text>}
       </View>
       <MaterialIcons name="chevron-right" size={20} color={colors.subtext} />
@@ -536,15 +530,13 @@ function ActionRow({
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { plan } = useSubscription();
+  const accountDeletion = useAccountDeletion();
 
-  const isGoogleUser = user?.providerData?.some(
-    (p) => p.providerId === "google.com",
-  ) ?? false;
+  const isGoogleUser =
+    user?.providerData?.some((p) => p.providerId === "google.com") ?? false;
 
   const subBadge = getStatusBadge(plan?.subscriptionStatus ?? null);
-  const subSublabel = plan
-    ? `${plan.name} · ${subBadge.label}`
-    : "Gratuito";
+  const subSublabel = plan ? `${plan.name} · ${subBadge.label}` : "Gratuito";
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -559,8 +551,16 @@ export default function ProfileScreen() {
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
   const [toastState, setToastState] = useState<ToastState | null>(null);
 
+  const saveBarAnim = useRef(new Animated.Value(0)).current;
+  const modalOverlayOpacityAnim = useRef(new Animated.Value(0)).current;
+  const modalCardScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const modalCardOpacityAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    api.get<{ phone?: string | null; phoneVerifiedAt?: string | null }>("/users/me")
+    api
+      .get<{ phone?: string | null; phoneVerifiedAt?: string | null }>(
+        "/users/me",
+      )
       .then((u) => {
         if (u.phone) {
           setPhone(u.phone);
@@ -570,8 +570,6 @@ export default function ProfileScreen() {
       })
       .catch(() => {});
   }, []);
-
-  const saveBarAnim = useRef(new Animated.Value(0)).current;
 
   const showToast = useCallback((message: string, type: ToastState["type"]) => {
     setToastState({ message, type });
@@ -644,6 +642,87 @@ export default function ProfileScreen() {
     });
   }, [signOut]);
 
+  /**
+   * Monitora o estado do fluxo de deleção de conta e gerencia as modais
+   */
+  useEffect(() => {
+    if (accountDeletion.errorMessage) {
+      showToast(accountDeletion.errorMessage, "error");
+      return;
+    }
+
+    switch (accountDeletion.modalState) {
+      case "no-subscription": {
+        // CENÁRIO A: SEM subscrição - modal de confirmação normal
+        setSheetConfig({
+          icon: "delete-forever",
+          iconBg: "#FEE2E2",
+          iconColor: colors.danger,
+          title: "Excluir conta",
+          description:
+            "Esta ação é permanente e não pode ser desfeita. Todos os seus dados, projetos e arquivos serão removidos.",
+          confirmLabel: "Excluir minha conta",
+          confirmBg: colors.danger,
+          onConfirm: accountDeletion.confirmDeletion,
+        });
+        break;
+      }
+      case "has-subscription": {
+        // CENÁRIO B: COM subscrição - modal bloqueante
+        // (não vamos usar a ConfirmSheet padrão para este caso, criar uma modal customizada abaixo)
+        break;
+      }
+      case "checking":
+      case "deleting": {
+        // Estados de carregamento - não fazer nada, já estar na modal anterior
+        break;
+      }
+      case null: {
+        // Modal fechada
+        break;
+      }
+    }
+  }, [accountDeletion.modalState, accountDeletion.errorMessage, showToast]);
+
+  /**
+   * Anima o modal premium quando aparece
+   */
+  useEffect(() => {
+    if (accountDeletion.modalState === "has-subscription") {
+      modalOverlayOpacityAnim.setValue(0);
+      modalCardScaleAnim.setValue(0.9);
+      modalCardOpacityAnim.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(modalOverlayOpacityAnim, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+        Animated.spring(modalCardScaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 80,
+          friction: 11,
+        }),
+        Animated.timing(modalCardOpacityAnim, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      modalOverlayOpacityAnim.setValue(0);
+      modalCardScaleAnim.setValue(0.9);
+      modalCardOpacityAnim.setValue(0);
+    }
+  }, [
+    accountDeletion.modalState,
+    modalOverlayOpacityAnim,
+    modalCardScaleAnim,
+    modalCardOpacityAnim,
+  ]);
+
   const handleChangePassword = useCallback(() => {
     const email = user?.email;
     if (!email) return;
@@ -655,7 +734,8 @@ export default function ProfileScreen() {
       description: `Enviaremos um link de redefinição para:\n\n${email}`,
       confirmLabel: "Enviar link",
       confirmBg: colors.primary,
-      successMessage: "E-mail de redefinição enviado! Verifique sua caixa de entrada.",
+      successMessage:
+        "E-mail de redefinição enviado! Verifique sua caixa de entrada.",
       onConfirm: async () => {
         await sendPasswordResetEmail(firebaseAuth, email);
       },
@@ -663,35 +743,8 @@ export default function ProfileScreen() {
   }, [user?.email]);
 
   const handleDeleteAccount = useCallback(() => {
-    setSheetConfig({
-      icon: "delete-forever",
-      iconBg: "#FEE2E2",
-      iconColor: colors.danger,
-      title: "Excluir conta",
-      description:
-        "Esta ação é permanente e não pode ser desfeita. Todos os seus dados serão removidos.",
-      confirmLabel: "Excluir minha conta",
-      confirmBg: colors.danger,
-      onConfirm: async () => {
-        const fbUser = firebaseAuth.currentUser;
-        if (!fbUser) throw new Error("Usuário não encontrado.");
-        try {
-          await deleteUser(fbUser);
-        } catch (err: unknown) {
-          const code =
-            err && typeof err === "object" && "code" in err
-              ? (err as { code: string }).code
-              : null;
-          if (code === "auth/requires-recent-login") {
-            throw new Error(
-              "Por segurança, saia da conta e entre novamente antes de excluir.",
-            );
-          }
-          throw err;
-        }
-      },
-    });
-  }, []);
+    accountDeletion.startDeletion();
+  }, [accountDeletion]);
 
   const handleRemovePhone = useCallback(() => {
     setSheetConfig({
@@ -820,7 +873,11 @@ export default function ProfileScreen() {
               phone={phone}
               phoneVerifiedAt={phoneVerifiedAt}
               isEditing={isEditing}
-              isEmailUser={isGoogleUser === false && (user?.providerData?.some(p => p.providerId === "password") ?? false)}
+              isEmailUser={
+                isGoogleUser === false &&
+                (user?.providerData?.some((p) => p.providerId === "password") ??
+                  false)
+              }
               onAdd={() => setShowPhoneVerify(true)}
               onEdit={() => setShowPhoneVerify(true)}
               onRemove={handleRemovePhone}
@@ -850,16 +907,33 @@ export default function ProfileScreen() {
             />
             {isGoogleUser ? (
               <View style={[styles.actionRow, styles.rowBorder]}>
-                <View style={[styles.actionIconWrap, { backgroundColor: "#F0FDF4" }]}>
-                  <MaterialIcons name="lock-outline" size={18} color={colors.textMuted} />
+                <View
+                  style={[
+                    styles.actionIconWrap,
+                    { backgroundColor: "#F0FDF4" },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="lock-outline"
+                    size={18}
+                    color={colors.textMuted}
+                  />
                 </View>
                 <View style={styles.rowContent}>
-                  <Text style={[styles.actionLabel, { color: colors.textMuted }]}>
+                  <Text
+                    style={[styles.actionLabel, { color: colors.textMuted }]}
+                  >
                     Trocar senha
                   </Text>
-                  <Text style={styles.actionSublabel}>Conta gerenciada pelo Google</Text>
+                  <Text style={styles.actionSublabel}>
+                    Conta gerenciada pelo Google
+                  </Text>
                 </View>
-                <MaterialIcons name="info-outline" size={16} color={colors.textMuted} />
+                <MaterialIcons
+                  name="info-outline"
+                  size={16}
+                  color={colors.textMuted}
+                />
               </View>
             ) : (
               <ActionRow
@@ -971,13 +1045,150 @@ export default function ProfileScreen() {
       {/* Toast */}
       <Toast state={toastState} onHide={() => setToastState(null)} />
 
+      {/* Account Deletion - Has Subscription Modal (Cenário B) */}
+      <Modal
+        visible={accountDeletion.modalState === "has-subscription"}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => accountDeletion.closeModal()}
+      >
+        <Animated.View
+          style={[
+            styles.premiumModalOverlay,
+            { opacity: modalOverlayOpacityAnim },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.premiumModalBackdrop}
+            activeOpacity={1}
+            onPress={() => accountDeletion.closeModal()}
+          />
+
+          <Animated.View
+            style={[
+              styles.premiumSubscriptionCard,
+              {
+                opacity: modalCardOpacityAnim,
+                transform: [
+                  {
+                    scale: modalCardScaleAnim,
+                  },
+                ],
+              },
+            ]}
+          >
+            {/* Header Background */}
+            <View style={styles.cardHeaderBg} />
+
+            {/* Icon Container */}
+            <View style={styles.premiumIconContainer}>
+              <View style={styles.premiumIconInner}>
+                <MaterialIcons
+                  name="workspace-premium"
+                  size={40}
+                  color="#FFFFFF"
+                />
+              </View>
+            </View>
+
+            {/* Content */}
+            <View style={styles.premiumCardContent}>
+              <Text style={styles.premiumModalTitle}>Assinatura Ativa</Text>
+
+              <Text style={styles.premiumModalSubtitle}>
+                Você possui um plano ativo. Cancele antes de deletar a conta.
+              </Text>
+
+              {/* Premium Period Info */}
+              {accountDeletion.subscriptionStatus?.currentPeriodEnd && (
+                <View style={styles.premiumPeriodBox}>
+                  <View style={styles.premiumPeriodDot} />
+                  <View style={styles.premiumPeriodContent}>
+                    <Text style={styles.premiumPeriodLabel}>Acesso até</Text>
+                    <Text style={styles.premiumPeriodDate}>
+                      {new Date(
+                        accountDeletion.subscriptionStatus.currentPeriodEnd,
+                      ).toLocaleDateString("pt-BR", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Provider Info */}
+              {accountDeletion.subscriptionStatus?.provider && (
+                <View style={styles.premiumProviderChip}>
+                  <MaterialIcons
+                    name="verified"
+                    size={14}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.premiumProviderText}>
+                    Gerenciado por {accountDeletion.subscriptionStatus.provider}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.premiumButtonGroup}>
+              <TouchableOpacity
+                style={styles.premiumButtonPrimary}
+                onPress={() => {
+                  accountDeletion.closeModal();
+                  router.push("/subscription/my-plan");
+                }}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons
+                  name="settings"
+                  size={18}
+                  color="#FFFFFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.premiumButtonPrimaryText}>
+                  Gerenciar Assinatura
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.premiumButtonSecondary}
+                onPress={accountDeletion.retryAfterCancellation}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.premiumButtonSecondaryText}>
+                  Já Cancelei, Tentar Novamente
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Divider */}
+            <View style={styles.premiumDivider} />
+
+            {/* Footer Text */}
+            <TouchableOpacity
+              onPress={() => accountDeletion.closeModal()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.premiumFooterText}>Voltar para o Perfil</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
+
       {/* Phone Verify Modal */}
       <PhoneVerifyModal
         visible={showPhoneVerify}
         initialPhone={phone}
         onSuccess={(updatedUser) => {
           if (updatedUser?.phone) setPhone(updatedUser.phone);
-          setPhoneVerifiedAt(updatedUser?.phoneVerifiedAt ?? new Date().toISOString());
+          setPhoneVerifiedAt(
+            updatedUser?.phoneVerifiedAt ?? new Date().toISOString(),
+          );
           showToast("Número verificado com sucesso!", "success");
         }}
         onClose={() => setShowPhoneVerify(false)}
@@ -1396,5 +1607,193 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.subtext,
     paddingBottom: spacing[24],
+  },
+
+  // ─── Premium Account Deletion Modal ──────────────────────────────────────
+
+  premiumModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.56)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  premiumModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  premiumSubscriptionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius["2xl"],
+    marginHorizontal: spacing[20],
+    maxWidth: "90%",
+    overflow: "hidden",
+    ...shadow(4),
+  },
+
+  cardHeaderBg: {
+    height: 96,
+    backgroundColor: colors.primary,
+    opacity: 0.08,
+  },
+
+  premiumIconContainer: {
+    position: "absolute",
+    top: 24,
+    left: "50%",
+    marginLeft: -44,
+    width: 88,
+    height: 88,
+    zIndex: 10,
+  },
+
+  premiumIconInner: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 44,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow(3),
+    borderWidth: 3,
+    borderColor: colors.surface,
+  },
+
+  premiumCardContent: {
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[64],
+    paddingBottom: spacing[24],
+    alignItems: "center",
+  },
+
+  premiumModalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.text,
+    textAlign: "center",
+    letterSpacing: -0.4,
+    marginBottom: spacing[8],
+  },
+
+  premiumModalSubtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: spacing[24],
+  },
+
+  premiumPeriodBox: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[12],
+    backgroundColor: colors.tintBlue,
+    paddingVertical: spacing[14],
+    paddingHorizontal: spacing[16],
+    borderRadius: radius.lg,
+    marginBottom: spacing[16],
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+
+  premiumPeriodDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    flexShrink: 0,
+  },
+
+  premiumPeriodContent: {
+    flex: 1,
+  },
+
+  premiumPeriodLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.primary,
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+
+  premiumPeriodDate: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+
+  premiumProviderChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[6],
+    backgroundColor: "rgba(59, 130, 246, 0.06)",
+    paddingVertical: spacing[6],
+    paddingHorizontal: spacing[10],
+    borderRadius: radius.pill,
+    marginBottom: spacing[4],
+  },
+
+  premiumProviderText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+
+  premiumButtonGroup: {
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[8],
+    paddingBottom: spacing[20],
+    gap: spacing[10],
+  },
+
+  premiumButtonPrimary: {
+    width: "100%",
+    height: 52,
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow(2),
+  },
+
+  premiumButtonPrimaryText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.white,
+  },
+
+  premiumButtonSecondary: {
+    width: "100%",
+    height: 48,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: "rgba(59, 130, 246, 0.04)",
+  },
+
+  premiumButtonSecondaryText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+
+  premiumDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing[24],
+  },
+
+  premiumFooterText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textAlign: "center",
+    paddingVertical: spacing[14],
   },
 });
