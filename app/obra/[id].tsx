@@ -30,7 +30,7 @@ import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
 import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
 import { useObraData } from "@/hooks/use-obra-data";
-import { api } from "@/services/api";
+import { api, getErrorMessage } from "@/services/api";
 import type { LocalDocumentAsset } from "@/utils/document-upload";
 import {
   canEditProject,
@@ -222,7 +222,7 @@ export default function ObraDetalheScreen() {
       setShowTaskModal(false);
       setEditingTask(undefined);
     } catch (e: unknown) {
-      Alert.alert("Erro", "Não foi possível salvar a tarefa.");
+      Alert.alert("Erro", getErrorMessage(e, "Não foi possível salvar a tarefa."));
       throw e;
     }
   };
@@ -276,8 +276,8 @@ export default function ObraDetalheScreen() {
 
       setShowExpenseModal(false);
       setEditingExpense(undefined);
-    } catch {
-      Alert.alert("Erro", "Não foi possível salvar o gasto.");
+    } catch (e: unknown) {
+      Alert.alert("Erro", getErrorMessage(e, "Não foi possível salvar o gasto."));
     }
   };
 

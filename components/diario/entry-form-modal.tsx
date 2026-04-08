@@ -1,6 +1,7 @@
 import { DiaryEntry } from "@/hooks/use-diary-state";
 import { EntryFormData } from "@/hooks/use-diary-data";
 import { parseISODateToBR } from "@/hooks/use-diary-data";
+import { getErrorMessage } from "@/services/api";
 import type { LocalPhotoAsset } from "@/utils/photo-upload";
 import { brDateDigitsLen, maskBRDate, parseBRDateToLocalDate } from "@/utils/br-date";
 import { useToast } from "@/components/obra/toast";
@@ -253,10 +254,13 @@ export function EntryFormModal({
       });
       resetForm();
       // Nota: o parent fecha o modal chamando setShowFormModal(false)
-    } catch {
+    } catch (e: unknown) {
       showToast({
         title: "Erro ao salvar",
-        message: "Não foi possível salvar o registro. Tente novamente.",
+        message: getErrorMessage(
+          e,
+          "Não foi possível salvar o registro. Tente novamente.",
+        ),
         tone: "error",
       });
     }

@@ -65,6 +65,7 @@ interface PhoneVerifyModalProps {
   onSuccess: (updatedUser?: BackendUser) => void;
   onClose: () => void;
   mandatory?: boolean;
+  onSkip?: () => void | Promise<void>;
   /** Se presente, o modal opera em modo de cadastro: após confirm() chama onVerified(phoneE164)
    *  e o parent é responsável por criar a conta. O linkPhoneWithCode não é chamado. */
   onVerified?: (phoneE164: string) => Promise<void>;
@@ -132,6 +133,7 @@ export function PhoneVerifyModal({
   onSuccess,
   onClose,
   mandatory = false,
+  onSkip,
   onVerified,
 }: PhoneVerifyModalProps) {
   const [step, setStep] = useState<Step>("phone");
@@ -280,8 +282,11 @@ export function PhoneVerifyModal({
         duration: 220,
         useNativeDriver: true,
       }),
-    ]).start(() => onClose());
-  }, [overlayAnim, slideAnim, onClose, panY]);
+    ]).start(() => {
+      onClose();
+      void onSkip?.();
+    });
+  }, [overlayAnim, slideAnim, onClose, onSkip, panY]);
 
   useEffect(() => {
     dismissRef.current = dismiss;

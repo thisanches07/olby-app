@@ -412,6 +412,23 @@ export default function LoginScreen() {
     }
   };
 
+  const handleRegisterWithoutPhone = useCallback(async () => {
+    clearError();
+    setRegistrationInProgress(false);
+    setShowPhoneVerify(false);
+    setPhoneRaw("");
+
+    try {
+      setLoading(true);
+      await registerWithEmail(email, senha, nome);
+      router.replace("/(tabs)");
+    } catch (err) {
+      showError(getAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [email, nome, senha, setRegistrationInProgress]);
+
   const handleGoogleAuth = async () => {
     clearError();
 
@@ -744,7 +761,6 @@ export default function LoginScreen() {
       <PhoneVerifyModal
         visible={showPhoneVerify}
         initialPhone={`+55${phoneRaw}`}
-        mandatory
         onVerified={async (phoneE164) => {
           await completeRegistrationWithPhone(email, senha, nome, phoneE164);
         }}
@@ -757,6 +773,7 @@ export default function LoginScreen() {
           setRegistrationInProgress(false);
           setShowPhoneVerify(false);
         }}
+        onSkip={handleRegisterWithoutPhone}
       />
     </SafeAreaView>
   );

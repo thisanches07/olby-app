@@ -24,6 +24,57 @@ export function setPlanErrorHandler(handler: PlanErrorHandler | null) {
   _planErrorHandler = handler;
 }
 
+function extractMessageFromBody(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+
+  const candidate = body as {
+    message?: unknown;
+    error?: unknown;
+  };
+
+  if (typeof candidate.message === "string" && candidate.message.trim()) {
+    return candidate.message;
+  }
+
+  if (
+    candidate.error &&
+    typeof candidate.error === "object" &&
+    "message" in candidate.error
+  ) {
+    const nestedMessage = (candidate.error as { message?: unknown }).message;
+    if (typeof nestedMessage === "string" && nestedMessage.trim()) {
+      return nestedMessage;
+    }
+  }
+
+  if (typeof candidate.error === "string" && candidate.error.trim()) {
+    return candidate.error;
+  }
+
+  return null;
+}
+
+export function getErrorMessage(
+  error: unknown,
+  fallback = "Ocorreu um erro inesperado.",
+): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    const message = (error as { message: string }).message.trim();
+    if (message) return message;
+  }
+
+  return fallback;
+}
+
 function isPlanError(status: number, message: string): boolean {
   return (
     status === 403 &&
@@ -102,8 +153,7 @@ async function authFetch(path: string, options: RequestInit = {}) {
 
     const body = await response.json().catch(() => null);
     const message =
-      body?.message ??
-      body?.error ??
+      extractMessageFromBody(body) ??
       `Erro ${response.status}: ${response.statusText}`;
 
     if (_planErrorHandler && isPlanError(response.status, message)) {
@@ -142,4 +192,3 @@ export const api = {
   delete: <T = unknown>(path: string): Promise<T> =>
     authFetch(path, { method: "DELETE" }),
 };
-
