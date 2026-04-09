@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/obra/toast";
 import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  DailyLogEntryResponseDto,
   dailyLogEntriesService,
+  DailyLogEntryResponseDto,
 } from "@/services/daily-log-entries.service";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
 import {
   preparePhotoForUpload,
-  uploadPreparedPhotos,
   uploadPhotoToEntry,
+  uploadPreparedPhotos,
   type LocalPhotoAsset,
 } from "@/utils/photo-upload";
 
@@ -41,17 +41,25 @@ function parseISODate(iso: string): Date {
 
 const PT_WEEK_DAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const PT_MONTHS = [
-  "JAN", "FEV", "MAR", "ABR", "MAI", "JUN",
-  "JUL", "AGO", "SET", "OUT", "NOV", "DEZ",
+  "JAN",
+  "FEV",
+  "MAR",
+  "ABR",
+  "MAI",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SET",
+  "OUT",
+  "NOV",
+  "DEZ",
 ];
 
 function formatEntryDate(dateISO: string, todayISO: string): string {
   if (dateISO === todayISO) return "HOJE";
   const date = parseISODate(dateISO);
   const today = parseISODate(todayISO);
-  const diffDays = Math.floor(
-    (today.getTime() - date.getTime()) / 86_400_000,
-  );
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / 86_400_000);
   if (diffDays < 7) return PT_WEEK_DAYS[date.getDay()];
   return `${String(date.getDate()).padStart(2, "0")} ${PT_MONTHS[date.getMonth()]}`;
 }
@@ -174,7 +182,11 @@ function mapPhotos(
 ): PhotoItem[] {
   return raw
     .filter((p) => p.status === "READY" && p.thumbUrl)
-    .map((p) => ({ id: p.id, thumbUrl: p.thumbUrl!, status: "READY" as const }));
+    .map((p) => ({
+      id: p.id,
+      thumbUrl: p.thumbUrl!,
+      status: "READY" as const,
+    }));
 }
 
 /** Ordena entries: data desc, arrivedAt desc, createdAt desc */
@@ -261,7 +273,7 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
 
       setRawEntries(sortEntries(enriched));
     } catch {
-      setError("Nao foi possivel carregar os registros.");
+      setError("Não foi possivel carregar os registros.");
     } finally {
       setIsLoading(false);
     }
@@ -287,9 +299,7 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
         // 1. Prepara fotos (gera thumbs e mede tamanhos) antes do POST
         const prepared =
           data.newPhotoAssets.length > 0
-            ? await Promise.all(
-                data.newPhotoAssets.map(preparePhotoForUpload),
-              )
+            ? await Promise.all(data.newPhotoAssets.map(preparePhotoForUpload))
             : [];
 
         // 2. POST entry — inclui metadados das fotos no body
@@ -335,9 +345,7 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
           .catch(() => []);
         const photos = mapPhotos(rawPhotos);
 
-        setRawEntries((prev) =>
-          sortEntries([{ ...entry, photos }, ...prev]),
-        );
+        setRawEntries((prev) => sortEntries([{ ...entry, photos }, ...prev]));
       } finally {
         setIsSaving(false);
       }
@@ -357,16 +365,15 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
           date: dateISO,
           arrivedAt: data.time ? buildArrivedAt(dateISO, data.time) : null,
           title: data.title,
-          notes: data.description.trim().slice(0, MAX_DIARY_DESCRIPTION) || null,
+          notes:
+            data.description.trim().slice(0, MAX_DIARY_DESCRIPTION) || null,
           durationMinutes: data.durationMinutes ?? undefined,
         });
 
         // Fotos novas: usa fluxo de presign avulso
         if (data.newPhotoAssets.length > 0) {
           const results = await Promise.allSettled(
-            data.newPhotoAssets.map((a) =>
-              uploadPhotoToEntry(a, pid, entryId),
-            ),
+            data.newPhotoAssets.map((a) => uploadPhotoToEntry(a, pid, entryId)),
           );
           const failed = results.filter((r) => r.status === "rejected").length;
           if (failed > 0) {

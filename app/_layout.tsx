@@ -1,24 +1,24 @@
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import {
   Inter_400Regular,
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // expo-router v6 already calls preventAutoHideAsync() internally
 
 import DevPanel from "@/app/dev/DevPanel";
-import type { DevUser } from "@/constants/dev-users";
 import { ToastProvider, useToast } from "@/components/obra/toast";
+import type { DevUser } from "@/constants/dev-users";
 import { ProjectsProvider } from "@/contexts/projects-context";
 import {
   SubscriptionProvider,
@@ -46,7 +46,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const onLoginPage = pathname === "/login";
     const onInvitePage = pathname === "/invite";
 
-    // Convites sao publicos, a tela /invite gerencia seu proprio auth check
+    // Convites são públicos, a tela /invite gerencia seu próprio auth check
     if (!user && !onLoginPage && !onInvitePage) {
       router.replace("/login");
       return;
@@ -200,85 +200,84 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
-      <SafeAreaProvider>
-        <ThemeProvider value={DefaultTheme}>
-          <AuthProvider>
-            <SubscriptionProvider>
-              <AppSessionProvider>
-                {/* ✅ ToastProvider precisa ficar acima de qualquer provider que use useToast (ex: ProjectsProvider) */}
-                <ToastProvider>
-                  <EmailVerificationToastBridge />
-                  <ProjectsProvider>
-                    <AuthGate>
-                      <SubscriptionLoader />
-                      <PlanErrorInterceptor />
+        <SafeAreaProvider>
+          <ThemeProvider value={DefaultTheme}>
+            <AuthProvider>
+              <SubscriptionProvider>
+                <AppSessionProvider>
+                  {/* ✅ ToastProvider precisa ficar acima de qualquer provider que use useToast (ex: ProjectsProvider) */}
+                  <ToastProvider>
+                    <EmailVerificationToastBridge />
+                    <ProjectsProvider>
+                      <AuthGate>
+                        <SubscriptionLoader />
+                        <PlanErrorInterceptor />
 
-                      <Stack>
-                        <Stack.Screen
-                          name="login"
-                          options={{ headerShown: false }}
-                        />
-                        <Stack.Screen
-                          name="(tabs)"
-                          options={{ headerShown: false }}
-                        />
-                        <Stack.Screen
-                          name="obra/[id]"
-                          options={{
-                            headerShown: false,
-                            headerBackButtonMenuEnabled: false,
-                          }}
-                        />
-                        <Stack.Screen
-                          name="diario/[id]"
-                          options={{ headerShown: false }}
-                        />
-<Stack.Screen
-                          name="profile"
-                          options={{ headerShown: false }}
-                        />
-                        <Stack.Screen
-                          name="invite"
-                          options={{
-                            headerShown: false,
-                            presentation: "modal",
-                            animation: "slide_from_bottom",
-                          }}
-                        />
-                        <Stack.Screen
-                          name="subscription/plans"
-                          options={{
-                            headerShown: false,
-                            presentation: "modal",
-                            animation: "slide_from_bottom",
-                          }}
-                        />
-                        <Stack.Screen
-                          name="subscription/my-plan"
-                          options={{
-                            headerShown: false,
-                            presentation: "modal",
-                            animation: "slide_from_bottom",
-                          }}
-                        />
-                        <Stack.Screen
-                          name="modal"
-                          options={{ presentation: "modal", title: "Modal" }}
-                        />
-                      </Stack>
-                    </AuthGate>
+                        <Stack>
+                          <Stack.Screen
+                            name="login"
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="(tabs)"
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="obra/[id]"
+                            options={{
+                              headerShown: false,
+                              headerBackButtonMenuEnabled: false,
+                            }}
+                          />
+                          <Stack.Screen
+                            name="diario/[id]"
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="profile"
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="invite"
+                            options={{
+                              headerShown: false,
+                              presentation: "modal",
+                              animation: "slide_from_bottom",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="subscription/plans"
+                            options={{
+                              headerShown: false,
+                              presentation: "modal",
+                              animation: "slide_from_bottom",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="subscription/my-plan"
+                            options={{
+                              headerShown: false,
+                              presentation: "modal",
+                              animation: "slide_from_bottom",
+                            }}
+                          />
+                          <Stack.Screen
+                            name="modal"
+                            options={{ presentation: "modal", title: "Modal" }}
+                          />
+                        </Stack>
+                      </AuthGate>
 
-                    <StatusBar style="dark" />
-                    {__DEV__ ? <DevPanelBridge /> : null}
-                  </ProjectsProvider>
-                </ToastProvider>
-              </AppSessionProvider>
-            </SubscriptionProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
+                      <StatusBar style="dark" />
+                      {__DEV__ ? <DevPanelBridge /> : null}
+                    </ProjectsProvider>
+                  </ToastProvider>
+                </AppSessionProvider>
+              </SubscriptionProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }
-

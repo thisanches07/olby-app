@@ -2,10 +2,10 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { useSubscription } from "@/contexts/subscription-context";
-import type { AppRole } from "@/hooks/use-app-session";
 import type { DevUser } from "@/constants/dev-users";
 import { DEV_USERS } from "@/constants/dev-users";
+import { useSubscription } from "@/contexts/subscription-context";
+import type { AppRole } from "@/hooks/use-app-session";
 
 type DataState = "filled" | "empty" | "loading" | "error";
 
@@ -90,7 +90,7 @@ export default function DevPanel({
               <Chip label="Sair" onPress={() => onSignOut?.()} />
             </View>
           ) : (
-            <Text style={styles.emptyText}>Nao autenticado</Text>
+            <Text style={styles.emptyText}>Não autenticado</Text>
           )}
 
           <Text style={styles.section}>Logar como</Text>
@@ -104,7 +104,9 @@ export default function DevPanel({
               />
             ))}
           </View>
-          {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
+          {loginError ? (
+            <Text style={styles.errorText}>{loginError}</Text>
+          ) : null}
 
           <Text style={styles.section}>Role</Text>
           <View style={styles.row}>
@@ -134,8 +136,12 @@ export default function DevPanel({
             )}
           </View>
 
-          <Text style={styles.section}>Plano{plan ? ` (${plan.code})` : ""}</Text>
-          <Text style={styles.emptyText}>Sincronizado via API /subscriptions/me</Text>
+          <Text style={styles.section}>
+            Plano{plan ? ` (${plan.code})` : ""}
+          </Text>
+          <Text style={styles.emptyText}>
+            Sincronizado via API /subscriptions/me
+          </Text>
 
           <Text style={styles.section}>Navigate</Text>
           <View style={styles.rowWrap}>
@@ -177,7 +183,9 @@ function Chip({
       activeOpacity={0.85}
       style={[styles.chip, active && styles.chipActive]}
     >
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }

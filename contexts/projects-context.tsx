@@ -1,6 +1,7 @@
 import type { StatusType } from "@/components/obra-card";
 import { useToast } from "@/components/obra/toast";
 import type { ObraDetalhe } from "@/data/obras";
+import { useAuth } from "@/hooks/use-auth";
 import {
   projectsService,
   type ProjectSummaryDto,
@@ -13,7 +14,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useAuth } from "@/hooks/use-auth";
 
 // ─── Mapper: backend summary → ObraDetalhe ───────────────────────────────────
 
@@ -97,11 +97,7 @@ const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-export function ProjectsProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const { showToast } = useToast();
   const { user } = useAuth();
   const [obras, setObras] = useState<ObraDetalhe[]>([]);
@@ -132,7 +128,7 @@ export function ProjectsProvider({
         if (mode === "refresh") {
           showToast({
             title: "Erro ao carregar projetos",
-            message: "Nao foi possivel carregar seus projetos.",
+            message: "Não foi possivel carregar seus projetos.",
             tone: "error",
           });
         }
@@ -210,4 +206,3 @@ export function useProjects(): ProjectsContextValue {
   }
   return ctx;
 }
-

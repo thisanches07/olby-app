@@ -217,7 +217,7 @@ function ConfirmSheet({
       await localConfig.onConfirm();
       dismiss(() => onSuccess(localConfig.successMessage));
     } catch {
-      onError("Nao foi possivel concluir esta operacao.");
+      onError("Não foi possivel concluir esta operacao.");
     } finally {
       setLoading(false);
     }
@@ -605,7 +605,8 @@ export default function ProfileScreen() {
     ? Math.max(
         0,
         Math.ceil(
-          (emailVerificationCooldownUntil - emailVerificationCooldownNow) / 1000,
+          (emailVerificationCooldownUntil - emailVerificationCooldownNow) /
+            1000,
         ),
       )
     : 0;
@@ -817,7 +818,7 @@ export default function ProfileScreen() {
       showToast(
         errorCode === "auth/too-many-requests"
           ? "Muitas tentativas seguidas. Aguarde 60 segundos para reenviar."
-          : "Nao foi possivel enviar o e-mail de verificacao.",
+          : "Não foi possivel enviar o e-mail de verificacao.",
         "error",
       );
     } finally {
@@ -837,11 +838,11 @@ export default function ProfileScreen() {
       showToast(
         firebaseAuth.currentUser?.emailVerified
           ? "E-mail verificado com sucesso."
-          : "Seu e-mail ainda nao foi verificado.",
+          : "Seu e-mail ainda não foi verificado.",
         firebaseAuth.currentUser?.emailVerified ? "success" : "error",
       );
     } catch {
-      showToast("Nao foi possivel atualizar o status do e-mail.", "error");
+      showToast("Não foi possivel atualizar o status do e-mail.", "error");
     } finally {
       setIsRefreshingEmailVerification(false);
     }
@@ -969,7 +970,9 @@ export default function ProfileScreen() {
                   size={14}
                   color={colors.primary}
                 />
-                <Text style={styles.emailVerifyBadgeText}>Seguranca da conta</Text>
+                <Text style={styles.emailVerifyBadgeText}>
+                  Segurança da conta
+                </Text>
               </View>
 
               <View style={styles.emailVerifyHeader}>
@@ -2138,4 +2141,3 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[14],
   },
 });
-

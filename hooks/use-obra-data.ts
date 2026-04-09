@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { StatusType } from "@/components/obra-card";
-import type { DocumentSource, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
-import { useAuth } from "@/hooks/use-auth";
 import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
+import type { DocumentSource, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
+import { useAuth } from "@/hooks/use-auth";
 import {
   dailyLogEntriesService,
   type DailyLogEntryResponseDto,
@@ -253,7 +253,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
       setExpenses(expenseList);
       setDiaryEntries(entryList);
     } catch {
-      setError("Nao foi possivel carregar os dados da obra. Tente novamente.");
+      setError("Não foi possivel carregar os dados da obra. Tente novamente.");
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -339,16 +339,16 @@ export function ProjectSettingsModal({
 
   const membersListErrorMessage = (status: number) => {
     if (status === 401) return "Sessão expirada. Faça login novamente.";
-    if (status === 403) return "Voce nao tem permissao para ver os membros.";
-    if (status === 404) return "Projeto nao encontrado.";
-    return "Nao foi possivel carregar os membros agora.";
+    if (status === 403) return "Voce não tem permissao para ver os membros.";
+    if (status === 404) return "Projeto não encontrado.";
+    return "Não foi possivel carregar os membros agora.";
   };
 
   const memberRemoveErrorMessage = (status: number) => {
     if (status === 401) return "Sessao expirada. Façalogin novamente.";
-    if (status === 403) return "Voce nao tem permissao para remover membros.";
-    if (status === 404) return "Membro nao encontrado no projeto.";
-    return "Nao foi possivel remover o membro agora.";
+    if (status === 403) return "Voce não tem permissao para remover membros.";
+    if (status === 404) return "Membro não encontrado no projeto.";
+    return "Não foi possivel remover o membro agora.";
   };
 
   type ApiMember = {
@@ -428,7 +428,7 @@ export function ProjectSettingsModal({
 
         showToast({
           tone: "error",
-          title: "Nao foi possivel carregar os membros",
+          title: "Não foi possivel carregar os membros",
           message,
         });
       } finally {
@@ -626,7 +626,7 @@ export function ProjectSettingsModal({
       showToast({
         tone: "success",
         title: "Acesso removido",
-        message: `${member.name} nao tem mais acesso.`,
+        message: `${member.name} não tem mais acesso.`,
       });
     } catch (error: unknown) {
       const status = statusFromError(error);
@@ -637,7 +637,7 @@ export function ProjectSettingsModal({
 
       showToast({
         tone: "error",
-        title: "Nao foi possivel remover o acesso",
+        title: "Não foi possivel remover o acesso",
         message,
       });
     } finally {
@@ -1388,7 +1388,11 @@ export function ProjectSettingsModal({
                               )
                             }
                           >
-                            <FontAwesome name="whatsapp" size={16} color="#fff" />
+                            <FontAwesome
+                              name="whatsapp"
+                              size={16}
+                              color="#fff"
+                            />
                           </TouchableOpacity>
                         )}
 

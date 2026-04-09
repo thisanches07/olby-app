@@ -1,4 +1,5 @@
 import { useToast } from "@/components/obra/toast";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   brDateDigitsLen,
   maskBRDate,
@@ -6,7 +7,6 @@ import {
 } from "@/utils/br-date";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Keyboard,
@@ -26,8 +26,8 @@ import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
 
-import { ObraDetalhe } from "@/data/obras";
 import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
+import { ObraDetalhe } from "@/data/obras";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
 import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
@@ -580,7 +580,8 @@ export function CreateProjectModal({
         return;
       }
 
-      const genericMessage = "Nao foi possivel criar o projeto. Tente novamente.";
+      const genericMessage =
+        "Não foi possivel criar o projeto. Tente novamente.";
       setSubmitError({
         title: "Erro ao criar projeto",
         message: genericMessage,
@@ -1568,5 +1569,3 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
 });
-
-

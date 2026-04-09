@@ -10,8 +10,8 @@ import React, {
 import {
   BillingApiError,
   billingApi,
-  mapEffectivePlanToSubscription,
   mapBillingError,
+  mapEffectivePlanToSubscription,
 } from "@/services/billing.api";
 import type { SubscriptionInfo } from "@/services/subscription.service";
 import {
@@ -39,7 +39,7 @@ const SubscriptionContext = createContext<SubscriptionState | null>(null);
 
 export function getFriendlySubscriptionError(error: unknown): string {
   const mapped = mapBillingError(error);
-  return mapped.message || "Nao foi possivel carregar sua assinatura.";
+  return mapped.message || "Não foi possivel carregar sua assinatura.";
 }
 
 export function SubscriptionProvider({
@@ -124,31 +124,28 @@ export function SubscriptionProvider({
         return;
       }
 
-      return verifyWithIdempotency(
-        `APPLE:${trimmed}`,
-        async () => {
-          try {
-            const result = await billingApi.verifyApplePurchase(
-              trimmed,
-              appleSandbox,
-            );
-            setPlan((prev) =>
-              mapEffectivePlanToSubscription(result.effectivePlan, {
-                ownedProjectCount: prev?.ownedProjectCount ?? 0,
-                canCreateProject: prev?.canCreateProject ?? true,
-              }),
-            );
-            await refresh();
-            setPurchaseSuccess(
-              result.idempotent
-                ? "Compra ja processada anteriormente. Assinatura sincronizada."
-                : "Assinatura atualizada com sucesso.",
-            );
-          } catch (error: unknown) {
-            throw await handleVerifyError(error);
-          }
-        },
-      );
+      return verifyWithIdempotency(`APPLE:${trimmed}`, async () => {
+        try {
+          const result = await billingApi.verifyApplePurchase(
+            trimmed,
+            appleSandbox,
+          );
+          setPlan((prev) =>
+            mapEffectivePlanToSubscription(result.effectivePlan, {
+              ownedProjectCount: prev?.ownedProjectCount ?? 0,
+              canCreateProject: prev?.canCreateProject ?? true,
+            }),
+          );
+          await refresh();
+          setPurchaseSuccess(
+            result.idempotent
+              ? "Compra ja processada anteriormente. Assinatura sincronizada."
+              : "Assinatura atualizada com sucesso.",
+          );
+        } catch (error: unknown) {
+          throw await handleVerifyError(error);
+        }
+      });
     },
     [handleVerifyError, refresh, verifyWithIdempotency],
   );
@@ -161,28 +158,25 @@ export function SubscriptionProvider({
         return;
       }
 
-      return verifyWithIdempotency(
-        `GOOGLE:${trimmed}`,
-        async () => {
-          try {
-            const result = await billingApi.verifyGooglePurchase(trimmed);
-            setPlan((prev) =>
-              mapEffectivePlanToSubscription(result.effectivePlan, {
-                ownedProjectCount: prev?.ownedProjectCount ?? 0,
-                canCreateProject: prev?.canCreateProject ?? true,
-              }),
-            );
-            await refresh();
-            setPurchaseSuccess(
-              result.idempotent
-                ? "Compra ja processada anteriormente. Assinatura sincronizada."
-                : "Assinatura atualizada com sucesso.",
-            );
-          } catch (error: unknown) {
-            throw await handleVerifyError(error);
-          }
-        },
-      );
+      return verifyWithIdempotency(`GOOGLE:${trimmed}`, async () => {
+        try {
+          const result = await billingApi.verifyGooglePurchase(trimmed);
+          setPlan((prev) =>
+            mapEffectivePlanToSubscription(result.effectivePlan, {
+              ownedProjectCount: prev?.ownedProjectCount ?? 0,
+              canCreateProject: prev?.canCreateProject ?? true,
+            }),
+          );
+          await refresh();
+          setPurchaseSuccess(
+            result.idempotent
+              ? "Compra ja processada anteriormente. Assinatura sincronizada."
+              : "Assinatura atualizada com sucesso.",
+          );
+        } catch (error: unknown) {
+          throw await handleVerifyError(error);
+        }
+      });
     },
     [handleVerifyError, refresh, verifyWithIdempotency],
   );

@@ -4,6 +4,7 @@ import type { ProductSubscription, Purchase } from "expo-iap";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import React from "react";
 import {
   ActivityIndicator,
@@ -14,7 +15,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
@@ -33,7 +33,7 @@ const PLANS = [
     priceNote: "",
     features: [
       { ok: true, text: "Visualizar obras como convidado (ilimitado)" },
-      { ok: false, text: "Criar suas proprias obras" },
+      { ok: false, text: "Criar suas próprias obras" },
     ],
     productId: null,
     highlight: false,
@@ -48,7 +48,7 @@ const PLANS = [
       { ok: true, text: "Convidar clientes (ilimitado)" },
       { ok: true, text: "Diario de obra" },
       { ok: true, text: "Controle de despesas" },
-      { ok: true, text: "Gestao de tarefas" },
+      { ok: true, text: "Gestão de tarefas" },
     ],
     productId: "com.tsanc.obraapp.sub.basic1",
     highlight: false,
@@ -133,11 +133,11 @@ function toFriendlyMessage(
   }
   if (
     normalized.includes("compra invalida") ||
-    normalized.includes("produto nao mapeado") ||
+    normalized.includes("produto não mapeado") ||
     normalized.includes("invalid_purchase") ||
     normalized.includes("400")
   ) {
-    return "Compra invalida ou produto nao mapeado.";
+    return "Compra invalida ou produto não mapeado.";
   }
   if (
     normalized.includes("erro temporario no servidor") ||
@@ -188,7 +188,7 @@ function ExpoGoIapUnavailable() {
       >
         <View style={styles.hero}>
           <Text style={styles.heroSub}>
-            Compras in-app nao funcionam no Expo Go.
+            Compras in-app não funcionam no Expo Go.
           </Text>
         </View>
 
@@ -246,7 +246,7 @@ function SubscriptionPlansIapEnabled() {
     void refresh();
   }, [refresh]);
 
-  // Expo Go nao inclui o modulo nativo do IAP.
+  // Expo Go não inclui o modulo nativo do IAP.
   // Carregamos apenas no fluxo Dev Client/standalone.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { useIAP } = require("expo-iap") as typeof import("expo-iap");
@@ -269,10 +269,13 @@ function SubscriptionPlansIapEnabled() {
       setIncomingPurchase(purchase);
     },
     onPurchaseError: (iapError) => {
-      iapLog("onPurchaseError", { message: iapError.message, code: (iapError as { code?: unknown }).code });
+      iapLog("onPurchaseError", {
+        message: iapError.message,
+        code: (iapError as { code?: unknown }).code,
+      });
       const message =
-        toFriendlyMessage(iapError.message, "A compra nao foi concluida.") ??
-        "A compra nao foi concluida.";
+        toFriendlyMessage(iapError.message, "A compra não foi concluida.") ??
+        "A compra não foi concluida.";
       showToast({
         title: "Compra cancelada",
         message,
@@ -281,7 +284,10 @@ function SubscriptionPlansIapEnabled() {
       setIsRequestingPurchase(false);
     },
     onError: (iapError) => {
-      iapLog("onError (IAP global)", { message: iapError.message, code: (iapError as { code?: unknown }).code });
+      iapLog("onError (IAP global)", {
+        message: iapError.message,
+        code: (iapError as { code?: unknown }).code,
+      });
       setStoreError(
         toFriendlyMessage(iapError.message, "Falha na conexao com a loja.") ??
           "Falha na conexao com a loja.",
@@ -347,7 +353,7 @@ function SubscriptionPlansIapEnabled() {
           }
           await verifyGooglePurchase(purchaseToken);
         } else {
-          throw new Error("Loja de compra nao suportada.");
+          throw new Error("Loja de compra não suportada.");
         }
 
         await finishTransaction({ purchase, isConsumable: false });
@@ -402,8 +408,8 @@ function SubscriptionPlansIapEnabled() {
         setStoreError(
           toFriendlyMessage(
             rawMessage,
-            "Nao foi possivel carregar os produtos da loja.",
-          ) ?? "Nao foi possivel carregar os produtos da loja.",
+            "Não foi possivel carregar os produtos da loja.",
+          ) ?? "Não foi possivel carregar os produtos da loja.",
         );
       } finally {
         if (mounted) {
@@ -457,20 +463,23 @@ function SubscriptionPlansIapEnabled() {
         : null;
   const subscriptionError = toFriendlyMessage(
     error,
-    "Nao foi possivel carregar sua assinatura agora.",
+    "Não foi possivel carregar sua assinatura agora.",
   );
   const friendlyStoreError = toFriendlyMessage(
     storeError,
-    "Nao foi possivel conectar com a loja no momento.",
+    "Não foi possivel conectar com a loja no momento.",
   );
   const friendlyPurchaseError = toFriendlyMessage(
     purchaseError,
-    "Nao foi possivel concluir a compra.",
+    "Não foi possivel concluir a compra.",
   );
 
   // Aviso específico quando a loja conectou mas não retornou nenhum SKU
   const storeConnectedButEmpty =
-    connected && !isLoadingStoreProducts && subscriptions.length === 0 && !storeError;
+    connected &&
+    !isLoadingStoreProducts &&
+    subscriptions.length === 0 &&
+    !storeError;
 
   async function handleSubscribe(planItem: (typeof PLANS)[number]) {
     if (planItem.code === "FREE" || !planItem.productId) return;
@@ -495,7 +504,7 @@ function SubscriptionPlansIapEnabled() {
       iapLog("handleSubscribe → abort: not connected");
       showToast({
         title: "Loja indisponivel",
-        message: "Nao foi possivel conectar na App Store/Google Play.",
+        message: "Não foi possivel conectar na App Store/Google Play.",
         tone: "error",
       });
       return;
@@ -508,7 +517,7 @@ function SubscriptionPlansIapEnabled() {
         got: subscriptions.map((s) => s.id),
       });
       showToast({
-        title: "Produto nao encontrado",
+        title: "Produto não encontrado",
         message: "Confirme se o SKU existe e esta ativo na loja.",
         tone: "error",
       });
@@ -554,7 +563,9 @@ function SubscriptionPlansIapEnabled() {
     } catch (requestError: unknown) {
       const rawMessage =
         requestError instanceof Error ? requestError.message : null;
-      iapLog("handleSubscribe → requestPurchase error", { message: rawMessage });
+      iapLog("handleSubscribe → requestPurchase error", {
+        message: rawMessage,
+      });
       const message =
         toFriendlyMessage(rawMessage, "Falha ao iniciar compra.") ??
         "Falha ao iniciar compra.";
@@ -593,16 +604,22 @@ function SubscriptionPlansIapEnabled() {
           <View style={styles.debugPanel}>
             <Text style={styles.debugTitle}>DEV — diagnóstico IAP</Text>
             <Text style={styles.debugRow}>
-              connected: <Text style={styles.debugValue}>{String(connected)}</Text>
+              connected:{" "}
+              <Text style={styles.debugValue}>{String(connected)}</Text>
             </Text>
             <Text style={styles.debugRow}>
-              loadingProducts: <Text style={styles.debugValue}>{String(isLoadingStoreProducts)}</Text>
+              loadingProducts:{" "}
+              <Text style={styles.debugValue}>
+                {String(isLoadingStoreProducts)}
+              </Text>
             </Text>
             <Text style={styles.debugRow}>
-              storeError: <Text style={styles.debugValue}>{storeError ?? "—"}</Text>
+              storeError:{" "}
+              <Text style={styles.debugValue}>{storeError ?? "—"}</Text>
             </Text>
             <Text style={styles.debugRow}>
-              subscriptions count: <Text style={styles.debugValue}>{subscriptions.length}</Text>
+              subscriptions count:{" "}
+              <Text style={styles.debugValue}>{subscriptions.length}</Text>
             </Text>
             <Text style={styles.debugRow}>SKUs esperados:</Text>
             {STORE_SUBSCRIPTION_SKUS.map((sku) => (
@@ -613,7 +630,9 @@ function SubscriptionPlansIapEnabled() {
             ))}
             {subscriptions.length > 0 && (
               <>
-                <Text style={[styles.debugRow, { marginTop: 4 }]}>IDs retornados pela loja:</Text>
+                <Text style={[styles.debugRow, { marginTop: 4 }]}>
+                  IDs retornados pela loja:
+                </Text>
                 {subscriptions.map((s) => (
                   <Text key={s.id} style={styles.debugSku}>
                     {"  "}• {s.id} ({s.displayPrice ?? "sem preço"})
@@ -651,7 +670,7 @@ function SubscriptionPlansIapEnabled() {
         {storeConnectedButEmpty && (
           <View style={[styles.feedbackCard, styles.feedbackCardError]}>
             <Text style={[styles.feedbackText, styles.feedbackTextError]}>
-              A App Store nao retornou subscriptions para estes SKUs. Verifique
+              A App Store não retornou subscriptions para estes SKUs. Verifique
               se os produtos estao ativos no App Store Connect e se o bundle ID
               bate com o app.
             </Text>
@@ -730,17 +749,26 @@ function SubscriptionPlansIapEnabled() {
                     {pricing.price}
                   </Text>
                   {pricing.priceNote ? (
-                    <Text style={[
-                      styles.planPriceNote,
-                      isHighlight && !isCurrent && { color: "rgba(255,255,255,0.75)" },
-                    ]}>
+                    <Text
+                      style={[
+                        styles.planPriceNote,
+                        isHighlight &&
+                          !isCurrent && { color: "rgba(255,255,255,0.75)" },
+                      ]}
+                    >
                       {pricing.priceNote}
                     </Text>
                   ) : null}
                 </View>
               </View>
 
-              <View style={[styles.divider, isHighlight && !isCurrent && { backgroundColor: "rgba(255,255,255,0.2)" }]} />
+              <View
+                style={[
+                  styles.divider,
+                  isHighlight &&
+                    !isCurrent && { backgroundColor: "rgba(255,255,255,0.2)" },
+                ]}
+              />
 
               <View style={styles.featureList}>
                 {planItem.features.map((feature, index) => (
@@ -750,15 +778,24 @@ function SubscriptionPlansIapEnabled() {
                       size={18}
                       color={
                         isHighlight && !isCurrent
-                          ? feature.ok ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)"
-                          : feature.ok ? colors.success : colors.border
+                          ? feature.ok
+                            ? "rgba(255,255,255,0.9)"
+                            : "rgba(255,255,255,0.35)"
+                          : feature.ok
+                            ? colors.success
+                            : colors.border
                       }
                     />
                     <Text
                       style={[
                         styles.featureText,
                         !feature.ok && styles.featureTextOff,
-                        isHighlight && !isCurrent && { color: feature.ok ? "#FFFFFF" : "rgba(255,255,255,0.5)" },
+                        isHighlight &&
+                          !isCurrent && {
+                            color: feature.ok
+                              ? "#FFFFFF"
+                              : "rgba(255,255,255,0.5)",
+                          },
                       ]}
                     >
                       {feature.text}
@@ -778,15 +815,22 @@ function SubscriptionPlansIapEnabled() {
                 </View>
               ) : planItem.code !== "FREE" ? (
                 <>
-                  <Text style={[
-                    styles.renewalNotice,
-                    isHighlight && !isCurrent && { color: "rgba(255,255,255,0.6)" },
-                  ]}>
+                  <Text
+                    style={[
+                      styles.renewalNotice,
+                      isHighlight &&
+                        !isCurrent && { color: "rgba(255,255,255,0.6)" },
+                    ]}
+                  >
                     Renova automaticamente. Cancele quando quiser.{" "}
                     <Text
                       style={[
                         styles.renewalNoticeLink,
-                        isHighlight && !isCurrent && { color: "rgba(255,255,255,0.85)", textDecorationLine: "underline" },
+                        isHighlight &&
+                          !isCurrent && {
+                            color: "rgba(255,255,255,0.85)",
+                            textDecorationLine: "underline",
+                          },
                       ]}
                       onPress={openTerms}
                     >
@@ -796,7 +840,11 @@ function SubscriptionPlansIapEnabled() {
                     <Text
                       style={[
                         styles.renewalNoticeLink,
-                        isHighlight && !isCurrent && { color: "rgba(255,255,255,0.85)", textDecorationLine: "underline" },
+                        isHighlight &&
+                          !isCurrent && {
+                            color: "rgba(255,255,255,0.85)",
+                            textDecorationLine: "underline",
+                          },
                       ]}
                       onPress={openPrivacy}
                     >
@@ -805,27 +853,37 @@ function SubscriptionPlansIapEnabled() {
                     .
                   </Text>
                   <TouchableOpacity
-                  style={[
-                    styles.subscribeButton,
-                    isHighlight && styles.subscribeButtonHighlight,
-                    disableAllActions && styles.subscribeButtonDisabled,
-                  ]}
-                  onPress={() => handleSubscribe(planItem)}
-                  activeOpacity={0.85}
-                  disabled={disableAllActions}
-                >
-                  {disableAllActions ? (
-                    <ActivityIndicator color={isHighlight && !isCurrent ? colors.primary : colors.white} size="small" />
-                  ) : (
-                    <Text style={[
-                      styles.subscribeButtonText,
-                      isHighlight && !isCurrent && { color: colors.primary },
-                    ]}>
-                      Assinar por {pricing.price}
-                      {pricing.priceNote}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                    style={[
+                      styles.subscribeButton,
+                      isHighlight && styles.subscribeButtonHighlight,
+                      disableAllActions && styles.subscribeButtonDisabled,
+                    ]}
+                    onPress={() => handleSubscribe(planItem)}
+                    activeOpacity={0.85}
+                    disabled={disableAllActions}
+                  >
+                    {disableAllActions ? (
+                      <ActivityIndicator
+                        color={
+                          isHighlight && !isCurrent
+                            ? colors.primary
+                            : colors.white
+                        }
+                        size="small"
+                      />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.subscribeButtonText,
+                          isHighlight &&
+                            !isCurrent && { color: colors.primary },
+                        ]}
+                      >
+                        Assinar por {pricing.price}
+                        {pricing.priceNote}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 </>
               ) : null}
             </View>

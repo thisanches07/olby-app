@@ -1,5 +1,5 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { FirebaseRecaptchaVerifierModal } from "@/components/firebase-recaptcha-verifier";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -58,9 +58,9 @@ function mapFirebaseError(err: unknown): string {
       return "Número de telefone inválido.";
     case "auth/invalid-app-credential":
     case "auth/missing-app-credential":
-      return "Nao foi possivel validar a verificacao de seguranca. Tente novamente.";
+      return "Não foi possivel validar a verificacao de segurança. Tente novamente.";
     case "auth/internal-error":
-      return "Nao foi possivel concluir a validacao de seguranca. Tente novamente.";
+      return "Não foi possivel concluir a validacao de segurança. Tente novamente.";
     default:
       if (
         message.includes("invalid-app-credential") ||
@@ -68,7 +68,7 @@ function mapFirebaseError(err: unknown): string {
         message.includes("reCAPTCHA") ||
         message.includes("recaptcha")
       ) {
-        return "Nao foi possivel validar a verificacao de seguranca. Tente novamente.";
+        return "Não foi possivel validar a verificacao de segurança. Tente novamente.";
       }
       return "Ocorreu um erro. Tente novamente.";
   }

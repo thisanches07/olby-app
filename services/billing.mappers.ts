@@ -68,7 +68,7 @@ export function mapBillingError(error: unknown): BillingApiError {
 
   if (status === 400) {
     return new BillingApiError(
-      "Compra invalida ou produto nao mapeado.",
+      "Compra invalida ou produto não mapeado.",
       400,
       "INVALID_PURCHASE",
       false,
@@ -84,7 +84,7 @@ export function mapBillingError(error: unknown): BillingApiError {
   }
   if (status === 404) {
     return new BillingApiError(
-      "Usuario ou plano nao encontrado.",
+      "Usuario ou plano não encontrado.",
       404,
       "NOT_FOUND",
       false,

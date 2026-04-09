@@ -5,13 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { WebView } from "react-native-webview";
 
 interface FirebaseConfig {
@@ -167,10 +161,16 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
     return (
       <>
         {visible && (
-          <Modal transparent animationType="slide" onRequestClose={handleCancel}>
+          <Modal
+            transparent
+            animationType="slide"
+            onRequestClose={handleCancel}
+          >
             <View style={styles.overlay}>
               <View style={styles.card}>
-                <Text style={styles.title}>{title ?? "Verificacao de seguranca"}</Text>
+                <Text style={styles.title}>
+                  {title ?? "Verificacao de segurança"}
+                </Text>
                 <WebView
                   key={`recaptcha-modal-${webviewKey}`}
                   style={styles.webview}
@@ -180,7 +180,9 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
                   domStorageEnabled
                 />
                 <TouchableOpacity onPress={handleCancel} style={styles.cancel}>
-                  <Text style={styles.cancelText}>{cancelLabel ?? "Cancelar"}</Text>
+                  <Text style={styles.cancelText}>
+                    {cancelLabel ?? "Cancelar"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -199,7 +201,9 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>{title ?? "Verificacao de seguranca"}</Text>
+          <Text style={styles.title}>
+            {title ?? "Verificacao de segurança"}
+          </Text>
           <WebView
             key={`recaptcha-${webviewKey}`}
             style={styles.webview}

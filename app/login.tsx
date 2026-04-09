@@ -466,7 +466,7 @@ export default function LoginScreen() {
 
     if (missingCoreIds || sameIdsForAllPlatforms) {
       showError(
-        "Google login nao configurado corretamente. Configure client IDs separados (Web, Android e iOS).",
+        "Google login não configurado corretamente. Configure client IDs separados (Web, Android e iOS).",
       );
       return;
     }
