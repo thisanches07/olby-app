@@ -774,13 +774,7 @@ export default function ProfileScreen() {
       successMessage:
         "E-mail de redefinição enviado! Verifique sua caixa de entrada.",
       onConfirm: async () => {
-        console.log("[PROFILE][PASSWORD_RESET] confirm sheet accepted", {
-          email,
-        });
         await requestPasswordReset(email);
-        console.log("[PROFILE][PASSWORD_RESET] request completed", {
-          email,
-        });
       },
     });
   }, [user?.email]);
@@ -798,25 +792,12 @@ export default function ProfileScreen() {
       return;
     }
 
-    console.log("[PROFILE][EMAIL_VERIFY] resend button pressed", {
-      email: user?.email ?? null,
-      emailVerified,
-      isSendingVerificationEmail,
-      isRefreshingEmailVerification,
-      emailVerificationCooldownSecondsLeft,
-      providerIds: user?.providerData?.map((p) => p.providerId) ?? [],
-    });
-
     setIsSendingVerificationEmail(true);
     try {
       await sendVerificationEmail();
       setEmailVerificationCooldownUntil(
         Date.now() + EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000,
       );
-      console.log("[PROFILE][EMAIL_VERIFY] resend flow completed successfully", {
-        email: user?.email ?? null,
-        emailVerifiedAfterSend: firebaseAuth.currentUser?.emailVerified ?? null,
-      });
       showToast(
         "Link de verificação enviado. Confira sua caixa de entrada.",
         "success",
@@ -833,19 +814,6 @@ export default function ProfileScreen() {
         );
       }
 
-      console.log("[PROFILE][EMAIL_VERIFY] resend flow failed", {
-        email: user?.email ?? null,
-        emailVerified,
-        error,
-        errorCode:
-          error && typeof error === "object" && "code" in error
-            ? (error as { code?: string }).code
-            : null,
-        errorMessage:
-          error && typeof error === "object" && "message" in error
-            ? (error as { message?: string }).message
-            : String(error),
-      });
       showToast(
         errorCode === "auth/too-many-requests"
           ? "Muitas tentativas seguidas. Aguarde 60 segundos para reenviar."
@@ -853,21 +821,13 @@ export default function ProfileScreen() {
         "error",
       );
     } finally {
-      console.log("[PROFILE][EMAIL_VERIFY] resend flow finished", {
-        email: user?.email ?? null,
-      });
       setIsSendingVerificationEmail(false);
     }
   }, [
-    emailVerified,
     emailVerificationCooldownSecondsLeft,
     isEmailVerificationCooldownActive,
-    isRefreshingEmailVerification,
-    isSendingVerificationEmail,
     sendVerificationEmail,
     showToast,
-    user?.email,
-    user?.providerData,
   ]);
 
   const handleRefreshEmailVerification = useCallback(async () => {
@@ -2178,3 +2138,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[14],
   },
 });
+

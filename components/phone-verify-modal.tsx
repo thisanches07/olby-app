@@ -94,7 +94,7 @@ type Step = "phone" | "otp" | "success";
 
 interface OtpInputProps {
   otp: string[];
-  inputRefs: React.MutableRefObject<Array<TextInput | null>>;
+  inputRefs: React.MutableRefObject<(TextInput | null)[]>;
   shakeAnim: Animated.Value;
   hasError: boolean;
   onChange: (value: string, index: number) => void;
@@ -160,10 +160,11 @@ export function PhoneVerifyModal({
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(60);
 
-  const recaptchaRef = useRef<import("firebase/auth").ApplicationVerifier>(null);
+  const recaptchaRef =
+    useRef<import("firebase/auth").ApplicationVerifier>(null);
   const confirmationRef = useRef<Awaited<
     ReturnType<typeof sendPhoneCode>
-  > | null>(null);
+  > | null>(null);()[]
   const otpRefs = useRef<Array<TextInput | null>>([
     null,
     null,
@@ -213,7 +214,7 @@ export function PhoneVerifyModal({
           Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
         }
       },
-    })
+    }),
   ).current;
 
   // Pre-fill phone digits from prop (strip non-digits, remove leading +55)
@@ -515,9 +516,7 @@ export function PhoneVerifyModal({
 
       <View style={styles.root}>
         {/* Overlay — fora do KAV para sempre cobrir a tela toda */}
-        <Animated.View
-          style={[styles.overlay, { opacity: overlayAnim }]}
-        >
+        <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
           <TouchableOpacity
             style={{ flex: 1 }}
             onPress={() => {
@@ -558,7 +557,11 @@ export function PhoneVerifyModal({
                   hitSlop={12}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons name="close" size={22} color={colors.textMuted} />
+                  <MaterialIcons
+                    name="close"
+                    size={22}
+                    color={colors.textMuted}
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -627,7 +630,9 @@ export function PhoneVerifyModal({
                     onPress={handleContinueWithoutPhone}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.skipBtnText}>Continuar sem telefone</Text>
+                    <Text style={styles.skipBtnText}>
+                      Continuar sem telefone
+                    </Text>
                   </TouchableOpacity>
                 )}
               </>

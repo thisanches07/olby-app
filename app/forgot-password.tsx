@@ -98,49 +98,22 @@ export default function ForgotPasswordScreen() {
   const handleSend = async () => {
     setError(null);
     const trimmed = email.trim();
-    console.log("[FORGOT_PASSWORD][UI] submit pressed", {
-      email: trimmed || null,
-      loading,
-      sent,
-    });
     if (!trimmed) {
-      console.log("[FORGOT_PASSWORD][UI] validation failed: missing email");
       setError("Informe o e-mail cadastrado na sua conta.");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmed)) {
-      console.log("[FORGOT_PASSWORD][UI] validation failed: invalid email", {
-        email: trimmed,
-      });
       setError("Digite um e-mail válido.");
       return;
     }
     try {
       setLoading(true);
       await requestPasswordReset(trimmed);
-      console.log("[FORGOT_PASSWORD][UI] request succeeded", {
-        email: trimmed,
-      });
       setSent(true);
     } catch (err) {
-      console.log("[FORGOT_PASSWORD][UI] request failed", {
-        email: trimmed,
-        error: err,
-        errorCode:
-          err && typeof err === "object" && "code" in err
-            ? (err as { code?: string }).code
-            : null,
-        errorMessage:
-          err && typeof err === "object" && "message" in err
-            ? (err as { message?: string }).message
-            : String(err),
-      });
       setError(getAuthErrorMessage(err));
     } finally {
-      console.log("[FORGOT_PASSWORD][UI] request finished", {
-        email: trimmed || null,
-      });
       setLoading(false);
     }
   };

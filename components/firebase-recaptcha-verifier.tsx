@@ -54,30 +54,30 @@ function buildHtml(config: FirebaseConfig): string {
     import { getAuth, RecaptchaVerifier } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
     function post(msg) {
-      try { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); } catch(e) {}
+      try { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); } catch (e) {}
     }
 
     try {
       const app = initializeApp(${configJson});
       const auth = getAuth(app);
 
-      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
+      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
         callback: function(token) {
-          post({ type: 'token', token });
+          post({ type: "token", token });
         },
-        'expired-callback': function() {
-          post({ type: 'expired' });
+        "expired-callback": function() {
+          post({ type: "expired" });
         }
       });
 
       verifier.verify().then(function(token) {
-        post({ type: 'token', token });
+        post({ type: "token", token });
       }).catch(function(err) {
-        post({ type: 'error', message: err.message || String(err) });
+        post({ type: "error", message: err.message || String(err) });
       });
-    } catch(err) {
-      post({ type: 'error', message: err.message || String(err) });
+    } catch (err) {
+      post({ type: "error", message: err.message || String(err) });
     }
   </script>
 </body>
@@ -92,20 +92,43 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
   ref,
 ) {
   const [visible, setVisible] = useState(false);
+  const [webviewKey, setWebviewKey] = useState(0);
   const resolveRef = useRef<((token: string) => void) | null>(null);
   const rejectRef = useRef<((err: Error) => void) | null>(null);
   const html = useRef(buildHtml(firebaseConfig)).current;
+  const webViewSource = {
+    html,
+    baseUrl: `https://${firebaseConfig.authDomain ?? "localhost"}`,
+  };
 
-  useImperativeHandle(ref, () => ({
-    type: "recaptcha",
-    verify(): Promise<string> {
-      return new Promise<string>((resolve, reject) => {
-        resolveRef.current = resolve;
-        rejectRef.current = reject;
-        setVisible(true);
-      });
-    },
-  }));
+  const resetVerifier = () => {
+    setWebviewKey((prev) => prev + 1);
+  };
+
+  useImperativeHandle(ref, () => {
+    const verifier = {
+      type: "recaptcha",
+      verify(): Promise<string> {
+        resetVerifier();
+        return new Promise<string>((resolve, reject) => {
+          resolveRef.current = resolve;
+          rejectRef.current = reject;
+          setVisible(true);
+        });
+      },
+      _reset() {
+        resetVerifier();
+      },
+      clear() {
+        resolveRef.current = null;
+        rejectRef.current = null;
+        setVisible(false);
+        resetVerifier();
+      },
+    };
+
+    return verifier as ApplicationVerifier;
+  }, [attemptInvisibleVerification, title]);
 
   function handleMessage(event: { nativeEvent: { data: string } }) {
     let msg: WebViewMessage;
@@ -118,37 +141,40 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
     if (msg.type === "token") {
       setVisible(false);
       resolveRef.current?.(msg.token);
-    } else if (msg.type === "expired" || msg.type === "error") {
-      setVisible(false);
-      rejectRef.current?.(
-        new Error(msg.type === "error" ? msg.message : "reCAPTCHA expired"),
-      );
+      resolveRef.current = null;
+      rejectRef.current = null;
+      return;
     }
+
+    setVisible(false);
+    rejectRef.current?.(
+      new Error(msg.type === "error" ? msg.message : "reCAPTCHA expired"),
+    );
+    resolveRef.current = null;
+    rejectRef.current = null;
+    resetVerifier();
   }
 
   function handleCancel() {
     setVisible(false);
     rejectRef.current?.(new Error("reCAPTCHA cancelled"));
+    resolveRef.current = null;
+    rejectRef.current = null;
+    resetVerifier();
   }
 
   if (attemptInvisibleVerification) {
     return (
       <>
-        <WebView
-          style={styles.hidden}
-          source={{ html }}
-          onMessage={handleMessage}
-          javaScriptEnabled
-          domStorageEnabled
-        />
         {visible && (
           <Modal transparent animationType="slide" onRequestClose={handleCancel}>
             <View style={styles.overlay}>
               <View style={styles.card}>
-                <Text style={styles.title}>{title ?? "Verificação de segurança"}</Text>
+                <Text style={styles.title}>{title ?? "Verificacao de seguranca"}</Text>
                 <WebView
+                  key={`recaptcha-modal-${webviewKey}`}
                   style={styles.webview}
-                  source={{ html }}
+                  source={webViewSource}
                   onMessage={handleMessage}
                   javaScriptEnabled
                   domStorageEnabled
@@ -173,10 +199,11 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>{title ?? "Verificação de segurança"}</Text>
+          <Text style={styles.title}>{title ?? "Verificacao de seguranca"}</Text>
           <WebView
+            key={`recaptcha-${webviewKey}`}
             style={styles.webview}
-            source={{ html }}
+            source={webViewSource}
             onMessage={handleMessage}
             javaScriptEnabled
             domStorageEnabled
@@ -191,7 +218,6 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
 });
 
 const styles = StyleSheet.create({
-  hidden: { width: 0, height: 0, position: "absolute" },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

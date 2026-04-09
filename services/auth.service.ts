@@ -207,37 +207,11 @@ export async function loginWithApple(
 
 export async function requestPasswordReset(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
-  console.log("[AUTH][PASSWORD_RESET] request started", {
-    email: normalizedEmail,
-    continueUrl: PASSWORD_RESET_ACTION_SETTINGS.url,
-  });
-
-  try {
-    await sendPasswordResetEmail(
-      firebaseAuth,
-      normalizedEmail,
-      PASSWORD_RESET_ACTION_SETTINGS,
-    );
-    console.log("[AUTH][PASSWORD_RESET] request succeeded", {
-      email: normalizedEmail,
-      continueUrl: PASSWORD_RESET_ACTION_SETTINGS.url,
-    });
-  } catch (error) {
-    console.log("[AUTH][PASSWORD_RESET] request failed", {
-      email: normalizedEmail,
-      continueUrl: PASSWORD_RESET_ACTION_SETTINGS.url,
-      error,
-      errorCode:
-        error && typeof error === "object" && "code" in error
-          ? (error as { code?: string }).code
-          : null,
-      errorMessage:
-        error && typeof error === "object" && "message" in error
-          ? (error as { message?: string }).message
-          : String(error),
-    });
-    throw error;
-  }
+  await sendPasswordResetEmail(
+    firebaseAuth,
+    normalizedEmail,
+    PASSWORD_RESET_ACTION_SETTINGS,
+  );
 }
 
 export async function logout() {
@@ -246,44 +220,12 @@ export async function logout() {
 
 export async function sendCurrentUserEmailVerification(): Promise<void> {
   const user = firebaseAuth.currentUser;
-  console.log("[AUTH][EMAIL_VERIFY] resend requested", {
-    hasUser: Boolean(user),
-    uid: user?.uid ?? null,
-    email: user?.email ?? null,
-    emailVerified: user?.emailVerified ?? null,
-    providerIds: user?.providerData?.map((p) => p.providerId) ?? [],
-  });
 
   if (!user || !user.email) {
-    console.log("[AUTH][EMAIL_VERIFY] resend aborted: missing authenticated email user");
     throw new Error("Usuário sem e-mail para verificação.");
   }
 
-  try {
-    await sendEmailVerification(user, EMAIL_VERIFICATION_ACTION_SETTINGS);
-    console.log("[AUTH][EMAIL_VERIFY] resend succeeded", {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      continueUrl: EMAIL_VERIFICATION_ACTION_SETTINGS.url,
-    });
-  } catch (error) {
-    console.log("[AUTH][EMAIL_VERIFY] resend failed", {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      error,
-      errorCode:
-        error && typeof error === "object" && "code" in error
-          ? (error as { code?: string }).code
-          : null,
-      errorMessage:
-        error && typeof error === "object" && "message" in error
-          ? (error as { message?: string }).message
-          : String(error),
-    });
-    throw error;
-  }
+  await sendEmailVerification(user, EMAIL_VERIFICATION_ACTION_SETTINGS);
 }
 
 export async function refreshCurrentUser(): Promise<User | null> {
@@ -325,13 +267,11 @@ export async function linkPhoneWithCode(
         ? (err as { code: string }).code
         : "";
     if (errorCode === "auth/provider-already-linked") {
-      // Phone already linked — update it instead of linking
       await updatePhoneNumber(firebaseAuth.currentUser!, credential);
     } else {
-      throw err; // auth/credential-already-in-use etc. bubble up to the modal
+      throw err;
     }
   }
-  // Force-refresh so the ID token carries the updated phone_number claim
   await firebaseAuth.currentUser!.getIdToken(true);
   return api.patch<BackendUser>("/users/me", { phone: phoneNumber });
 }
