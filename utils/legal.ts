@@ -1,6 +1,4 @@
-export const LEGAL_BASE_URL =
-  "https://olby-jwq6n64qg-thiago-sanches-projects.vercel.app";
+﻿export const LEGAL_BASE_URL = "https://oblyapp.com";
 
-export const PRIVACY_POLICY_URL = `${LEGAL_BASE_URL}/privacy.html`;
-export const TERMS_OF_USE_URL = `${LEGAL_BASE_URL}/terms.html`;
-
+export const PRIVACY_POLICY_URL = `${LEGAL_BASE_URL}/privacy`;
+export const TERMS_OF_USE_URL = `${LEGAL_BASE_URL}/terms`;
