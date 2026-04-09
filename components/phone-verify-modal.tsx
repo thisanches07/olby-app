@@ -39,6 +39,10 @@ function mapFirebaseError(err: unknown): string {
     err && typeof err === "object" && "code" in err
       ? (err as { code: string }).code
       : "";
+  const message =
+    err && typeof err === "object" && "message" in err
+      ? String((err as { message?: unknown }).message ?? "")
+      : "";
   switch (code) {
     case "auth/invalid-verification-code":
       return "Código inválido. Tente novamente.";
@@ -52,7 +56,20 @@ function mapFirebaseError(err: unknown): string {
       return "Muitas tentativas. Aguarde alguns minutos.";
     case "auth/invalid-phone-number":
       return "Número de telefone inválido.";
+    case "auth/invalid-app-credential":
+    case "auth/missing-app-credential":
+      return "Nao foi possivel validar a verificacao de seguranca. Tente novamente.";
+    case "auth/internal-error":
+      return "Nao foi possivel concluir a validacao de seguranca. Tente novamente.";
     default:
+      if (
+        message.includes("invalid-app-credential") ||
+        message.includes("missing-app-credential") ||
+        message.includes("reCAPTCHA") ||
+        message.includes("recaptcha")
+      ) {
+        return "Nao foi possivel validar a verificacao de seguranca. Tente novamente.";
+      }
       return "Ocorreu um erro. Tente novamente.";
   }
 }
@@ -284,6 +301,25 @@ export function PhoneVerifyModal({
       }),
     ]).start(() => {
       onClose();
+    });
+  }, [overlayAnim, slideAnim, onClose, panY]);
+
+  const handleContinueWithoutPhone = useCallback(() => {
+    Keyboard.dismiss();
+    panY.setValue(0);
+    Animated.parallel([
+      Animated.timing(overlayAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 320,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
       void onSkip?.();
     });
   }, [overlayAnim, slideAnim, onClose, onSkip, panY]);
@@ -469,7 +505,6 @@ export function PhoneVerifyModal({
         if (step !== "success" && !mandatory) dismiss();
       }}
     >
-      {/* reCAPTCHA verifier — invisible */}
       <FirebaseRecaptchaVerifierModal
         ref={recaptchaRef}
         firebaseConfig={firebaseApp.options}
@@ -585,6 +620,16 @@ export function PhoneVerifyModal({
                     <Text style={styles.primaryBtnText}>Continuar</Text>
                   )}
                 </TouchableOpacity>
+
+                {!!onSkip && !mandatory && (
+                  <TouchableOpacity
+                    style={styles.skipBtn}
+                    onPress={handleContinueWithoutPhone}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.skipBtnText}>Continuar sem telefone</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 
@@ -668,6 +713,16 @@ export function PhoneVerifyModal({
                 >
                   <Text style={styles.backBtnText}>Alterar número</Text>
                 </TouchableOpacity>
+
+                {!!onSkip && !mandatory && (
+                  <TouchableOpacity
+                    style={styles.skipBtn}
+                    onPress={handleContinueWithoutPhone}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.skipBtnText}>Verificar depois</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 
@@ -870,6 +925,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     textAlign: "center",
+  },
+  skipBtn: {
+    marginTop: spacing[14],
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[12],
+  },
+  skipBtnText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: "600",
+    textAlign: "center",
+    letterSpacing: -0.1,
   },
   successIcon: {
     marginBottom: spacing[16],

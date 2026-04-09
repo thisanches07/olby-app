@@ -7,12 +7,12 @@ import {
   createUserWithEmailAndPassword,
   linkWithCredential,
   sendPasswordResetEmail,
-  unlink,
-  updatePhoneNumber,
   signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signOut,
+  unlink,
+  updatePhoneNumber,
   updateProfile,
   type ApplicationVerifier,
   type ConfirmationResult,
@@ -50,7 +50,11 @@ async function ensureUserRegistered(user: User): Promise<void> {
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  const result = await signInWithEmailAndPassword(firebaseAuth, email, password);
+  const result = await signInWithEmailAndPassword(
+    firebaseAuth,
+    email,
+    password,
+  );
   await ensureUserRegistered(result.user);
   return result;
 }
@@ -75,7 +79,7 @@ export async function registerWithEmail(
   const response = await fetch(`${BASE_URL}/users/register`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${idToken}`,
+      Authorization: `Bearer ${idToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ name, ...(phone ? { phone } : {}) }),
@@ -86,7 +90,9 @@ export async function registerWithEmail(
     await result.user.delete();
     const body = await response.json().catch(() => null);
     const message =
-      body?.message ?? body?.error ?? `Erro ${response.status}: ${response.statusText}`;
+      body?.message ??
+      body?.error ??
+      `Erro ${response.status}: ${response.statusText}`;
     throw new Error(message);
   }
 
@@ -109,7 +115,10 @@ export async function loginWithApple(
   const result = await signInWithCredential(firebaseAuth, credential);
 
   // Apple só envia fullName no primeiro login — não sobrescrever se já existe
-  if (!result.user.displayName && (fullName?.givenName || fullName?.familyName)) {
+  if (
+    !result.user.displayName &&
+    (fullName?.givenName || fullName?.familyName)
+  ) {
     const displayName = [fullName.givenName, fullName.familyName]
       .filter(Boolean)
       .join(" ");
@@ -126,6 +135,21 @@ export async function requestPasswordReset(email: string) {
 
 export async function logout() {
   return signOut(firebaseAuth);
+}
+
+export async function sendCurrentUserEmailVerification(): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  if (!user || !user.email) {
+    throw new Error("Usuário sem e-mail para verificação.");
+  }
+  await user.sendEmailVerification();
+}
+
+export async function refreshCurrentUser(): Promise<User | null> {
+  const user = firebaseAuth.currentUser;
+  if (!user) return null;
+  await user.reload();
+  return firebaseAuth.currentUser;
 }
 
 export { getIdToken } from "./token";

@@ -1,5 +1,4 @@
 import { router } from "expo-router";
-import { deleteUser } from "firebase/auth";
 import { useCallback, useState } from "react";
 
 import {
@@ -120,7 +119,7 @@ export function useAccountDeletion(): UseAccountDeletionReturn {
       // 2. Deleta do Firebase
       const fbUser = firebaseAuth.currentUser;
       if (fbUser) {
-        await deleteUser(fbUser);
+        await fbUser.delete();
       }
 
       // 3. Token local é limpo automaticamente pelo Firebase

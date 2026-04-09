@@ -4,12 +4,10 @@ const { getDefaultConfig } = require("expo/metro-config");
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-// Necessário para o Firebase JS SDK (usa o campo "exports" do package.json)
+// Mantém a resolução por "exports" consistente para dependências modernas.
 config.resolver.unstable_enablePackageExports = true;
 
-// Garante que o Metro resolve os módulos com a condição "react-native",
-// fazendo @firebase/auth usar o bundle correto (dist/rn/index.js)
-// que inclui getReactNativePersistence.
+// Prioriza bundles com condição "react-native" quando disponíveis.
 config.resolver.unstable_conditionNames = ["require", "default", "react-native"];
 
 module.exports = config;

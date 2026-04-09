@@ -1,7 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { sendPasswordResetEmail, updateProfile } from "firebase/auth";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -64,11 +63,6 @@ function getInitials(name: string | null, email: string | null): string {
   }
   if (email) return email.slice(0, 2).toUpperCase();
   return "?";
-}
-
-function getFirstName(displayName: string | null): string {
-  if (!displayName) return "";
-  return displayName.trim().split(" ")[0];
 }
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
@@ -528,7 +522,8 @@ function ActionRow({
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, emailVerified, refreshUser, sendVerificationEmail } =
+    useAuth();
   const { plan } = useSubscription();
   const accountDeletion = useAccountDeletion();
 
@@ -550,6 +545,10 @@ export default function ProfileScreen() {
 
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
   const [toastState, setToastState] = useState<ToastState | null>(null);
+  const [isSendingVerificationEmail, setIsSendingVerificationEmail] =
+    useState(false);
+  const [isRefreshingEmailVerification, setIsRefreshingEmailVerification] =
+    useState(false);
 
   const saveBarAnim = useRef(new Animated.Value(0)).current;
   const modalOverlayOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -608,7 +607,7 @@ export default function ProfileScreen() {
     try {
       const firebaseUser = firebaseAuth.currentUser;
       if (firebaseUser && trimmedName !== name) {
-        await updateProfile(firebaseUser, { displayName: trimmedName });
+        await firebaseUser.updateProfile({ displayName: trimmedName });
       }
       if (trimmedName !== name) {
         await api.patch("/users/me", { name: trimmedName });
@@ -737,7 +736,7 @@ export default function ProfileScreen() {
       successMessage:
         "E-mail de redefinição enviado! Verifique sua caixa de entrada.",
       onConfirm: async () => {
-        await sendPasswordResetEmail(firebaseAuth, email);
+        await firebaseAuth.sendPasswordResetEmail(email);
       },
     });
   }, [user?.email]);
@@ -745,6 +744,38 @@ export default function ProfileScreen() {
   const handleDeleteAccount = useCallback(() => {
     accountDeletion.startDeletion();
   }, [accountDeletion]);
+
+  const handleSendVerificationEmail = useCallback(async () => {
+    setIsSendingVerificationEmail(true);
+    try {
+      await sendVerificationEmail();
+      showToast(
+        "Link de verificação enviado. Confira sua caixa de entrada.",
+        "success",
+      );
+    } catch {
+      showToast("Nao foi possivel enviar o e-mail de verificacao.", "error");
+    } finally {
+      setIsSendingVerificationEmail(false);
+    }
+  }, [sendVerificationEmail, showToast]);
+
+  const handleRefreshEmailVerification = useCallback(async () => {
+    setIsRefreshingEmailVerification(true);
+    try {
+      await refreshUser();
+      showToast(
+        firebaseAuth.currentUser?.emailVerified
+          ? "E-mail verificado com sucesso."
+          : "Seu e-mail ainda nao foi verificado.",
+        firebaseAuth.currentUser?.emailVerified ? "success" : "error",
+      );
+    } catch {
+      showToast("Nao foi possivel atualizar o status do e-mail.", "error");
+    } finally {
+      setIsRefreshingEmailVerification(false);
+    }
+  }, [refreshUser, showToast]);
 
   const handleRemovePhone = useCallback(() => {
     setSheetConfig({
@@ -766,9 +797,12 @@ export default function ProfileScreen() {
   }, []);
 
   const initials = getInitials(user?.displayName ?? name, user?.email ?? null);
-  const firstName = getFirstName(user?.displayName ?? name);
   const photoUrl = user?.photoURL ?? null;
   const [avatarImageError, setAvatarImageError] = useState(false);
+  const isEmailPasswordUser =
+    user?.providerData?.some((p) => p.providerId === "password") ?? false;
+  const shouldShowEmailVerificationCard =
+    !!user?.email && isEmailPasswordUser && !emailVerified;
 
   const saveBarTranslate = saveBarAnim.interpolate({
     inputRange: [0, 1],
@@ -850,6 +884,98 @@ export default function ProfileScreen() {
               <Text style={styles.heroSub}>{user.email}</Text>
             ) : null}
           </View>
+
+          {shouldShowEmailVerificationCard ? (
+            <View style={styles.emailVerifyCard}>
+              <View style={styles.emailVerifyGlow} />
+              <View style={styles.emailVerifyBadge}>
+                <MaterialIcons
+                  name="verified-user"
+                  size={14}
+                  color={colors.primary}
+                />
+                <Text style={styles.emailVerifyBadgeText}>Seguranca da conta</Text>
+              </View>
+
+              <View style={styles.emailVerifyHeader}>
+                <View style={styles.emailVerifyIconWrap}>
+                  <MaterialIcons
+                    name="mark-email-unread"
+                    size={20}
+                    color={colors.white}
+                  />
+                </View>
+                <View style={styles.emailVerifyCopy}>
+                  <Text style={styles.emailVerifyTitle}>
+                    Confirme seu e-mail principal
+                  </Text>
+                  <Text style={styles.emailVerifyText}>
+                    Proteja o acesso a sua conta e mantenha a recuperacao de
+                    senha sem friccao.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.emailVerifyEmailPill}>
+                <MaterialIcons
+                  name="alternate-email"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text style={styles.emailVerifyEmailText} numberOfLines={1}>
+                  {user.email}
+                </Text>
+              </View>
+
+              <View style={styles.emailVerifyHintRow}>
+                <MaterialIcons
+                  name="info-outline"
+                  size={14}
+                  color={colors.textMuted}
+                />
+                <Text style={styles.emailVerifyHintText}>
+                  O link abre fora do app. Volte aqui depois para atualizar o
+                  status.
+                </Text>
+              </View>
+
+              <View style={styles.emailVerifyActions}>
+                <TouchableOpacity
+                  style={styles.emailVerifyPrimaryBtn}
+                  onPress={handleSendVerificationEmail}
+                  activeOpacity={0.8}
+                  disabled={
+                    isSendingVerificationEmail || isRefreshingEmailVerification
+                  }
+                >
+                  {isSendingVerificationEmail ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.emailVerifyPrimaryText}>
+                      Enviar link de verificacao
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.emailVerifySecondaryBtn}
+                  onPress={handleRefreshEmailVerification}
+                  activeOpacity={0.8}
+                  disabled={
+                    isSendingVerificationEmail || isRefreshingEmailVerification
+                  }
+                >
+                  {isRefreshingEmailVerification ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={styles.emailVerifySecondaryText}>
+                      Ja confirmei meu e-mail
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
 
           {/* Informações */}
           <View style={styles.sectionHeader}>
@@ -1382,6 +1508,133 @@ const styles = StyleSheet.create({
   heroSub: {
     fontSize: 13,
     color: "rgba(255,255,255,0.7)",
+  },
+  emailVerifyCard: {
+    marginHorizontal: spacing[16],
+    marginTop: spacing[6],
+    padding: spacing[18],
+    borderRadius: radius["2xl"],
+    backgroundColor: "#F8FBFF",
+    borderWidth: 1,
+    borderColor: "#D7E6FF",
+    gap: spacing[16],
+    ...shadow(2),
+  },
+  emailVerifyGlow: {
+    position: "absolute",
+    top: -28,
+    right: -24,
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: "rgba(37,99,235,0.08)",
+  },
+  emailVerifyBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[6],
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[6],
+    borderRadius: 999,
+    backgroundColor: "rgba(37,99,235,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(37,99,235,0.12)",
+  },
+  emailVerifyBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
+    letterSpacing: 0.2,
+  },
+  emailVerifyHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing[12],
+  },
+  emailVerifyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    ...shadow(1),
+  },
+  emailVerifyCopy: {
+    flex: 1,
+    gap: spacing[5],
+  },
+  emailVerifyTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  emailVerifyText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.textMuted,
+  },
+  emailVerifyEmailPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[8],
+    minHeight: 48,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#D9E4F5",
+    paddingHorizontal: spacing[14],
+  },
+  emailVerifyEmailText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  emailVerifyHintRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing[8],
+  },
+  emailVerifyHintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+  },
+  emailVerifyActions: {
+    gap: spacing[10],
+  },
+  emailVerifyPrimaryBtn: {
+    minHeight: 50,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing[16],
+    ...shadow(1),
+  },
+  emailVerifyPrimaryText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.white,
+    letterSpacing: -0.1,
+  },
+  emailVerifySecondaryBtn: {
+    minHeight: 44,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing[12],
+  },
+  emailVerifySecondaryText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
+    letterSpacing: -0.1,
   },
   sectionHeader: {
     paddingHorizontal: spacing[20],

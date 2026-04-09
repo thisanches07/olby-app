@@ -1,6 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { getAuth } from "firebase/auth";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
@@ -22,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
 import { ApiError, api } from "@/services/api";
+import { firebaseAuth } from "@/services/firebase";
 import { tasksService } from "@/services/tasks.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -323,8 +323,7 @@ export function ProjectSettingsModal({
   const [membersLoading, setMembersLoading] = useState(false);
 
   const getIdTokenOrThrow = React.useCallback(async () => {
-    const auth = getAuth();
-    const user = auth.currentUser;
+    const user = firebaseAuth.currentUser;
     if (!user) throw new Error("Você precisa estar logado para continuar.");
     return await user.getIdToken();
   }, []);
@@ -376,8 +375,8 @@ export function ProjectSettingsModal({
   const mapApiMembersToProjectMembers = (
     apiData: ApiMember[],
   ): ProjectMember[] => {
-    const auth = getAuth();
-    const currentEmail = auth.currentUser?.email?.trim().toLowerCase() ?? null;
+    const currentEmail =
+      firebaseAuth.currentUser?.email?.trim().toLowerCase() ?? null;
 
     return Array.isArray(apiData)
       ? apiData

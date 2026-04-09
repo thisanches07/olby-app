@@ -1,5 +1,4 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
-import Constants from "expo-constants";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -31,6 +30,7 @@ import {
   loginWithEmail,
   loginWithGoogleIdToken,
   registerWithEmail,
+  sendCurrentUserEmailVerification,
 } from "@/services/auth.service";
 import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
@@ -403,6 +403,12 @@ export default function LoginScreen() {
       try {
         setLoading(true);
         await registerWithEmail(email, senha, nome);
+        await sendCurrentUserEmailVerification();
+        showToast({
+          title: "Confirme seu e-mail",
+          message: "Enviamos um link de verificação para sua caixa de entrada.",
+          tone: "info",
+        });
         router.replace("/(tabs)");
       } catch (err) {
         showError(getAuthErrorMessage(err));
@@ -421,6 +427,12 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await registerWithEmail(email, senha, nome);
+      await sendCurrentUserEmailVerification();
+      showToast({
+        title: "Confirme seu e-mail",
+        message: "Enviamos um link de verificação para sua caixa de entrada.",
+        tone: "info",
+      });
       router.replace("/(tabs)");
     } catch (err) {
       showError(getAuthErrorMessage(err));
@@ -763,10 +775,16 @@ export default function LoginScreen() {
         initialPhone={`+55${phoneRaw}`}
         onVerified={async (phoneE164) => {
           await completeRegistrationWithPhone(email, senha, nome, phoneE164);
+          await sendCurrentUserEmailVerification();
         }}
         onSuccess={() => {
           setPhoneVerified(new Date().toISOString());
           setRegistrationInProgress(false);
+          showToast({
+            title: "Confirme seu e-mail",
+            message: "Enviamos um link de verificação para sua caixa de entrada.",
+            tone: "info",
+          });
           router.replace("/(tabs)");
         }}
         onClose={() => {

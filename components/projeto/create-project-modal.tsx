@@ -5,7 +5,6 @@ import {
   validateBRDateWithYearRange,
 } from "@/utils/br-date";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { getAuth } from "firebase/auth";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
@@ -29,6 +28,7 @@ import DraggableFlatList, {
 
 import { ObraDetalhe } from "@/data/obras";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
+import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
 
 const PRIMARY = "#2563EB";
@@ -125,8 +125,7 @@ function getApiBaseUrl() {
 
 async function getFirebaseIdTokenSafe(): Promise<string | null> {
   try {
-    const auth = getAuth();
-    const user = auth.currentUser;
+    const user = firebaseAuth.currentUser;
     if (!user) return null;
     return await user.getIdToken();
   } catch {

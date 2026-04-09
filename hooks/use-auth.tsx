@@ -2,7 +2,11 @@ import type { User } from "firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-import { logout } from "@/services/auth.service";
+import {
+  logout,
+  refreshCurrentUser,
+  sendCurrentUserEmailVerification,
+} from "@/services/auth.service";
 import { api } from "@/services/api";
 import { firebaseAuth } from "@/services/firebase";
 
@@ -12,12 +16,15 @@ interface AuthContextValue {
   backendUserId: string | null;
   /** Data em que o telefone foi verificado, ou null se ainda não verificado. */
   phoneVerifiedAt: string | null;
+  emailVerified: boolean;
   /** true enquanto a chamada GET /users/me ainda está em andamento */
   isBackendLoading: boolean;
   isLoading: boolean;
   /** true durante o fluxo de cadastro com telefone (entre confirm() e conta criada) */
   registrationInProgress: boolean;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
   setPhoneVerified: (at: string) => void;
   setRegistrationInProgress: (v: boolean) => void;
 }
@@ -28,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [backendUserId, setBackendUserId] = useState<string | null>(null);
   const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendLoading, setIsBackendLoading] = useState(false);
   const [registrationInProgress, setRegistrationInProgressState] = useState(false);
@@ -38,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
       if (!mounted) return;
       setUser(firebaseUser);
+      setEmailVerified(!!firebaseUser?.emailVerified);
       setIsLoading(false);
 
       if (firebaseUser) {
@@ -56,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setBackendUserId(null);
         setPhoneVerifiedAt(null);
+        setEmailVerified(false);
         setIsBackendLoading(false);
       }
     });
@@ -74,16 +84,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRegistrationInProgressState(v);
   }, []);
 
+  const handleRefreshUser = useCallback(async () => {
+    const refreshed = await refreshCurrentUser();
+    setUser(refreshed);
+    setEmailVerified(!!refreshed?.emailVerified);
+  }, []);
+
+  const handleSendVerificationEmail = useCallback(async () => {
+    await sendCurrentUserEmailVerification();
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         backendUserId,
         phoneVerifiedAt,
+        emailVerified,
         isBackendLoading,
         isLoading,
         registrationInProgress,
         signOut: logout,
+        refreshUser: handleRefreshUser,
+        sendVerificationEmail: handleSendVerificationEmail,
         setPhoneVerified: handleSetPhoneVerified,
         setRegistrationInProgress: handleSetRegistrationInProgress,
       }}

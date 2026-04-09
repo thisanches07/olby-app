@@ -1,7 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as Clipboard from "expo-clipboard";
-import { getAuth } from "firebase/auth";
 import React, {
   useCallback,
   useEffect,
@@ -30,6 +29,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
 import { api } from "@/services/api";
+import { firebaseAuth } from "@/services/firebase";
 import { invitesService } from "@/services/invites.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -284,9 +284,8 @@ export function ShareProjectModal({
           `/projects/${encodeURIComponent(projectId)}/members`,
         );
 
-        const auth = getAuth();
         const currentEmail =
-          auth.currentUser?.email?.trim().toLowerCase() ?? null;
+          firebaseAuth.currentUser?.email?.trim().toLowerCase() ?? null;
 
         const mapRole = (rawRole: string): ProjectMemberRole => {
           const r = rawRole.toUpperCase();

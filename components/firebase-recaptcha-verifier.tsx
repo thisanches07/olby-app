@@ -132,7 +132,6 @@ export const FirebaseRecaptchaVerifierModal = forwardRef<
   }
 
   if (attemptInvisibleVerification) {
-    // Hidden WebView — runs reCAPTCHA invisibly; shown only when needed
     return (
       <>
         <WebView
