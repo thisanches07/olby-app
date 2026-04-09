@@ -28,6 +28,10 @@ import { useToast } from "@/components/obra/toast";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 
 import { useProjects } from "@/contexts/projects-context";
+import {
+  getProjectItemLimitMessage,
+  PROJECT_ITEM_LIMIT,
+} from "@/constants/creation-limits";
 import { useAppSession } from "@/hooks/use-app-session";
 import { useDiaryData, type EntryFormData } from "@/hooks/use-diary-data";
 import type { DiaryEntry, PhotoItem } from "@/hooks/use-diary-state";
@@ -108,6 +112,11 @@ export default function DiarioScreen() {
   const [showLightbox, setShowLightbox] = useState(false);
   const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const diaryEntryCount = useMemo(
+    () => sections.reduce((sum, section) => sum + section.entries.length, 0),
+    [sections],
+  );
+  const diaryLimitReached = diaryEntryCount >= PROJECT_ITEM_LIMIT;
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -129,6 +138,15 @@ export default function DiarioScreen() {
   // ── Handlers de entry ──────────────────────────────────────────────────────
   const handleOpenNewEntry = () => {
     if (!isEng) return;
+    if (diaryLimitReached) {
+      showToast({
+        title: "Limite atingido",
+        message: getProjectItemLimitMessage("registros"),
+        tone: "info",
+        durationMs: 4000,
+      });
+      return;
+    }
     setEditingEntry(null);
     setShowFormModal(true);
   };
@@ -164,6 +182,15 @@ export default function DiarioScreen() {
     if (editingEntry) {
       await updateEntry(id ?? "", editingEntry.id, data);
     } else {
+      if (diaryLimitReached) {
+        showToast({
+          title: "Limite atingido",
+          message: getProjectItemLimitMessage("registros"),
+          tone: "info",
+          durationMs: 4000,
+        });
+        return;
+      }
       await createEntry(id ?? "", data);
     }
     setShowFormModal(false);
@@ -289,14 +316,25 @@ export default function DiarioScreen() {
           <View style={styles.actionsWrap}>
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                style={styles.primaryAction}
+                style={[
+                  styles.primaryAction,
+                  diaryLimitReached && styles.primaryActionDisabled,
+                ]}
                 onPress={handleOpenNewEntry}
-                activeOpacity={0.88}
+                activeOpacity={diaryLimitReached ? 1 : 0.88}
+                disabled={diaryLimitReached}
               >
                 <MaterialIcons name="add" size={18} color={colors.white} />
-                <Text style={styles.primaryActionText}>Novo registro</Text>
+                <Text style={styles.primaryActionText}>
+                  {diaryLimitReached ? "Limite atingido" : "Novo registro"}
+                </Text>
               </TouchableOpacity>
             </View>
+            {diaryLimitReached && (
+              <Text style={styles.limitHelper}>
+                Limite de {PROJECT_ITEM_LIMIT} registros atingido. Exclua um registro para liberar novas insercoes.
+              </Text>
+            )}
             <View style={styles.actionsDivider} />
           </View>
         )}
@@ -440,11 +478,23 @@ const styles = StyleSheet.create({
     gap: spacing[8],
     ...shadow(2, colors.primary),
   },
+  primaryActionDisabled: {
+    backgroundColor: "#94A3B8",
+    shadowColor: "transparent",
+    elevation: 0,
+  },
   primaryActionText: {
     color: colors.white,
     fontSize: 14,
     fontWeight: "800",
     letterSpacing: 0.2,
+  },
+  limitHelper: {
+    marginTop: spacing[10],
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.subtext,
+    fontWeight: "600",
   },
   actionsDivider: {
     height: 1,

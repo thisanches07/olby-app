@@ -28,6 +28,10 @@ import {
 
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
+import {
+  getProjectItemLimitMessage,
+  PROJECT_ITEM_LIMIT,
+} from "@/constants/creation-limits";
 import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
 import { useObraData } from "@/hooks/use-obra-data";
 import { api, getErrorMessage } from "@/services/api";
@@ -196,6 +200,9 @@ export default function ObraDetalheScreen() {
   const isCliente = isClientView(projectRole);
   const isEng = !isCliente;
   const canEdit = canEditProject(projectRole);
+  const taskLimitReached = (obraView?.tarefas?.length ?? 0) >= PROJECT_ITEM_LIMIT;
+  const expenseLimitReached =
+    (obraView?.gastos?.length ?? 0) >= PROJECT_ITEM_LIMIT;
 
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -205,6 +212,11 @@ export default function ObraDetalheScreen() {
 
   // Tasks
   const handleAddTask = () => {
+    if (taskLimitReached) {
+      Alert.alert("Limite atingido", getProjectItemLimitMessage("tarefas"));
+      return;
+    }
+
     setEditingTask(undefined);
     setShowTaskModal(true);
   };
@@ -217,7 +229,13 @@ export default function ObraDetalheScreen() {
   const handleSaveTask = async (task: Omit<Tarefa, "id">) => {
     try {
       if (editingTask) await updateTask(editingTask.id, task);
-      else await addTask(task);
+      else {
+        if (taskLimitReached) {
+          Alert.alert("Limite atingido", getProjectItemLimitMessage("tarefas"));
+          return;
+        }
+        await addTask(task);
+      }
 
       setShowTaskModal(false);
       setEditingTask(undefined);
@@ -241,6 +259,11 @@ export default function ObraDetalheScreen() {
 
   // Expenses
   const handleAddExpense = () => {
+    if (expenseLimitReached) {
+      Alert.alert("Limite atingido", getProjectItemLimitMessage("gastos"));
+      return;
+    }
+
     setEditingExpense(undefined);
     setShowExpenseModal(true);
   };
@@ -258,6 +281,11 @@ export default function ObraDetalheScreen() {
       if (editingExpense) {
         await updateExpense(editingExpense.id, expense);
       } else {
+        if (expenseLimitReached) {
+          Alert.alert("Limite atingido", getProjectItemLimitMessage("gastos"));
+          return;
+        }
+
         try {
           await addExpense(expense, pendingDoc);
         } catch (e: any) {
@@ -475,6 +503,8 @@ export default function ObraDetalheScreen() {
           onConcludeProject={canEdit ? handleConcludeProject : undefined}
           isConcluding={isConcluding}
           onViewDiary={handleViewDiary}
+          taskLimitReached={taskLimitReached}
+          expenseLimitReached={expenseLimitReached}
           onEnableFinancial={handleEnableFinancial}
           onDisableFinancial={handleDisableFinancial}
           docCounts={docCounts}

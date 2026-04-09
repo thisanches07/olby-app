@@ -16,6 +16,7 @@ import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
+import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -141,6 +142,8 @@ interface ObraViewEngProps {
   onConcludeProject?: () => void;
   isConcluding?: boolean;
   onViewDiary: () => void;
+  taskLimitReached?: boolean;
+  expenseLimitReached?: boolean;
   onEnableFinancial: () => void;
   onDisableFinancial: () => void;
   projectRole: ProjectApiRole;
@@ -171,6 +174,8 @@ export function ObraViewEng({
   onConcludeProject,
   isConcluding,
   onViewDiary,
+  taskLimitReached = false,
+  expenseLimitReached = false,
   onEnableFinancial,
   onDisableFinancial,
   projectRole,
@@ -262,6 +267,12 @@ export function ObraViewEng({
   const showCTA =
     (activeTab === "tarefas" && !isReadOnly) ||
     (activeTab === "gastos" && !isReadOnly && obra.trackFinancial);
+  const activeLimitMessage =
+    activeTab === "tarefas" && taskLimitReached
+      ? `Limite de ${PROJECT_ITEM_LIMIT} tarefas atingido`
+      : activeTab === "gastos" && expenseLimitReached
+        ? `Limite de ${PROJECT_ITEM_LIMIT} gastos atingido`
+        : null;
 
   const scrollPadBottom = useMemo(() => {
     const TABS_H = 84;
@@ -307,6 +318,7 @@ export function ObraViewEng({
             readOnly={isReadOnly}
             readOnlyReason={readOnlyReason}
             scrollPadBottom={scrollPadBottom}
+            limitReached={taskLimitReached}
           />
         </View>
       )}
@@ -436,9 +448,10 @@ export function ObraViewEng({
               tarefas={obra.tarefas}
               onToggle={onToggleTask}
               onDelete={onDeleteTask}
-              onAddTask={isReadOnly ? undefined : onAddTask}
+              onAddTask={isReadOnly || taskLimitReached ? undefined : onAddTask}
               readOnly={isReadOnly}
               readOnlyReason={readOnlyReason}
+              limitReached={taskLimitReached}
             />
           </>
         )}
@@ -469,9 +482,10 @@ export function ObraViewEng({
         {showCTA && (
           <EngCTARow
             activeTab={activeTab}
-            onAddTask={onAddTask}
-            onAddExpense={onAddExpense}
+            onAddTask={taskLimitReached ? undefined : onAddTask}
+            onAddExpense={expenseLimitReached ? undefined : onAddExpense}
             onDefault={onViewDiary}
+            disabledMessage={activeLimitMessage}
           />
         )}
 

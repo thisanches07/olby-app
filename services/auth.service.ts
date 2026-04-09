@@ -1,4 +1,5 @@
 import {
+  type ActionCodeSettings,
   EmailAuthProvider,
   GoogleAuthProvider,
   OAuthProvider,
@@ -6,6 +7,7 @@ import {
   User,
   createUserWithEmailAndPassword,
   linkWithCredential,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
@@ -22,6 +24,15 @@ import { api } from "./api";
 import { firebaseAuth } from "./firebase";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+const WEB_BASE_URL = "https://oblyapp.com";
+const EMAIL_VERIFICATION_ACTION_SETTINGS: ActionCodeSettings = {
+  url: `${WEB_BASE_URL}/auth-action`,
+  handleCodeInApp: false,
+};
+const PASSWORD_RESET_ACTION_SETTINGS: ActionCodeSettings = {
+  url: `${WEB_BASE_URL}/auth-action`,
+  handleCodeInApp: false,
+};
 
 /**
  * Garante que o usuário existe no banco local do backend.
@@ -31,6 +42,14 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 async function ensureUserRegistered(user: User): Promise<void> {
   try {
     const idToken = await user.getIdToken();
+    const registrationName = user.displayName || user.email || "Usuário";
+    console.log("[AUTH][REGISTER] sending /users/register", {
+      uid: user.uid,
+      providerIds: user.providerData.map((p) => p.providerId),
+      firebaseDisplayName: user.displayName ?? null,
+      firebaseEmail: user.email ?? null,
+      payloadName: registrationName,
+    });
     const response = await fetch(`${BASE_URL}/users/register`, {
       method: "POST",
       headers: {
@@ -38,15 +57,21 @@ async function ensureUserRegistered(user: User): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: user.displayName || user.email || "Usuário",
+        name: registrationName,
       }),
+    });
+    console.log("[AUTH][REGISTER] response", {
+      status: response.status,
+      ok: response.ok,
     });
 
     // 409 = usuário já existe no backend (esperado no login normal)
     if (!response.ok && response.status !== 409) {
       // Não lança erro — permite que o login continue mesmo se a sincronização falhar
     }
-  } catch {}
+  } catch (error) {
+    console.log("[AUTH][REGISTER] failed", { error });
+  }
 }
 
 export async function loginWithEmail(email: string, password: string) {
@@ -108,21 +133,72 @@ export async function loginWithGoogleIdToken(idToken: string) {
 
 export async function loginWithApple(
   identityToken: string,
-  fullName?: { givenName?: string | null; familyName?: string | null } | null,
+  fullName?:
+    | {
+        namePrefix?: string | null;
+        givenName?: string | null;
+        middleName?: string | null;
+        familyName?: string | null;
+        nameSuffix?: string | null;
+        nickname?: string | null;
+      }
+    | null,
 ) {
   const provider = new OAuthProvider("apple.com");
   const credential = provider.credential({ idToken: identityToken });
   const result = await signInWithCredential(firebaseAuth, credential);
+  console.log("[AUTH][APPLE] signed in with credential", {
+    uid: result.user.uid,
+    providerIds: result.user.providerData.map((p) => p.providerId),
+    firebaseDisplayName: result.user.displayName ?? null,
+    firebaseEmail: result.user.email ?? null,
+    fullNameFromApple: fullName ?? null,
+    hasIdentityToken: Boolean(identityToken),
+    identityTokenLength: identityToken.length,
+  });
 
-  // Apple só envia fullName no primeiro login — não sobrescrever se já existe
-  if (
-    !result.user.displayName &&
-    (fullName?.givenName || fullName?.familyName)
-  ) {
-    const displayName = [fullName.givenName, fullName.familyName]
-      .filter(Boolean)
-      .join(" ");
-    if (displayName) await updateProfile(result.user, { displayName });
+  // Apple só envia o nome completo no primeiro login do app.
+  // Persistimos quando disponível e sem sobrescrever um nome já existente.
+  const appleDisplayName = [
+    fullName?.namePrefix,
+    fullName?.givenName,
+    fullName?.middleName,
+    fullName?.familyName,
+    fullName?.nameSuffix,
+  ]
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .join(" ")
+    .trim();
+
+  if (!result.user.displayName && appleDisplayName) {
+    console.log("[AUTH][APPLE] updating firebase displayName", {
+      uid: result.user.uid,
+      appleDisplayName,
+    });
+    await updateProfile(result.user, { displayName: appleDisplayName });
+    console.log("[AUTH][APPLE] firebase displayName updated", {
+      uid: result.user.uid,
+      firebaseDisplayNameAfterUpdate: result.user.displayName ?? null,
+    });
+  }
+
+  // Se o nome veio da Apple, sincroniza no backend também para corrigir
+  // contas antigas que ficaram sem nome por login prévio.
+  if (appleDisplayName) {
+    try {
+      console.log("[AUTH][APPLE] patching backend /users/me", {
+        uid: result.user.uid,
+        payloadName: appleDisplayName,
+      });
+      await api.patch("/users/me", { name: appleDisplayName });
+      console.log("[AUTH][APPLE] backend /users/me patched");
+    } catch (error) {
+      console.log("[AUTH][APPLE] failed patching backend /users/me", { error });
+    }
+  } else {
+    console.log("[AUTH][APPLE] no fullName returned by Apple for this login", {
+      uid: result.user.uid,
+    });
   }
 
   await ensureUserRegistered(result.user);
@@ -130,7 +206,38 @@ export async function loginWithApple(
 }
 
 export async function requestPasswordReset(email: string) {
-  return sendPasswordResetEmail(firebaseAuth, email);
+  const normalizedEmail = email.trim().toLowerCase();
+  console.log("[AUTH][PASSWORD_RESET] request started", {
+    email: normalizedEmail,
+    continueUrl: PASSWORD_RESET_ACTION_SETTINGS.url,
+  });
+
+  try {
+    await sendPasswordResetEmail(
+      firebaseAuth,
+      normalizedEmail,
+      PASSWORD_RESET_ACTION_SETTINGS,
+    );
+    console.log("[AUTH][PASSWORD_RESET] request succeeded", {
+      email: normalizedEmail,
+      continueUrl: PASSWORD_RESET_ACTION_SETTINGS.url,
+    });
+  } catch (error) {
+    console.log("[AUTH][PASSWORD_RESET] request failed", {
+      email: normalizedEmail,
+      continueUrl: PASSWORD_RESET_ACTION_SETTINGS.url,
+      error,
+      errorCode:
+        error && typeof error === "object" && "code" in error
+          ? (error as { code?: string }).code
+          : null,
+      errorMessage:
+        error && typeof error === "object" && "message" in error
+          ? (error as { message?: string }).message
+          : String(error),
+    });
+    throw error;
+  }
 }
 
 export async function logout() {
@@ -139,10 +246,44 @@ export async function logout() {
 
 export async function sendCurrentUserEmailVerification(): Promise<void> {
   const user = firebaseAuth.currentUser;
+  console.log("[AUTH][EMAIL_VERIFY] resend requested", {
+    hasUser: Boolean(user),
+    uid: user?.uid ?? null,
+    email: user?.email ?? null,
+    emailVerified: user?.emailVerified ?? null,
+    providerIds: user?.providerData?.map((p) => p.providerId) ?? [],
+  });
+
   if (!user || !user.email) {
+    console.log("[AUTH][EMAIL_VERIFY] resend aborted: missing authenticated email user");
     throw new Error("Usuário sem e-mail para verificação.");
   }
-  await user.sendEmailVerification();
+
+  try {
+    await sendEmailVerification(user, EMAIL_VERIFICATION_ACTION_SETTINGS);
+    console.log("[AUTH][EMAIL_VERIFY] resend succeeded", {
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      continueUrl: EMAIL_VERIFICATION_ACTION_SETTINGS.url,
+    });
+  } catch (error) {
+    console.log("[AUTH][EMAIL_VERIFY] resend failed", {
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      error,
+      errorCode:
+        error && typeof error === "object" && "code" in error
+          ? (error as { code?: string }).code
+          : null,
+      errorMessage:
+        error && typeof error === "object" && "message" in error
+          ? (error as { message?: string }).message
+          : String(error),
+    });
+    throw error;
+  }
 }
 
 export async function refreshCurrentUser(): Promise<User | null> {

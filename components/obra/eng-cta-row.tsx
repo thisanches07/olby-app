@@ -10,6 +10,7 @@ interface EngCTARowProps {
   onAddTask?: () => void;
   onAddExpense?: () => void;
   onDefault?: () => void;
+  disabledMessage?: string | null;
 }
 
 export function EngCTARow({
@@ -17,23 +18,30 @@ export function EngCTARow({
   onAddTask,
   onAddExpense,
   onDefault,
+  disabledMessage,
 }: EngCTARowProps) {
+  const isTaskTab = activeTab === "tarefas";
+  const isExpenseTab = activeTab === "gastos";
+  const isDisabled = (isTaskTab && !onAddTask) || (isExpenseTab && !onAddExpense);
+
   return (
     <View style={styles.ctaWrap}>
-      {activeTab === "tarefas" ? (
+      {isTaskTab ? (
         <TouchableOpacity
-          style={styles.ctaBtn}
+          style={[styles.ctaBtn, isDisabled && styles.ctaBtnDisabled]}
           onPress={onAddTask}
-          activeOpacity={0.85}
+          activeOpacity={isDisabled ? 1 : 0.85}
+          disabled={isDisabled}
         >
           <MaterialIcons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.ctaBtnText}>Adicionar Tarefa</Text>
         </TouchableOpacity>
-      ) : activeTab === "gastos" ? (
+      ) : isExpenseTab ? (
         <TouchableOpacity
-          style={styles.ctaBtn}
+          style={[styles.ctaBtn, isDisabled && styles.ctaBtnDisabled]}
           onPress={onAddExpense}
-          activeOpacity={0.85}
+          activeOpacity={isDisabled ? 1 : 0.85}
+          disabled={isDisabled}
         >
           <MaterialIcons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.ctaBtnText}>Adicionar Gasto</Text>
@@ -47,6 +55,10 @@ export function EngCTARow({
           <MaterialIcons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.ctaBtnText}>Adicionar Registro</Text>
         </TouchableOpacity>
+      )}
+
+      {!!disabledMessage && isDisabled && (
+        <Text style={styles.limitHint}>{disabledMessage}</Text>
       )}
     </View>
   );
@@ -72,5 +84,17 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
+  ctaBtnDisabled: {
+    backgroundColor: "#94A3B8",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   ctaBtnText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  limitHint: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+  },
 });

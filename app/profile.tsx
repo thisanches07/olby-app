@@ -24,7 +24,7 @@ import { useSubscription } from "@/contexts/subscription-context";
 import { useAccountDeletion } from "@/hooks/use-account-deletion";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
-import { unlinkPhone } from "@/services/auth.service";
+import { requestPasswordReset, unlinkPhone } from "@/services/auth.service";
 import { firebaseAuth } from "@/services/firebase";
 import { getStatusBadge } from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
@@ -32,6 +32,8 @@ import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
+
+const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -527,8 +529,10 @@ export default function ProfileScreen() {
   const { plan } = useSubscription();
   const accountDeletion = useAccountDeletion();
 
-  const isGoogleUser =
+  const hasGoogleProvider =
     user?.providerData?.some((p) => p.providerId === "google.com") ?? false;
+  const hasAppleProvider =
+    user?.providerData?.some((p) => p.providerId === "apple.com") ?? false;
 
   const subBadge = getStatusBadge(plan?.subscriptionStatus ?? null);
   const subSublabel = plan ? `${plan.name} · ${subBadge.label}` : "Gratuito";
@@ -549,6 +553,10 @@ export default function ProfileScreen() {
     useState(false);
   const [isRefreshingEmailVerification, setIsRefreshingEmailVerification] =
     useState(false);
+  const [emailVerificationCooldownUntil, setEmailVerificationCooldownUntil] =
+    useState<number | null>(null);
+  const [emailVerificationCooldownNow, setEmailVerificationCooldownNow] =
+    useState(Date.now());
 
   const saveBarAnim = useRef(new Animated.Value(0)).current;
   const modalOverlayOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -570,9 +578,39 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!emailVerificationCooldownUntil) return;
+
+    if (emailVerificationCooldownUntil <= Date.now()) {
+      setEmailVerificationCooldownUntil(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setEmailVerificationCooldownNow(now);
+      if (emailVerificationCooldownUntil <= now) {
+        setEmailVerificationCooldownUntil(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [emailVerificationCooldownUntil]);
+
   const showToast = useCallback((message: string, type: ToastState["type"]) => {
     setToastState({ message, type });
   }, []);
+
+  const emailVerificationCooldownSecondsLeft = emailVerificationCooldownUntil
+    ? Math.max(
+        0,
+        Math.ceil(
+          (emailVerificationCooldownUntil - emailVerificationCooldownNow) / 1000,
+        ),
+      )
+    : 0;
+  const isEmailVerificationCooldownActive =
+    emailVerificationCooldownSecondsLeft > 0;
 
   const enterEdit = useCallback(() => {
     setDraftName(name);
@@ -736,7 +774,13 @@ export default function ProfileScreen() {
       successMessage:
         "E-mail de redefinição enviado! Verifique sua caixa de entrada.",
       onConfirm: async () => {
-        await firebaseAuth.sendPasswordResetEmail(email);
+        console.log("[PROFILE][PASSWORD_RESET] confirm sheet accepted", {
+          email,
+        });
+        await requestPasswordReset(email);
+        console.log("[PROFILE][PASSWORD_RESET] request completed", {
+          email,
+        });
       },
     });
   }, [user?.email]);
@@ -746,19 +790,85 @@ export default function ProfileScreen() {
   }, [accountDeletion]);
 
   const handleSendVerificationEmail = useCallback(async () => {
+    if (isEmailVerificationCooldownActive) {
+      showToast(
+        `Aguarde ${emailVerificationCooldownSecondsLeft}s para reenviar o link.`,
+        "error",
+      );
+      return;
+    }
+
+    console.log("[PROFILE][EMAIL_VERIFY] resend button pressed", {
+      email: user?.email ?? null,
+      emailVerified,
+      isSendingVerificationEmail,
+      isRefreshingEmailVerification,
+      emailVerificationCooldownSecondsLeft,
+      providerIds: user?.providerData?.map((p) => p.providerId) ?? [],
+    });
+
     setIsSendingVerificationEmail(true);
     try {
       await sendVerificationEmail();
+      setEmailVerificationCooldownUntil(
+        Date.now() + EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000,
+      );
+      console.log("[PROFILE][EMAIL_VERIFY] resend flow completed successfully", {
+        email: user?.email ?? null,
+        emailVerifiedAfterSend: firebaseAuth.currentUser?.emailVerified ?? null,
+      });
       showToast(
         "Link de verificação enviado. Confira sua caixa de entrada.",
         "success",
       );
-    } catch {
-      showToast("Nao foi possivel enviar o e-mail de verificacao.", "error");
+    } catch (error) {
+      const errorCode =
+        error && typeof error === "object" && "code" in error
+          ? (error as { code?: string }).code
+          : null;
+
+      if (errorCode === "auth/too-many-requests") {
+        setEmailVerificationCooldownUntil(
+          Date.now() + EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS * 1000,
+        );
+      }
+
+      console.log("[PROFILE][EMAIL_VERIFY] resend flow failed", {
+        email: user?.email ?? null,
+        emailVerified,
+        error,
+        errorCode:
+          error && typeof error === "object" && "code" in error
+            ? (error as { code?: string }).code
+            : null,
+        errorMessage:
+          error && typeof error === "object" && "message" in error
+            ? (error as { message?: string }).message
+            : String(error),
+      });
+      showToast(
+        errorCode === "auth/too-many-requests"
+          ? "Muitas tentativas seguidas. Aguarde 60 segundos para reenviar."
+          : "Nao foi possivel enviar o e-mail de verificacao.",
+        "error",
+      );
     } finally {
+      console.log("[PROFILE][EMAIL_VERIFY] resend flow finished", {
+        email: user?.email ?? null,
+      });
       setIsSendingVerificationEmail(false);
     }
-  }, [sendVerificationEmail, showToast]);
+  }, [
+    emailVerified,
+    emailVerificationCooldownSecondsLeft,
+    isEmailVerificationCooldownActive,
+    isRefreshingEmailVerification,
+    isSendingVerificationEmail,
+    sendVerificationEmail,
+    showToast,
+    user?.email,
+    user?.providerData,
+  ]);
 
   const handleRefreshEmailVerification = useCallback(async () => {
     setIsRefreshingEmailVerification(true);
@@ -801,6 +911,11 @@ export default function ProfileScreen() {
   const [avatarImageError, setAvatarImageError] = useState(false);
   const isEmailPasswordUser =
     user?.providerData?.some((p) => p.providerId === "password") ?? false;
+  const passwordManagedBy = hasGoogleProvider
+    ? "Google"
+    : hasAppleProvider
+      ? "Apple"
+      : "provedor externo";
   const shouldShowEmailVerificationCard =
     !!user?.email && isEmailPasswordUser && !emailVerified;
 
@@ -941,18 +1056,28 @@ export default function ProfileScreen() {
 
               <View style={styles.emailVerifyActions}>
                 <TouchableOpacity
-                  style={styles.emailVerifyPrimaryBtn}
+                  style={[
+                    styles.emailVerifyPrimaryBtn,
+                    (isSendingVerificationEmail ||
+                      isRefreshingEmailVerification ||
+                      isEmailVerificationCooldownActive) &&
+                      styles.emailVerifyPrimaryBtnDisabled,
+                  ]}
                   onPress={handleSendVerificationEmail}
                   activeOpacity={0.8}
                   disabled={
-                    isSendingVerificationEmail || isRefreshingEmailVerification
+                    isSendingVerificationEmail ||
+                    isRefreshingEmailVerification ||
+                    isEmailVerificationCooldownActive
                   }
                 >
                   {isSendingVerificationEmail ? (
                     <ActivityIndicator size="small" color={colors.white} />
                   ) : (
                     <Text style={styles.emailVerifyPrimaryText}>
-                      Enviar link de verificacao
+                      {isEmailVerificationCooldownActive
+                        ? `Reenviar em ${emailVerificationCooldownSecondsLeft}s`
+                        : "Enviar link de verificacao"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -1000,7 +1125,7 @@ export default function ProfileScreen() {
               phoneVerifiedAt={phoneVerifiedAt}
               isEditing={isEditing}
               isEmailUser={
-                isGoogleUser === false &&
+                hasGoogleProvider === false &&
                 (user?.providerData?.some((p) => p.providerId === "password") ??
                   false)
               }
@@ -1031,7 +1156,7 @@ export default function ProfileScreen() {
               sublabel={subSublabel}
               onPress={() => router.push("/subscription/my-plan")}
             />
-            {isGoogleUser ? (
+            {!isEmailPasswordUser ? (
               <View style={[styles.actionRow, styles.rowBorder]}>
                 <View
                   style={[
@@ -1052,7 +1177,7 @@ export default function ProfileScreen() {
                     Trocar senha
                   </Text>
                   <Text style={styles.actionSublabel}>
-                    Conta gerenciada pelo Google
+                    Conta gerenciada por {passwordManagedBy}
                   </Text>
                 </View>
                 <MaterialIcons
@@ -1616,6 +1741,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing[16],
     ...shadow(1),
+  },
+  emailVerifyPrimaryBtnDisabled: {
+    opacity: 0.72,
   },
   emailVerifyPrimaryText: {
     fontSize: 14,

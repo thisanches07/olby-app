@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/obra/toast";
+import {
+  getProjectItemLimitMessage,
+  PROJECT_ITEM_LIMIT,
+} from "@/constants/creation-limits";
 
 import {
   DailyLogEntryResponseDto,
@@ -272,6 +276,10 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
   // ── createEntry ────────────────────────────────────────────────────────────
   const createEntry = useCallback(
     async (pid: string, data: EntryFormData) => {
+      if (rawEntries.length >= PROJECT_ITEM_LIMIT) {
+        throw new Error(getProjectItemLimitMessage("registros"));
+      }
+
       setIsSaving(true);
       try {
         const dateISO = parseBrDateToISO(data.date);
@@ -335,7 +343,7 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showToast],
+    [showToast, rawEntries.length],
   );
 
   // ── updateEntry ────────────────────────────────────────────────────────────

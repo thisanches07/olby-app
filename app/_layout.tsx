@@ -18,7 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import DevPanel from "@/app/dev/DevPanel";
 import type { DevUser } from "@/constants/dev-users";
-import { ToastProvider } from "@/components/obra/toast";
+import { ToastProvider, useToast } from "@/components/obra/toast";
 import { ProjectsProvider } from "@/contexts/projects-context";
 import {
   SubscriptionProvider,
@@ -149,6 +149,39 @@ function DevPanelBridge() {
   );
 }
 
+function EmailVerificationToastBridge() {
+  const { user, emailVerified } = useAuth();
+  const { showToast } = useToast();
+  const hasInitializedRef = useRef(false);
+  const previousEmailVerifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (!user) {
+      hasInitializedRef.current = false;
+      previousEmailVerifiedRef.current = false;
+      return;
+    }
+
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      previousEmailVerifiedRef.current = emailVerified;
+      return;
+    }
+
+    if (!previousEmailVerifiedRef.current && emailVerified) {
+      showToast({
+        title: "E-mail verificado",
+        message: "Sua conta foi confirmada com sucesso.",
+        tone: "success",
+      });
+    }
+
+    previousEmailVerifiedRef.current = emailVerified;
+  }, [emailVerified, showToast, user]);
+
+  return null;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "Inter-Regular": Inter_400Regular,
@@ -174,6 +207,7 @@ export default function RootLayout() {
               <AppSessionProvider>
                 {/* ✅ ToastProvider precisa ficar acima de qualquer provider que use useToast (ex: ProjectsProvider) */}
                 <ToastProvider>
+                  <EmailVerificationToastBridge />
                   <ProjectsProvider>
                     <AuthGate>
                       <SubscriptionLoader />

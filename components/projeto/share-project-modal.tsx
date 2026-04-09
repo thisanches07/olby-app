@@ -1,5 +1,6 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Clipboard from "expo-clipboard";
 import React, {
   useCallback,
@@ -8,7 +9,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Animated,
@@ -92,6 +92,8 @@ type ProjectMember = {
   isOwner?: boolean;
   isCurrentUser?: boolean;
 };
+
+const MAX_CLIENT_MEMBERS = 5;
 
 export function ShareProjectModal({
   visible,
@@ -352,6 +354,13 @@ export function ShareProjectModal({
     () => canManageMembersByRole(projectRole),
     [projectRole],
   );
+  const activeClientsCount = useMemo(
+    () => membersState.filter((member) => member.role === "cliente").length,
+    [membersState],
+  );
+
+  const isClientLimitReached = activeClientsCount >= MAX_CLIENT_MEMBERS;
+  const clientLimitMessage = `Limite de ${MAX_CLIENT_MEMBERS} clientes atingido neste projeto. Remova um cliente para liberar novos links.`;
 
   const handleRemoveMember = useCallback(
     (member: ProjectMember) => {
@@ -404,6 +413,16 @@ export function ShareProjectModal({
   );
 
   const handleGenerateLink = useCallback(async () => {
+    if (isClientLimitReached) {
+      setError(clientLimitMessage);
+      showToast({
+        title: "Limite de clientes atingido",
+        message: clientLimitMessage,
+        tone: "error",
+      });
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -416,7 +435,7 @@ export function ShareProjectModal({
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, showToast]);
+  }, [clientLimitMessage, isClientLimitReached, projectId, showToast]);
 
   const handleCopy = useCallback(async () => {
     if (!inviteResult) return;
@@ -582,14 +601,6 @@ export function ShareProjectModal({
                                 {m.name}
                                 {m.isCurrentUser ? " (Eu)" : ""}
                               </Text>
-                              {!!m.email && (
-                                <Text
-                                  style={styles.memberEmail}
-                                  numberOfLines={1}
-                                >
-                                  {m.email}
-                                </Text>
-                              )}
                             </View>
                           </View>
 
@@ -610,7 +621,11 @@ export function ShareProjectModal({
                                   )
                                 }
                               >
-                                <FontAwesome name="whatsapp" size={16} color="#fff" />
+                                <FontAwesome
+                                  name="whatsapp"
+                                  size={16}
+                                  color="#fff"
+                                />
                               </TouchableOpacity>
                             )}
 
@@ -707,8 +722,12 @@ export function ShareProjectModal({
                       />
                       <Text style={styles.errorText}>{error}</Text>
                       <TouchableOpacity
-                        style={styles.retryBtn}
+                        style={[
+                          styles.retryBtn,
+                          isClientLimitReached && styles.footerDisabled,
+                        ]}
                         onPress={handleGenerateLink}
+                        disabled={isClientLimitReached}
                       >
                         <MaterialIcons
                           name="refresh"
@@ -729,8 +748,9 @@ export function ShareProjectModal({
                         color={colors.textMuted}
                       />
                       <Text style={styles.noLinkText}>
-                        Nenhum link gerado ainda. Toque em &quot;Gerar
-                        link&quot; abaixo.
+                        {isClientLimitReached
+                          ? clientLimitMessage
+                          : 'Nenhum link gerado ainda. Toque em "Gerar link" abaixo.'}
                       </Text>
                     </View>
                   )}
@@ -792,9 +812,13 @@ export function ShareProjectModal({
                       </View>
 
                       <TouchableOpacity
-                        style={styles.regenerateBtn}
+                        style={[
+                          styles.regenerateBtn,
+                          isClientLimitReached && styles.footerDisabled,
+                        ]}
                         onPress={handleGenerateLink}
                         activeOpacity={0.7}
+                        disabled={isClientLimitReached}
                       >
                         <MaterialIcons
                           name="refresh"
@@ -846,10 +870,11 @@ export function ShareProjectModal({
                     style={[
                       styles.footerPrimary,
                       { flex: 1 },
-                      isLoading && styles.footerDisabled,
+                      (isLoading || isClientLimitReached) &&
+                        styles.footerDisabled,
                     ]}
                     onPress={handleGenerateLink}
-                    disabled={isLoading}
+                    disabled={isLoading || isClientLimitReached}
                   >
                     {isLoading ? (
                       <ActivityIndicator color={colors.white} size="small" />
@@ -861,7 +886,11 @@ export function ShareProjectModal({
                       />
                     )}
                     <Text style={styles.footerPrimaryText}>
-                      {isLoading ? "Gerando..." : "Gerar link"}
+                      {isLoading
+                        ? "Gerando..."
+                        : isClientLimitReached
+                          ? "Limite atingido"
+                          : "Gerar link"}
                     </Text>
                   </TouchableOpacity>
                 )}

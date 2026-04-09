@@ -4,6 +4,10 @@ import type { StatusType } from "@/components/obra-card";
 import type { DocumentSource, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  getProjectItemLimitMessage,
+  PROJECT_ITEM_LIMIT,
+} from "@/constants/creation-limits";
+import {
   dailyLogEntriesService,
   type DailyLogEntryResponseDto,
 } from "@/services/daily-log-entries.service";
@@ -275,6 +279,10 @@ export function useObraData(projectId: string): UseObraDataReturn {
 
   const addTask = useCallback(
     async (taskData: Omit<Tarefa, "id">) => {
+      if (tasks.length >= PROJECT_ITEM_LIMIT) {
+        throw new Error(getProjectItemLimitMessage("tarefas"));
+      }
+
       const created = await tasksService.create({
         projectId,
         title: taskData.titulo,
@@ -283,7 +291,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
       });
       setTasks((prev) => [created, ...prev]);
     },
-    [projectId],
+    [projectId, tasks.length],
   );
 
   const updateTask = useCallback(
@@ -344,6 +352,10 @@ export function useObraData(projectId: string): UseObraDataReturn {
       expenseData: Omit<Gasto, "id">,
       pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
     ) => {
+      if (expenses.length >= PROJECT_ITEM_LIMIT) {
+        throw new Error(getProjectItemLimitMessage("gastos"));
+      }
+
       const tempId = `temp-${Date.now()}`;
       setCreatingExpenseId(tempId);
 
@@ -400,7 +412,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         setCreatingExpenseId(null);
       }
     },
-    [projectId],
+    [projectId, expenses.length],
   );
 
   const updateExpense = useCallback(

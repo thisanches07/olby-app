@@ -27,6 +27,7 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 
 import { ObraDetalhe } from "@/data/obras";
+import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
 import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
@@ -403,15 +404,15 @@ export function CreateProjectModal({
       });
       return;
     }
-    if (formState.tarefas.length >= 10) {
+    if (formState.tarefas.length >= PROJECT_ITEM_LIMIT) {
       showToast({
         title: "Limite atingido",
-        message: "Máximo de 10 tarefas iniciais.",
+        message: `Maximo de ${PROJECT_ITEM_LIMIT} tarefas iniciais.`,
         tone: "info",
       });
       setSubmitError({
         title: "Limite atingido",
-        message: "Máximo de 10 tarefas iniciais.",
+        message: `Maximo de ${PROJECT_ITEM_LIMIT} tarefas iniciais.`,
       });
       return;
     }
@@ -1567,3 +1568,5 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
 });
+
+

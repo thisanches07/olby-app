@@ -266,6 +266,7 @@ interface EngTasksListProps {
   readOnlyReason?: "concluida" | "pausada";
   /** When provided, component owns its own scroll (standalone tab mode) */
   scrollPadBottom?: number;
+  limitReached?: boolean;
 }
 
 export function EngTasksList({
@@ -281,6 +282,7 @@ export function EngTasksList({
   readOnly = false,
   readOnlyReason,
   scrollPadBottom,
+  limitReached = false,
 }: EngTasksListProps) {
   const ativas = tarefas.filter((t) => !t.concluida).length;
   const total = tarefas.length;
@@ -462,6 +464,15 @@ export function EngTasksList({
           <MaterialIcons name={readOnlyIcon} size={15} color="#6B7280" />
           <Text style={styles.readOnlyBannerText}>
             {readOnlyLabel} — tarefas somente leitura
+          </Text>
+        </View>
+      )}
+
+      {limitReached && !readOnly && (
+        <View style={styles.limitBanner}>
+          <MaterialIcons name="info-outline" size={15} color="#9A3412" />
+          <Text style={styles.limitBannerText}>
+            Limite de 500 tarefas atingido. Exclua uma tarefa para adicionar outra.
           </Text>
         </View>
       )}
@@ -834,6 +845,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#6B7280",
+  },
+  limitBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFF7ED",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  limitBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9A3412",
   },
 
   checkbox: {

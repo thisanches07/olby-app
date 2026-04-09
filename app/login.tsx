@@ -1,8 +1,8 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Google from "expo-auth-session/providers/google";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -24,6 +24,7 @@ import { useToast } from "@/components/obra/toast";
 import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import * as AppleAuthentication from "expo-apple-authentication";
 
+import { useAuth } from "@/hooks/use-auth";
 import {
   completeRegistrationWithPhone,
   loginWithApple,
@@ -32,7 +33,6 @@ import {
   registerWithEmail,
   sendCurrentUserEmailVerification,
 } from "@/services/auth.service";
-import { useAuth } from "@/hooks/use-auth";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 
@@ -50,7 +50,10 @@ const BG = "#EFF6FF";
 const PASSWORD_RULES = [
   { label: "Mínimo 6 caracteres", test: (p: string) => p.length >= 6 },
   { label: "1 letra maiúscula", test: (p: string) => /[A-Z]/.test(p) },
-  { label: "1 caractere especial", test: (p: string) => /[^a-zA-Z0-9]/.test(p) },
+  {
+    label: "1 caractere especial",
+    test: (p: string) => /[^a-zA-Z0-9]/.test(p),
+  },
 ] as const;
 
 function formatBRPhone(digits: string): string {
@@ -112,8 +115,16 @@ function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
     opacity.setValue(0);
     translateY.setValue(-6);
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
     ]).start();
 
     const timer = setTimeout(onDismiss, 5000);
@@ -314,7 +325,9 @@ export default function LoginScreen() {
           response.params?.id_token ?? response.authentication?.idToken;
 
         if (!idToken) {
-          showError("Não foi possível obter o token do Google. Tente novamente.");
+          showError(
+            "Não foi possível obter o token do Google. Tente novamente.",
+          );
           setGoogleLoading(false);
           googleAuthRequestedRef.current = false;
           return;
@@ -492,6 +505,23 @@ export default function LoginScreen() {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
+      console.log(
+        "name >",
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      );
+      console.log(
+        "email >",
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      );
+
+      console.log("[AUTH][APPLE_UI] Apple signInAsync response", {
+        user: credential.user ?? null,
+        email: credential.email ?? null,
+        fullName: credential.fullName ?? null,
+        hasIdentityToken: Boolean(credential.identityToken),
+        identityTokenLength: credential.identityToken?.length ?? 0,
+        realUserStatus: credential.realUserStatus ?? null,
+      });
       if (!credential.identityToken) {
         showError("Não foi possível obter o token da Apple. Tente novamente.");
         return;
@@ -564,7 +594,9 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
             <Text style={styles.appName}>Obly App</Text>
-            <Text style={styles.tagline}>Gerencie suas obras com facilidade</Text>
+            <Text style={styles.tagline}>
+              Gerencie suas obras com facilidade
+            </Text>
           </View>
 
           {/* Card */}
@@ -575,7 +607,12 @@ export default function LoginScreen() {
                 style={[styles.tab, mode === "login" && styles.tabActive]}
                 onPress={() => switchMode("login")}
               >
-                <Text style={[styles.tabText, mode === "login" && styles.tabTextActive]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    mode === "login" && styles.tabTextActive,
+                  ]}
+                >
                   Entrar
                 </Text>
               </TouchableOpacity>
@@ -584,7 +621,12 @@ export default function LoginScreen() {
                 style={[styles.tab, mode === "register" && styles.tabActive]}
                 onPress={() => switchMode("register")}
               >
-                <Text style={[styles.tabText, mode === "register" && styles.tabTextActive]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    mode === "register" && styles.tabTextActive,
+                  ]}
+                >
                   Criar Conta
                 </Text>
               </TouchableOpacity>
@@ -592,7 +634,10 @@ export default function LoginScreen() {
 
             {/* Google Button */}
             <TouchableOpacity
-              style={[styles.googleButton, isBusy && styles.googleButtonDisabled]}
+              style={[
+                styles.googleButton,
+                isBusy && styles.googleButtonDisabled,
+              ]}
               onPress={handleGoogleAuth}
               disabled={isBusy}
               activeOpacity={0.85}
@@ -603,7 +648,9 @@ export default function LoginScreen() {
                 <>
                   <GoogleIcon />
                   <Text style={styles.googleButtonText}>
-                    {mode === "login" ? "Entrar com Google" : "Cadastrar com Google"}
+                    {mode === "login"
+                      ? "Entrar com Google"
+                      : "Cadastrar com Google"}
                   </Text>
                 </>
               )}
@@ -660,7 +707,9 @@ export default function LoginScreen() {
                     label="Celular"
                     placeholder="(11) 99999-8888"
                     value={formatBRPhone(phoneRaw)}
-                    onChangeText={(text) => setPhoneRaw(text.replace(/\D/g, "").slice(0, 11))}
+                    onChangeText={(text) =>
+                      setPhoneRaw(text.replace(/\D/g, "").slice(0, 11))
+                    }
                     icon="phone"
                     keyboardType="phone-pad"
                     returnKeyType="next"
@@ -745,7 +794,11 @@ export default function LoginScreen() {
                     <Text style={styles.primaryButtonText}>
                       {mode === "login" ? "Entrar" : "Criar Conta"}
                     </Text>
-                    <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
+                    <MaterialIcons
+                      name="arrow-forward"
+                      size={20}
+                      color="#FFFFFF"
+                    />
                   </>
                 )}
               </TouchableOpacity>
@@ -782,7 +835,8 @@ export default function LoginScreen() {
           setRegistrationInProgress(false);
           showToast({
             title: "Confirme seu e-mail",
-            message: "Enviamos um link de verificação para sua caixa de entrada.",
+            message:
+              "Enviamos um link de verificação para sua caixa de entrada.",
             tone: "info",
           });
           router.replace("/(tabs)");
@@ -970,6 +1024,3 @@ const styles = StyleSheet.create({
     color: PRIMARY,
   },
 });
-
-
-
