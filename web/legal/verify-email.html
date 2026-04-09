@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Verificar E-mail — Obly App</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      .auth-wrap {
+        min-height: calc(100vh - 65px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 18px 54px;
+      }
+
+      .auth-card {
+        width: 100%;
+        max-width: 460px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius2);
+        box-shadow: var(--shadow);
+        padding: 36px 32px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+
+      .state { display: none; flex-direction: column; gap: 22px; }
+      .state.active { display: flex; }
+
+      .icon-badge {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        align-self: center;
+        flex-shrink: 0;
+      }
+      .icon-badge.blue  { background: rgba(37,99,235,0.18); border: 1px solid rgba(37,99,235,0.30); }
+      .icon-badge.red   { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.25); }
+      .icon-badge.green { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.25); }
+      .icon-badge.muted { background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
+
+      .auth-title {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.4px;
+        color: var(--text);
+        text-align: center;
+        margin: 0;
+      }
+
+      .auth-desc {
+        font-size: 14px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.65;
+        margin: 0;
+      }
+
+      .banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        border-radius: 12px;
+        padding: 13px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.55;
+      }
+
+      .banner svg { flex-shrink: 0; margin-top: 1px; }
+      .banner-text { flex: 1; }
+
+      .banner-error {
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.28);
+        color: #fca5a5;
+      }
+
+      .banner-info {
+        background: rgba(37,99,235,0.12);
+        border: 1px solid rgba(37,99,235,0.28);
+        color: #93c5fd;
+      }
+
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 13px;
+        padding: 15px 20px;
+        font-size: 15px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+        width: 100%;
+        border: none;
+        letter-spacing: -0.1px;
+        text-decoration: none;
+      }
+
+      .btn:hover { opacity: 0.92; transform: translateY(-1px); }
+      .btn.primary { background: var(--primary); color: white; }
+      .btn.secondary {
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255,255,255,0.28);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @media (max-width: 560px) {
+        .auth-card {
+          padding: 28px 22px 30px;
+        }
+      }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="logo"></div>
+          <span>Obly App</span>
+        </div>
+        <div class="nav">
+          <a href="/terms">Termos</a>
+          <a href="/privacy">Privacidade</a>
+        </div>
+      </div>
+    </div>
+
+    <main class="auth-wrap">
+      <section class="auth-card">
+        <div id="state-loading" class="state active">
+          <div class="icon-badge muted">
+            <div class="spinner" style="border-color: rgba(37,99,235,0.25); border-top-color: var(--primary);"></div>
+          </div>
+          <h1 class="auth-title">Validando seu link</h1>
+          <p class="auth-desc">Estamos verificando a autenticidade do seu e-mail. Isso leva apenas alguns segundos.</p>
+        </div>
+
+        <div id="state-success" class="state">
+          <div class="icon-badge green">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <h1 class="auth-title">E-mail verificado com sucesso</h1>
+          <p class="auth-desc">Sua conta foi confirmada. Volte para o app Obly e toque em <strong>Ja confirmei meu e-mail</strong> para atualizar o status imediatamente.</p>
+          <div class="banner banner-info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <div class="banner-text">Se o app ja estiver aberto, volte para a tela de perfil para concluir a confirmacao.</div>
+          </div>
+          <a class="btn primary" href="https://obly-app.vercel.app">Abrir site do Obly</a>
+        </div>
+
+        <div id="state-invalid" class="state">
+          <div class="icon-badge red">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+          </div>
+          <h1 class="auth-title">Link invalido ou expirado</h1>
+          <p class="auth-desc">Este link de verificacao nao e mais valido. Solicite um novo envio dentro do app para tentar novamente.</p>
+          <div class="banner banner-error">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              <line x1="12" y1="12" x2="12" y2="16"></line>
+            </svg>
+            <div class="banner-text">Se voce acabou de receber o e-mail, confirme se clicou no link mais recente.</div>
+          </div>
+          <a class="btn secondary" href="https://obly-app.vercel.app">Voltar para o Obly</a>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      firebase.initializeApp({
+        apiKey: "AIzaSyAfezSHeHCqWVKj8RpHTUk5LfvQeiDDtl0",
+        authDomain: "obra-app-5d762.firebaseapp.com",
+        projectId: "obra-app-5d762",
+        storageBucket: "obra-app-5d762.firebasestorage.app",
+        messagingSenderId: "18461850708",
+        appId: "1:18461850708:web:73f8a012b984bedc0e41c1",
+      });
+
+      const auth = firebase.auth();
+      auth.languageCode = "pt-br";
+
+      function show(id) {
+        ["state-loading", "state-success", "state-invalid"].forEach((stateId) => {
+          document.getElementById(stateId).classList.remove("active");
+        });
+        document.getElementById(id).classList.add("active");
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get("mode");
+      const oobCode = params.get("oobCode");
+
+      console.log("[WEB][EMAIL_VERIFY] page opened", {
+        href: window.location.href,
+        mode,
+        hasOobCode: Boolean(oobCode),
+      });
+
+      if (mode !== "verifyEmail" || !oobCode) {
+        console.log("[WEB][EMAIL_VERIFY] invalid link parameters", { mode, hasOobCode: Boolean(oobCode) });
+        show("state-invalid");
+      } else {
+        auth.applyActionCode(oobCode)
+          .then(() => {
+            console.log("[WEB][EMAIL_VERIFY] applyActionCode succeeded");
+            show("state-success");
+          })
+          .catch((error) => {
+            console.log("[WEB][EMAIL_VERIFY] applyActionCode failed", {
+              error,
+              errorCode: error?.code ?? null,
+              errorMessage: error?.message ?? String(error),
+            });
+            show("state-invalid");
+          });
+      }
+    </script>
+  </body>
+</html>
