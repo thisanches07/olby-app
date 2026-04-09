@@ -164,7 +164,7 @@ export function PhoneVerifyModal({
     useRef<import("firebase/auth").ApplicationVerifier>(null);
   const confirmationRef = useRef<Awaited<
     ReturnType<typeof sendPhoneCode>
-  > | null>(null);()[]
+  > | null>(null);
   const otpRefs = useRef<Array<TextInput | null>>([
     null,
     null,
