@@ -212,6 +212,11 @@
         border: 1px solid var(--border);
         color: var(--muted);
       }
+      .btn-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
 
       .spinner {
         width: 18px;
@@ -356,6 +361,10 @@
             </svg>
             <span class="banner-text">Abra o Obly App e faça login com sua nova senha.</span>
           </div>
+          <div class="btn-stack">
+            <a class="btn btn-primary" href="obraapp://password-reset-complete">Voltar para o app</a>
+            <a class="btn btn-ghost" href="https://oblyapp.com">Abrir no navegador</a>
+          </div>
         </div>
 
         <div id="st-success-verify" class="state">
@@ -371,6 +380,10 @@
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
             </svg>
             <span class="banner-text">Se o app já estiver aberto, volte para a tela de perfil para concluir a confirmação.</span>
+          </div>
+          <div class="btn-stack">
+            <a class="btn btn-primary" href="obraapp://email-verified">Voltar para o app</a>
+            <a class="btn btn-ghost" href="https://oblyapp.com">Abrir no navegador</a>
           </div>
         </div>
       </div>
