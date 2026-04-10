@@ -2,14 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -24,36 +17,36 @@ function getPermissionCopy(
   switch (permissionState) {
     case "granted":
       return {
-        title: "NotificaÁıes ativas",
+        title: "Notifica√ß√µes ativas",
         description:
-          "Seu aparelho j· est· pronto para receber alertas de gastos, tarefas, di·rio e mudanÁas de status.",
+          "Seu aparelho j√° est√° pronto para receber alertas de gastos, tarefas, di√°rio e mudan√ßas de status.",
         tone: "#DCFCE7",
         icon: "notifications-active",
         iconColor: colors.success,
       };
     case "denied":
       return {
-        title: "Permiss„o recusada",
+        title: "Permiss√£o recusada",
         description:
-          "VocÍ recusou o pedido no sistema. Ainda podemos tentar novamente por aqui enquanto o aparelho permitir.",
+          "Voc√™ recusou o pedido no sistema. O app tenta solicitar a permiss√£o no momento certo, conforme o aparelho permitir.",
         tone: "#FEF3C7",
         icon: "notifications-paused",
         iconColor: "#B45309",
       };
     case "blocked":
       return {
-        title: "Permiss„o bloqueada",
+        title: "Permiss√£o bloqueada",
         description:
-          "O sistema n„o permite pedir novamente no app. Abra as configuraÁıes para reativar os alertas.",
+          "O sistema n√£o permite pedir novamente no app. Reative os alertas diretamente nas configura√ß√µes do aparelho, se desejar.",
         tone: "#FEE2E2",
         icon: "mobile-off",
         iconColor: colors.danger,
       };
     default:
       return {
-        title: "NotificaÁıes ainda n„o ativadas",
+        title: "Notifica√ß√µes ainda n√£o ativadas",
         description:
-          "O pedido nativo È feito logo apÛs o login para alinhar ativaÁ„o e registro do aparelho desde o inÌcio da conta.",
+          "O pedido nativo √© feito automaticamente logo ap√≥s o login, para alinhar a ativa√ß√£o do aparelho desde o in√≠cio da conta.",
         tone: "#DBEAFE",
         icon: "notifications-none",
         iconColor: colors.primary,
@@ -64,12 +57,9 @@ function getPermissionCopy(
 export default function NotificationsScreen() {
   const {
     canAskAgain,
-    isSyncingToken,
     lastOpenedNotification,
     openSystemSettings,
     permissionState,
-    requestPermission,
-    syncNow,
   } = usePushNotifications();
 
   const copy = getPermissionCopy(permissionState);
@@ -85,7 +75,7 @@ export default function NotificationsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.navTitle}>NotificaÁıes</Text>
+        <Text style={styles.navTitle}>Notifica√ß√µes</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -108,64 +98,44 @@ export default function NotificationsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionEyebrow}>Melhor momento</Text>
-          <Text style={styles.sectionTitle}>SolicitaÁ„o no pÛs-login</Text>
+          <Text style={styles.sectionTitle}>Solicita√ß√£o no p√≥s-login</Text>
           <Text style={styles.bodyText}>
-            O app pede a permiss„o nativa assim que a sess„o È autenticada e o
-            usu·rio j· est· identificado no backend. Isso evita telas extras,
-            sincroniza o token no momento certo e deixa o fluxo mais profissional.
+            O app pede a permiss√£o nativa assim que a sess√£o √© autenticada e o
+            usu√°rio j√° est√° identificado.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionEyebrow}>O que vocÍ recebe</Text>
-          <Text style={styles.listItem}>Novos gastos lanÁados no projeto</Text>
-          <Text style={styles.listItem}>Novas tarefas e tarefas concluÌdas</Text>
-          <Text style={styles.listItem}>Novos registros di·rios de obra</Text>
+          <Text style={styles.sectionEyebrow}>O que voc√™ recebe</Text>
+          <Text style={styles.listItem}>Novos gastos lan√ßados no projeto</Text>
           <Text style={styles.listItem}>
-            MudanÁas de status: ACTIVE, COMPLETED e ARCHIVED
+            Novas tarefas e tarefas conclu√≠das
           </Text>
+          <Text style={styles.listItem}>Novos registros di√°rios de obra</Text>
+          <Text style={styles.listItem}>Mudan√ßas de status do projeto</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionEyebrow}>AÁıes</Text>
-          <Pressable
-            style={[styles.primaryButton, isSyncingToken && styles.buttonDisabled]}
-            onPress={() => {
-              if (shouldOpenSettings) {
-                void openSystemSettings();
-                return;
-              }
-
-              void requestPermission();
-            }}
-            disabled={isSyncingToken}
-          >
-            {isSyncingToken ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {shouldOpenSettings ? "Abrir configuraÁıes" : "Ativar notificaÁıes"}
-              </Text>
-            )}
-          </Pressable>
-
-          {permissionState === "granted" ? (
+        {shouldOpenSettings ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionEyebrow}>Ajuste no aparelho</Text>
+            <Text style={styles.bodyText}>
+              Para voltar a receber alertas, reative as notifica√ß√µes nas
+              configura√ß√µes do sistema deste aparelho.
+            </Text>
             <Pressable
-              style={styles.secondaryButton}
+              style={styles.primaryButton}
               onPress={() => {
-                void syncNow();
+                void openSystemSettings();
               }}
             >
-              <Text style={styles.secondaryButtonText}>
-                Sincronizar este aparelho
-              </Text>
+              <Text style={styles.primaryButtonText}>Abrir configura√ß√µes</Text>
             </Pressable>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
 
         {lastOpenedNotification ? (
           <View style={styles.card}>
-            <Text style={styles.sectionEyebrow}>⁄ltima abertura contextual</Text>
+            <Text style={styles.sectionEyebrow}>√öltima abertura contextual</Text>
             <Text style={styles.detailText}>
               Tipo: {lastOpenedNotification.type}
             </Text>
@@ -271,26 +241,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primary,
+    marginTop: spacing[8],
     ...shadow(2),
-  },
-  buttonDisabled: {
-    opacity: 0.72,
   },
   primaryButtonText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    minHeight: 46,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.tintBlue,
-  },
-  secondaryButtonText: {
-    color: colors.primary,
-    fontSize: 14,
     fontWeight: "700",
   },
   detailText: {
