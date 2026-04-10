@@ -1,4 +1,5 @@
 import { AppModal as Modal } from "@/components/ui/app-modal";
+import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -27,12 +28,12 @@ import { tasksService } from "@/services/tasks.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
+import { toWhatsAppUrl } from "@/utils/phone";
 import {
   canEditProject,
   canManageMembers,
   type ProjectApiRole,
 } from "@/utils/project-role";
-import { toWhatsAppUrl } from "@/utils/phone";
 
 export type ProjectMemberRole = "engenheiro" | "cliente" | "convidado";
 
@@ -50,6 +51,9 @@ export type ProjectMember = {
 };
 
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
+
+const PROJECT_NAME_MAX = 30;
+const PROJECT_ADDRESS_MAX = 50;
 
 async function openWhatsApp(phone: string): Promise<void> {
   const url = toWhatsAppUrl(phone);
@@ -394,8 +398,7 @@ export function ProjectSettingsModal({
           .map((m) => {
             const email = m.userEmail?.trim() || "";
             const isOwner = m.role.toUpperCase() === "OWNER";
-            const isCurrentUser =
-              !!backendUserId && m.userId === backendUserId;
+            const isCurrentUser = !!backendUserId && m.userId === backendUserId;
 
             return {
               id: m.id,
@@ -554,7 +557,8 @@ export function ProjectSettingsModal({
     const deliveryChanged =
       expectedDeliveryText.trim() !== currentDeliveryBR.trim();
 
-    const nameOk = trimmedName.length >= 3;
+    const nameOk =
+      trimmedName.length >= 3 && trimmedName.length <= PROJECT_NAME_MAX;
     const addressOk =
       trimmedAddress.length === 0 || trimmedAddress.length <= 50;
 
@@ -690,6 +694,15 @@ export function ProjectSettingsModal({
         tone: "error",
         title: "Nome inválido",
         message: "O nome do projeto deve ter ao menos 3 caracteres.",
+      });
+      return;
+    }
+
+    if (trimmedName.length > PROJECT_NAME_MAX) {
+      showToast({
+        tone: "error",
+        title: "Nome muito longo",
+        message: `O nome do projeto deve ter no máximo ${PROJECT_NAME_MAX} caracteres.`,
       });
       return;
     }
@@ -1205,7 +1218,7 @@ export function ProjectSettingsModal({
                 <TextInput
                   value={name}
                   onChangeText={(t) => {
-                    setName(t);
+                    setName(t.slice(0, PROJECT_NAME_MAX));
                     setIsDirty(true);
                   }}
                   placeholder="Ex: Reforma Apto 84"
@@ -1213,9 +1226,11 @@ export function ProjectSettingsModal({
                   style={styles.input}
                   autoCapitalize="sentences"
                   returnKeyType="done"
+                  maxLength={PROJECT_NAME_MAX}
                   editable={!busy && canEdit}
                 />
               </View>
+              <CharacterLimitHint current={name.length} max={PROJECT_NAME_MAX} />
             </View>
 
             {/* Endereço */}
@@ -1231,7 +1246,7 @@ export function ProjectSettingsModal({
                 <TextInput
                   value={address}
                   onChangeText={(t) => {
-                    setAddress(t);
+                    setAddress(t.slice(0, PROJECT_ADDRESS_MAX));
                     setIsDirty(true);
                   }}
                   placeholder="Ex: Rua X, 123 - Sorocaba/SP"
@@ -1239,11 +1254,14 @@ export function ProjectSettingsModal({
                   style={styles.input}
                   autoCapitalize="sentences"
                   returnKeyType="done"
+                  maxLength={PROJECT_ADDRESS_MAX}
                   editable={!busy && canEdit}
                 />
               </View>
-
-              <Text style={styles.helperText}>{address.trim().length}/50</Text>
+              <CharacterLimitHint
+                current={address.length}
+                max={PROJECT_ADDRESS_MAX}
+              />
             </View>
 
             {/* Entrega prevista */}

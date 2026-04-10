@@ -1,6 +1,9 @@
 import { Gasto, Tarefa } from "@/data/obras";
 import { useState } from "react";
 
+const PROJECT_NAME_MAX = 30;
+const PROJECT_ADDRESS_MAX = 50;
+
 interface CreateProjectFormState {
   nome: string;
   endereco: string;
@@ -53,7 +56,7 @@ export function useCreateProjectForm(): [
       delete newErrors.nome;
       return {
         ...prev,
-        nome: nome.slice(0, 80),
+        nome: nome.slice(0, PROJECT_NAME_MAX),
         errors: newErrors,
       };
     });
@@ -65,7 +68,7 @@ export function useCreateProjectForm(): [
       delete newErrors.endereco;
       return {
         ...prev,
-        endereco: endereco.slice(0, 200),
+        endereco: endereco.slice(0, PROJECT_ADDRESS_MAX),
         errors: newErrors,
       };
     });

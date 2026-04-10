@@ -1,5 +1,6 @@
 import { useToast } from "@/components/obra/toast";
 import { AppModal as Modal } from "@/components/ui/app-modal";
+import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import {
   brDateDigitsLen,
   maskBRDate,
@@ -33,6 +34,8 @@ import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
 
 const PRIMARY = "#2563EB";
+const PROJECT_NAME_MAX = 30;
+const PROJECT_ADDRESS_MAX = 50;
 const PRIORITY_CONFIG = {
   ALTA: { color: "#DC2626", label: "Alta" },
   MEDIA: { color: "#F59E0B", label: "Média" },
@@ -675,10 +678,14 @@ export function CreateProjectModal({
                   value={formState.nome}
                   onChangeText={actions.setNome}
                   editable={!isSaving}
-                  maxLength={30}
+                  maxLength={PROJECT_NAME_MAX}
                   returnKeyType="next"
                   blurOnSubmit={false}
                   onSubmitEditing={() => enderecoRef.current?.focus()}
+                />
+                <CharacterLimitHint
+                  current={formState.nome.length}
+                  max={PROJECT_NAME_MAX}
                 />
                 {formState.errors.nome && (
                   <View style={styles.errorBox}>
@@ -707,11 +714,15 @@ export function CreateProjectModal({
                   value={formState.endereco}
                   onChangeText={actions.setEndereco}
                   editable={!isSaving}
-                  maxLength={50}
+                  maxLength={PROJECT_ADDRESS_MAX}
                   multiline
                   returnKeyType="next"
                   blurOnSubmit
                   onSubmitEditing={() => previsaoEntregaRef.current?.focus()}
+                />
+                <CharacterLimitHint
+                  current={formState.endereco.length}
+                  max={PROJECT_ADDRESS_MAX}
                 />
                 {formState.errors.endereco && (
                   <View style={styles.errorBox}>
@@ -909,8 +920,11 @@ export function CreateProjectModal({
                       <TouchableOpacity
                         style={styles.prioritySelector}
                         onPress={() => {
-                          const priorities: Array<"ALTA" | "MEDIA" | "BAIXA"> =
-                            ["ALTA", "MEDIA", "BAIXA"];
+                          const priorities: ("ALTA" | "MEDIA" | "BAIXA")[] = [
+                            "ALTA",
+                            "MEDIA",
+                            "BAIXA",
+                          ];
                           const current = priorities.indexOf(taskPriority);
                           const next =
                             priorities[(current + 1) % priorities.length];
