@@ -14,6 +14,7 @@ import {
   signInWithPhoneNumber,
   signOut,
   unlink,
+  verifyBeforeUpdateEmail,
   updatePhoneNumber,
   updateProfile,
   type ApplicationVerifier,
@@ -228,6 +229,27 @@ export async function sendCurrentUserEmailVerification(): Promise<void> {
   }
 
   await sendEmailVerification(user, EMAIL_VERIFICATION_ACTION_SETTINGS);
+}
+
+export async function requestCurrentUserEmailChange(
+  nextEmail: string,
+): Promise<void> {
+  const user = firebaseAuth.currentUser;
+  const normalizedEmail = nextEmail.trim().toLowerCase();
+
+  if (!user || !user.email) {
+    throw new Error("Usuário sem e-mail para atualização.");
+  }
+
+  if (!normalizedEmail) {
+    throw new Error("Informe o novo e-mail.");
+  }
+
+  await verifyBeforeUpdateEmail(
+    user,
+    normalizedEmail,
+    EMAIL_VERIFICATION_ACTION_SETTINGS,
+  );
 }
 
 export async function refreshCurrentUser(): Promise<User | null> {

@@ -38,8 +38,7 @@ export function buildFreeSubscriptionInfo(): SubscriptionInfo {
 }
 
 export const subscriptionService = {
-  getMyPlan: (): Promise<SubscriptionInfo> =>
-    billingApi.getMySubscription(),
+  getMyPlan: (): Promise<SubscriptionInfo> => billingApi.getMySubscription(),
 };
 
 export function getStatusBadge(status: SubscriptionStatus): {
@@ -48,7 +47,7 @@ export function getStatusBadge(status: SubscriptionStatus): {
 } {
   switch (status) {
     case "TRIAL":
-      return { label: "Em teste", color: "#2563EB" };
+      return { label: "Teste Grátis", color: "#2563EB" };
     case "ACTIVE":
       return { label: "Ativo", color: "#16A34A" };
     case "GRACE":

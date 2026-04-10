@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -18,19 +19,25 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { updateProfile } from "firebase/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSubscription } from "@/contexts/subscription-context";
 import { useAccountDeletion } from "@/hooks/use-account-deletion";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
-import { requestPasswordReset } from "@/services/auth.service";
+import {
+  requestCurrentUserEmailChange,
+  requestPasswordReset,
+  unlinkPhone,
+} from "@/services/auth.service";
 import { firebaseAuth } from "@/services/firebase";
 import { getStatusBadge } from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
+import { getAuthErrorMessage } from "@/utils/auth-errors";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 import {
   isValidBrazilMobilePhone,
@@ -40,6 +47,8 @@ import {
 
 const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 const MAX_NAME_LENGTH = 30;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PENDING_EMAIL_CHANGE_STORAGE_KEY = "profile:pending-email-change";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +80,39 @@ function getInitials(name: string | null, email: string | null): string {
   }
   if (email) return email.slice(0, 2).toUpperCase();
   return "?";
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function isValidEmailFormat(email: string): boolean {
+  return EMAIL_REGEX.test(normalizeEmail(email));
+}
+
+function getEmailChangeErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: string }).code;
+
+    switch (code) {
+      case "auth/requires-recent-login":
+        return "Por segurança, faça login novamente antes de alterar seu e-mail.";
+      case "auth/email-already-in-use":
+        return "Este e-mail já está sendo usado em outra conta.";
+      case "auth/invalid-email":
+        return "Digite um endereço de e-mail válido.";
+      case "auth/too-many-requests":
+        return "Muitas tentativas seguidas. Aguarde um pouco antes de tentar novamente.";
+      default:
+        break;
+    }
+  }
+
+  return getAuthErrorMessage(error);
+}
+
+function getPendingEmailStorageKey(userId: string): string {
+  return `${PENDING_EMAIL_CHANGE_STORAGE_KEY}:${userId}`;
 }
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
@@ -559,6 +601,8 @@ export default function ProfileScreen() {
     user?.providerData?.some((p) => p.providerId === "google.com") ?? false;
   const hasAppleProvider =
     user?.providerData?.some((p) => p.providerId === "apple.com") ?? false;
+  const isEmailPasswordUser =
+    user?.providerData?.some((p) => p.providerId === "password") ?? false;
 
   const subBadge = getStatusBadge(plan?.subscriptionStatus ?? null);
   const subSublabel = plan ? `${plan.name} · ${subBadge.label}` : "Gratuito";
@@ -571,8 +615,13 @@ export default function ProfileScreen() {
   const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(name);
   const [draftPhone, setDraftPhone] = useState(phone);
+  const [draftEmail, setDraftEmail] = useState(user?.email ?? "");
   const [nameError, setNameError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [pendingEmailChange, setPendingEmailChange] = useState<string | null>(
+    null,
+  );
   const isNameAtLimit = draftName.length >= MAX_NAME_LENGTH;
 
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
@@ -601,6 +650,48 @@ export default function ProfileScreen() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const uid = user?.uid;
+
+    if (!uid) {
+      setPendingEmailChange(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void AsyncStorage.getItem(getPendingEmailStorageKey(uid))
+      .then((storedEmail) => {
+        if (!cancelled) {
+          setPendingEmailChange(storedEmail);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPendingEmailChange(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const currentEmail = user?.email ?? "";
+    setDraftEmail((prev) => (isEditing ? prev : currentEmail));
+
+    if (
+      user?.uid &&
+      pendingEmailChange &&
+      currentEmail &&
+      normalizeEmail(currentEmail) === normalizeEmail(pendingEmailChange)
+    ) {
+      setPendingEmailChange(null);
+      void AsyncStorage.removeItem(getPendingEmailStorageKey(user.uid));
+    }
+  }, [isEditing, pendingEmailChange, user?.email, user?.uid]);
 
   useEffect(() => {
     if (!emailVerificationCooldownUntil) return;
@@ -640,8 +731,10 @@ export default function ProfileScreen() {
   const enterEdit = useCallback(() => {
     setDraftName(name);
     setDraftPhone(phone);
+    setDraftEmail(user?.email ?? "");
     setNameError("");
     setPhoneError("");
+    setEmailError("");
     setIsEditing(true);
     Animated.spring(saveBarAnim, {
       toValue: 1,
@@ -649,24 +742,32 @@ export default function ProfileScreen() {
       tension: 80,
       friction: 10,
     }).start();
-  }, [name, phone, saveBarAnim]);
+  }, [name, phone, saveBarAnim, user?.email]);
 
   const cancelEdit = useCallback(() => {
     setDraftName(name);
     setDraftPhone(phone);
+    setDraftEmail(user?.email ?? "");
     setNameError("");
     setPhoneError("");
+    setEmailError("");
     Animated.timing(saveBarAnim, {
       toValue: 0,
       duration: 180,
       useNativeDriver: true,
     }).start(() => setIsEditing(false));
-  }, [name, phone, saveBarAnim]);
+  }, [name, phone, saveBarAnim, user?.email]);
 
   const saveChanges = useCallback(async () => {
     const trimmedName = draftName.trim();
     const normalizedPhone = normalizeBrazilPhone(draftPhone);
     const phoneE164 = toBrazilPhoneE164(normalizedPhone);
+    const normalizedCurrentEmail = normalizeEmail(user?.email ?? "");
+    const normalizedDraftEmail = normalizeEmail(draftEmail);
+    const canEditEmail = isEmailPasswordUser;
+    const shouldRequestEmailChange =
+      canEditEmail && normalizedDraftEmail !== normalizedCurrentEmail;
+    const hasProfileChanges = trimmedName !== name || normalizedPhone !== phone;
     if (!trimmedName) {
       setNameError("O nome não pode estar vazio.");
       return;
@@ -675,15 +776,28 @@ export default function ProfileScreen() {
       setPhoneError("Informe um celular valido com DDD ou deixe vazio.");
       return;
     }
+    if (shouldRequestEmailChange) {
+      if (!normalizedDraftEmail) {
+        setEmailError("Informe o novo e-mail.");
+        return;
+      }
+      if (!isValidEmailFormat(normalizedDraftEmail)) {
+        setEmailError("Digite um endereço de e-mail válido.");
+        return;
+      }
+    }
     setNameError("");
     setPhoneError("");
+    setEmailError("");
     setIsSaving(true);
+    let profileSaved = false;
+    let emailChangeRequested = false;
     try {
       const firebaseUser = firebaseAuth.currentUser;
       if (firebaseUser && trimmedName !== name) {
-        await firebaseUser.updateProfile({ displayName: trimmedName });
+        await updateProfile(firebaseUser, { displayName: trimmedName });
       }
-      if (trimmedName !== name || normalizedPhone !== phone) {
+      if (hasProfileChanges) {
         await api.patch("/users/me", {
           name: trimmedName,
           phone: phoneE164,
@@ -692,18 +806,62 @@ export default function ProfileScreen() {
       setName(trimmedName);
       setPhone(normalizedPhone);
       setDraftPhone(normalizedPhone);
+      profileSaved = hasProfileChanges;
+      if (shouldRequestEmailChange) {
+        try {
+          await requestCurrentUserEmailChange(normalizedDraftEmail);
+          setPendingEmailChange(normalizedDraftEmail);
+          if (user?.uid) {
+            await AsyncStorage.setItem(
+              getPendingEmailStorageKey(user.uid),
+              normalizedDraftEmail,
+            );
+          }
+          emailChangeRequested = true;
+        } catch (error) {
+          setEmailError(getEmailChangeErrorMessage(error));
+          showToast(
+            "Perfil salvo, mas não foi possível solicitar a troca do e-mail.",
+            "error",
+          );
+          return;
+        }
+      }
       Animated.timing(saveBarAnim, {
         toValue: 0,
         duration: 180,
         useNativeDriver: true,
       }).start(() => setIsEditing(false));
-      showToast("Perfil atualizado com sucesso!", "success");
+      if (emailChangeRequested && profileSaved) {
+        showToast(
+          "Perfil salvo. Enviamos um link para confirmar seu novo e-mail.",
+          "success",
+        );
+      } else if (emailChangeRequested) {
+        showToast(
+          "Enviamos um link para confirmar seu novo e-mail.",
+          "success",
+        );
+      } else {
+        showToast("Perfil atualizado com sucesso!", "success");
+      }
     } catch {
       showToast("Erro ao salvar alteracoes.", "error");
     } finally {
       setIsSaving(false);
     }
-  }, [draftName, draftPhone, name, phone, saveBarAnim, showToast]);
+  }, [
+    draftEmail,
+    draftName,
+    draftPhone,
+    isEmailPasswordUser,
+    name,
+    phone,
+    saveBarAnim,
+    showToast,
+    user?.email,
+    user?.uid,
+  ]);
 
   const handleLogout = useCallback(() => {
     setSheetConfig({
@@ -741,7 +899,9 @@ export default function ProfileScreen() {
             "Esta ação é permanente e não pode ser desfeita. Todos os seus dados, projetos e arquivos serão removidos.",
           confirmLabel: "Excluir minha conta",
           confirmBg: colors.danger,
-          onConfirm: accountDeletion.confirmDeletion,
+          onConfirm: async () => {
+            await accountDeletion.confirmDeletion();
+          },
         });
         break;
       }
@@ -910,8 +1070,6 @@ export default function ProfileScreen() {
   const initials = getInitials(user?.displayName ?? name, user?.email ?? null);
   const photoUrl = user?.photoURL ?? null;
   const [avatarImageError, setAvatarImageError] = useState(false);
-  const isEmailPasswordUser =
-    user?.providerData?.some((p) => p.providerId === "password") ?? false;
   const passwordManagedBy = hasGoogleProvider
     ? "Google"
     : hasAppleProvider
@@ -919,6 +1077,18 @@ export default function ProfileScreen() {
       : "provedor externo";
   const shouldShowEmailVerificationCard =
     !!user?.email && isEmailPasswordUser && !emailVerified;
+  const emailRowHelperText = !isEditing && !isEmailPasswordUser
+    ? isEmailPasswordUser
+      ? "Ao salvar, enviaremos um link para confirmar o novo endereço."
+      : `Este e-mail é gerenciado por ${passwordManagedBy}.`
+    : pendingEmailChange
+      ? `Confirmação pendente para ${pendingEmailChange}. Abra o link enviado para concluir a troca.`
+      : undefined;
+
+  const emailFieldHelperText =
+    !isEditing && !isEmailPasswordUser
+      ? `Este e-mail é gerenciado por ${passwordManagedBy}.`
+      : undefined;
 
   const saveBarTranslate = saveBarAnim.interpolate({
     inputRange: [0, 1],
@@ -1105,6 +1275,67 @@ export default function ProfileScreen() {
             </View>
           ) : null}
 
+          {pendingEmailChange && !isEditing ? (
+            <View style={styles.emailChangePendingCard}>
+              <View style={styles.emailChangePendingGlow} />
+              <View style={styles.emailChangePendingBadge}>
+                <MaterialIcons
+                  name="schedule-send"
+                  size={14}
+                  color="#0F766E"
+                />
+                <Text style={styles.emailChangePendingBadgeText}>
+                  Atualização pendente
+                </Text>
+              </View>
+
+              <View style={styles.emailChangePendingHeader}>
+                <View style={styles.emailChangePendingIconWrap}>
+                  <MaterialIcons
+                    name="alternate-email"
+                    size={20}
+                    color={colors.white}
+                  />
+                </View>
+                <View style={styles.emailChangePendingCopy}>
+                  <Text style={styles.emailChangePendingTitle}>
+                    Confirme seu novo e-mail
+                  </Text>
+                  <Text style={styles.emailChangePendingText}>
+                    Enviamos um link de confirmação para o endereço abaixo. A
+                    troca só será concluída depois que esse link for aberto.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.emailChangePendingEmailPill}>
+                <MaterialIcons
+                  name="mark-email-unread"
+                  size={16}
+                  color="#0F766E"
+                />
+                <Text
+                  style={styles.emailChangePendingEmailText}
+                  numberOfLines={1}
+                >
+                  {pendingEmailChange}
+                </Text>
+              </View>
+
+              <View style={styles.emailChangePendingHintRow}>
+                <MaterialIcons
+                  name="info-outline"
+                  size={14}
+                  color={colors.textMuted}
+                />
+                <Text style={styles.emailChangePendingHintText}>
+                  Se você já confirmou o link, volte aqui em alguns segundos
+                  para o app atualizar o endereço.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {/* Informações */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Informações Pessoais</Text>
@@ -1149,9 +1380,20 @@ export default function ProfileScreen() {
             <InfoRow
               icon="mail-outline"
               label="E-mail"
-              value={user?.email ?? ""}
-              editable={false}
+              value={isEditing ? draftEmail : user?.email ?? ""}
+              editable={isEmailPasswordUser}
               isEditing={isEditing}
+              error={emailError}
+              helperText={emailFieldHelperText}
+              onChangeText={(text) => {
+                setDraftEmail(text);
+                if (emailError) setEmailError("");
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={() => Keyboard.dismiss()}
               isLast
             />
           </View>
@@ -1789,6 +2031,102 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: -0.1,
   },
+  emailChangePendingCard: {
+    marginHorizontal: spacing[16],
+    marginTop: spacing[10],
+    padding: spacing[18],
+    borderRadius: radius["2xl"],
+    backgroundColor: "#F5FFFC",
+    borderWidth: 1,
+    borderColor: "#BFE8DD",
+    gap: spacing[16],
+    ...shadow(2),
+  },
+  emailChangePendingGlow: {
+    position: "absolute",
+    top: -24,
+    right: -20,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: "rgba(15,118,110,0.08)",
+  },
+  emailChangePendingBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[6],
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[6],
+    borderRadius: 999,
+    backgroundColor: "rgba(15,118,110,0.09)",
+    borderWidth: 1,
+    borderColor: "rgba(15,118,110,0.14)",
+  },
+  emailChangePendingBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#0F766E",
+    letterSpacing: 0.2,
+  },
+  emailChangePendingHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing[12],
+  },
+  emailChangePendingIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0F766E",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    ...shadow(1),
+  },
+  emailChangePendingCopy: {
+    flex: 1,
+    gap: spacing[5],
+  },
+  emailChangePendingTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  emailChangePendingText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.textMuted,
+  },
+  emailChangePendingEmailPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[8],
+    minHeight: 48,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#CDE9E2",
+    paddingHorizontal: spacing[14],
+  },
+  emailChangePendingEmailText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  emailChangePendingHintRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing[8],
+  },
+  emailChangePendingHintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+  },
   sectionHeader: {
     paddingHorizontal: spacing[20],
     paddingTop: spacing[28],
@@ -2046,7 +2384,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing[20],
     maxWidth: "90%",
     overflow: "hidden",
-    ...shadow(4),
+    ...shadow(3),
   },
 
   cardHeaderBg: {
