@@ -12,6 +12,12 @@ export interface VerifyMobilePurchaseResponse {
   effectivePlan: EffectivePlanResponse;
 }
 
+export interface BillingIdentityResponse {
+  accountToken: string;
+  appleAppAccountToken: string;
+  googleObfuscatedAccountId: string;
+}
+
 type VerifyApplePurchasePayload = {
   provider: "APPLE";
   appleTransactionId: string;
@@ -24,7 +30,10 @@ type VerifyGooglePurchasePayload = {
 };
 
 type SubscriptionsBillingMethod = "GET" | "POST";
-type SubscriptionsBillingPath = "/subscriptions/me" | "/billing/mobile/verify";
+type SubscriptionsBillingPath =
+  | "/subscriptions/me"
+  | "/billing/mobile/verify"
+  | "/users/me/billing-identity";
 
 const TIMEOUT_MS = 12000;
 const MAX_ATTEMPTS = 3;
@@ -104,6 +113,14 @@ export const billingApi = {
     withTransientRetry(() =>
       requestSubscriptionsBilling<MySubscriptionResponse>({
         path: "/subscriptions/me",
+        method: "GET",
+      }),
+    ),
+
+  getBillingIdentity: (): Promise<BillingIdentityResponse> =>
+    withTransientRetry(() =>
+      requestSubscriptionsBilling<BillingIdentityResponse>({
+        path: "/users/me/billing-identity",
         method: "GET",
       }),
     ),

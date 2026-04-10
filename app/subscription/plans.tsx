@@ -19,6 +19,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
 import { useSubscription } from "@/contexts/subscription-context";
+import {
+  getSubscriptionStatusMessage,
+  hasSubscriptionEntitlement,
+} from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
@@ -228,12 +232,14 @@ function SubscriptionPlansIapEnabled() {
     purchaseError,
     purchaseSuccess,
     refresh,
+    fetchBillingIdentity,
     verifyApplePurchase,
     verifyGooglePurchase,
     clearPurchaseFeedback,
   } = useSubscription();
 
   const [isRequestingPurchase, setIsRequestingPurchase] = React.useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = React.useState(false);
   const [isLoadingStoreProducts, setIsLoadingStoreProducts] =
     React.useState(false);
   const [storeError, setStoreError] = React.useState<string | null>(null);
@@ -258,6 +264,7 @@ function SubscriptionPlansIapEnabled() {
     fetchProducts,
     requestPurchase,
     finishTransaction,
+    restorePurchases,
   } = useIAP({
     onPurchaseSuccess: (purchase) => {
       iapLog("onPurchaseSuccess", {
@@ -438,6 +445,7 @@ function SubscriptionPlansIapEnabled() {
   React.useEffect(() => {
     if (!isVerifyingPurchase) {
       setIsRequestingPurchase(false);
+      setIsRestoringPurchases(false);
     }
   }, [isVerifyingPurchase]);
 
@@ -451,7 +459,10 @@ function SubscriptionPlansIapEnabled() {
 
   const currentCode = plan?.code ?? "FREE";
   const disableAllActions =
-    isRequestingPurchase || isVerifyingPurchase || isLoadingStoreProducts;
+    isRequestingPurchase ||
+    isRestoringPurchases ||
+    isVerifyingPurchase ||
+    isLoadingStoreProducts;
   const rawReason = Array.isArray(params.reason)
     ? params.reason[0]
     : params.reason;
@@ -472,6 +483,14 @@ function SubscriptionPlansIapEnabled() {
   const friendlyPurchaseError = toFriendlyMessage(
     purchaseError,
     "Não foi possivel concluir a compra.",
+  );
+  const entitlementMessage = getSubscriptionStatusMessage({
+    status: plan?.subscriptionStatus ?? null,
+    currentPeriodEnd: plan?.currentPeriodEnd ?? null,
+    trialEndsAt: plan?.trialEndsAt ?? null,
+  });
+  const hasEntitlement = hasSubscriptionEntitlement(
+    plan?.subscriptionStatus ?? null,
   );
 
   // Aviso específico quando a loja conectou mas não retornou nenhum SKU
@@ -533,15 +552,25 @@ function SubscriptionPlansIapEnabled() {
       clearPurchaseFeedback();
       setStoreError(null);
       setIsRequestingPurchase(true);
+      const identity = await fetchBillingIdentity();
 
       if (Platform.OS === "ios") {
+        if (!identity.appleAppAccountToken) {
+          throw new Error("Nao foi possivel preparar a compra para este usuario.");
+        }
         await requestPurchase({
           type: "subs",
           request: {
-            apple: { sku: planItem.productId },
+            apple: {
+              sku: planItem.productId,
+              appAccountToken: identity.appleAppAccountToken,
+            },
           },
         });
       } else {
+        if (!identity.googleObfuscatedAccountId) {
+          throw new Error("Nao foi possivel preparar a compra para este usuario.");
+        }
         const firstOfferToken =
           storeProduct.subscriptionOffers?.[0]?.offerTokenAndroid;
         await requestPurchase({
@@ -549,6 +578,7 @@ function SubscriptionPlansIapEnabled() {
           request: {
             google: {
               skus: [planItem.productId],
+              obfuscatedAccountId: identity.googleObfuscatedAccountId,
               ...(firstOfferToken
                 ? {
                     subscriptionOffers: [
@@ -575,6 +605,46 @@ function SubscriptionPlansIapEnabled() {
         tone: "error",
       });
       setIsRequestingPurchase(false);
+    }
+  }
+
+  async function handleRestorePurchases() {
+    if (Platform.OS === "web") return;
+
+    if (!connected) {
+      showToast({
+        title: "Loja indisponivel",
+        message: "Conecte-se a App Store ou Google Play para restaurar.",
+        tone: "error",
+      });
+      return;
+    }
+
+    try {
+      clearPurchaseFeedback();
+      setStoreError(null);
+      setIsRestoringPurchases(true);
+      await restorePurchases();
+      await refresh();
+      showToast({
+        title: "Restauracao iniciada",
+        message:
+          "Se houver compras vinculadas a esta conta da loja, vamos sincronizar seu plano.",
+        tone: "success",
+      });
+    } catch (restoreError: unknown) {
+      const rawMessage =
+        restoreError instanceof Error ? restoreError.message : null;
+      const message =
+        toFriendlyMessage(rawMessage, "Falha ao restaurar compras.") ??
+        "Falha ao restaurar compras.";
+      showToast({
+        title: "Erro ao restaurar",
+        message,
+        tone: "error",
+      });
+    } finally {
+      setIsRestoringPurchases(false);
     }
   }
 
@@ -647,6 +717,28 @@ function SubscriptionPlansIapEnabled() {
           <View style={[styles.feedbackCard, styles.feedbackCardInfo]}>
             <Text style={[styles.feedbackText, styles.feedbackTextInfo]}>
               {reasonMessage}
+            </Text>
+          </View>
+        ) : null}
+
+        {entitlementMessage && plan?.code !== "FREE" ? (
+          <View
+            style={[
+              styles.feedbackCard,
+              hasEntitlement
+                ? styles.feedbackCardInfo
+                : styles.feedbackCardError,
+            ]}
+          >
+            <Text
+              style={[
+                styles.feedbackText,
+                hasEntitlement
+                  ? styles.feedbackTextInfo
+                  : styles.feedbackTextError,
+              ]}
+            >
+              {entitlementMessage}
             </Text>
           </View>
         ) : null}
@@ -889,6 +981,22 @@ function SubscriptionPlansIapEnabled() {
             </View>
           );
         })}
+
+        <TouchableOpacity
+          style={[
+            styles.restoreButton,
+            disableAllActions && styles.subscribeButtonDisabled,
+          ]}
+          onPress={() => void handleRestorePurchases()}
+          activeOpacity={0.85}
+          disabled={disableAllActions}
+        >
+          {isRestoringPurchases ? (
+            <ActivityIndicator color={colors.white} size="small" />
+          ) : (
+            <Text style={styles.restoreButtonText}>Restaurar compras</Text>
+          )}
+        </TouchableOpacity>
 
         <View style={styles.footer}>
           <MaterialIcons name="lock" size={14} color={colors.textMuted} />

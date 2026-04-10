@@ -22,12 +22,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
-import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import * as AppleAuthentication from "expo-apple-authentication";
 
-import { useAuth } from "@/hooks/use-auth";
 import {
-  completeRegistrationWithPhone,
   loginWithApple,
   loginWithEmail,
   loginWithGoogleIdToken,
@@ -290,14 +287,12 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
 
 export default function LoginScreen() {
   const { showToast } = useToast();
-  const { setRegistrationInProgress, setPhoneVerified } = useAuth();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
   const [nome, setNome] = useState("");
   const [phoneRaw, setPhoneRaw] = useState("");
-  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -440,39 +435,9 @@ export default function LoginScreen() {
       return;
     }
 
-    if (isValidBrazilMobilePhone(phoneRaw)) {
-      // Telefone preenchido → verificar primeiro, depois criar conta dentro do onVerified
-      setRegistrationInProgress(true);
-      setShowPhoneVerify(true);
-    } else {
-      // Sem telefone → fluxo direto sem modal
-      try {
-        setLoading(true);
-        await registerWithEmail(email, senha, nome);
-        await sendCurrentUserEmailVerification();
-        showToast({
-          title: "Confirme seu e-mail",
-          message: "Enviamos um link de verificação para sua caixa de entrada.",
-          tone: "info",
-        });
-        router.replace("/(tabs)");
-      } catch (err) {
-        showError(getAuthErrorMessage(err));
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleRegisterWithoutPhone = useCallback(async () => {
-    clearError();
-    setRegistrationInProgress(false);
-    setShowPhoneVerify(false);
-    setPhoneRaw("");
-
     try {
       setLoading(true);
-      await registerWithEmail(email, senha, nome);
+      await registerWithEmail(email, senha, nome, phoneRaw || undefined);
       await sendCurrentUserEmailVerification();
       showToast({
         title: "Confirme seu e-mail",
@@ -485,7 +450,7 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }, [email, nome, senha, setRegistrationInProgress]);
+  };
 
   const handleGoogleAuth = async () => {
     clearError();
@@ -868,30 +833,36 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <PhoneVerifyModal
-        visible={showPhoneVerify}
-        initialPhone={`+55${phoneRaw}`}
-        onVerified={async (phoneE164) => {
-          await completeRegistrationWithPhone(email, senha, nome, phoneE164);
-          await sendCurrentUserEmailVerification();
-        }}
-        onSuccess={() => {
-          setPhoneVerified(new Date().toISOString());
-          setRegistrationInProgress(false);
-          showToast({
-            title: "Confirme seu e-mail",
-            message:
-              "Enviamos um link de verificação para sua caixa de entrada.",
-            tone: "info",
-          });
-          router.replace("/(tabs)");
-        }}
-        onClose={() => {
-          setRegistrationInProgress(false);
-          setShowPhoneVerify(false);
-        }}
-        onSkip={handleRegisterWithoutPhone}
-      />
+      {/*
+        TODO: Manter a verificacao de telefone comentada no cadastro por enquanto.
+        Quando esse fluxo for revisado, podemos reativar o PhoneVerifyModal abaixo
+        e voltar a usar completeRegistrationWithPhone/onVerified.
+
+        <PhoneVerifyModal
+          visible={showPhoneVerify}
+          initialPhone={`+55${phoneRaw}`}
+          onVerified={async (phoneE164) => {
+            await completeRegistrationWithPhone(email, senha, nome, phoneE164);
+            await sendCurrentUserEmailVerification();
+          }}
+          onSuccess={() => {
+            setPhoneVerified(new Date().toISOString());
+            setRegistrationInProgress(false);
+            showToast({
+              title: "Confirme seu e-mail",
+              message:
+                "Enviamos um link de verificacao para sua caixa de entrada.",
+              tone: "info",
+            });
+            router.replace("/(tabs)");
+          }}
+          onClose={() => {
+            setRegistrationInProgress(false);
+            setShowPhoneVerify(false);
+          }}
+          onSkip={handleRegisterWithoutPhone}
+        />
+      */}
     </SafeAreaView>
   );
 }

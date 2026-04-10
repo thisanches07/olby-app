@@ -22,99 +22,130 @@ import { spacing } from "@/theme/spacing";
 import {
   formatPrice,
   getStatusBadge,
+  getSubscriptionStatusMessage,
+  hasSubscriptionEntitlement,
   type PlanCode,
+  type SubscriptionStatus,
 } from "@/services/subscription.service";
-
-// ── Mapa de features por plano ────────────────────────────────────────────────
 
 const PLAN_FEATURES: Record<PlanCode, { ok: boolean; text: string }[]> = {
   FREE: [
     { ok: true, text: "Visualizar obras como convidado (ilimitado)" },
-    { ok: false, text: "Criar suas próprias obras" },
+    { ok: false, text: "Criar suas proprias obras" },
   ],
   BASIC: [
-    { ok: true, text: "Criar até 3 obras ativas" },
+    { ok: true, text: "Criar ate 3 obras ativas" },
     { ok: true, text: "Convidar clientes (ilimitado)" },
-    { ok: true, text: "Diário de obra" },
+    { ok: true, text: "Diario de obra" },
     { ok: true, text: "Controle de despesas" },
-    { ok: true, text: "Gestão de tarefas" },
+    { ok: true, text: "Gestao de tarefas" },
   ],
   PRO: [
     { ok: true, text: "Obras ilimitadas" },
     { ok: true, text: "Convidar clientes (ilimitado)" },
-    { ok: true, text: "Diário de obra" },
+    { ok: true, text: "Diario de obra" },
     { ok: true, text: "Controle de despesas" },
-    { ok: true, text: "Gestão de tarefas" },
-    { ok: true, text: "Suporte prioritário" },
+    { ok: true, text: "Gestao de tarefas" },
+    { ok: true, text: "Suporte prioritario" },
   ],
 };
 
 const PLAN_LABELS: Record<PlanCode, string> = {
   FREE: "Gratuito",
-  BASIC: "Básico",
+  BASIC: "Basico",
   PRO: "Profissional",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function formatDate(iso: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
-function openSubscriptionManagement() {
+function getAlertTone(status: SubscriptionStatus) {
+  switch (status) {
+    case "GRACE":
+    case "CANCELED":
+    case "TRIAL":
+      return {
+        container: styles.alertBannerInfo,
+        text: styles.alertTextInfo,
+        icon: "info",
+        iconColor: "#1D4ED8",
+      } as const;
+    case "PAST_DUE":
+      return {
+        container: styles.alertBannerError,
+        text: styles.alertTextError,
+        icon: "warning",
+        iconColor: "#991B1B",
+      } as const;
+    case "EXPIRED":
+      return {
+        container: styles.alertBannerError,
+        text: styles.alertTextError,
+        icon: "cancel",
+        iconColor: "#991B1B",
+      } as const;
+    case "ACTIVE":
+      return {
+        container: styles.alertBannerSuccess,
+        text: styles.alertTextSuccess,
+        icon: "check-circle",
+        iconColor: "#166534",
+      } as const;
+    case null:
+      return {
+        container: styles.alertBannerNeutral,
+        text: styles.alertTextNeutral,
+        icon: "workspace-premium",
+        iconColor: "#374151",
+      } as const;
+  }
+}
+
+function StatusAlert(props: {
+  status: SubscriptionStatus;
+  periodEnd: string | null;
+  trialEnd: string | null;
+}) {
+  const message = getSubscriptionStatusMessage({
+    status: props.status,
+    currentPeriodEnd: props.periodEnd,
+    trialEndsAt: props.trialEnd,
+  });
+
+  if (!message) return null;
+
+  const tone = getAlertTone(props.status);
+
+  return (
+    <View style={[styles.alertBanner, tone.container]}>
+      <MaterialIcons name={tone.icon} size={16} color={tone.iconColor} />
+      <Text style={[styles.alertText, tone.text]}>{message}</Text>
+    </View>
+  );
+}
+
+async function openSubscriptionManagement(refresh: () => Promise<void>) {
   const url =
     Platform.OS === "ios"
       ? "itms-apps://apps.apple.com/account/subscriptions"
       : "https://play.google.com/store/account/subscriptions?package=com.tsanc.obraapp";
-  void Linking.openURL(url);
+
+  try {
+    await Linking.openURL(url);
+  } finally {
+    // The global foreground refresh handles the usual return path.
+    // This keeps manual refresh available if the deep link bounces instantly.
+    void refresh();
+  }
 }
-
-// ── Alert banner para status problemáticos ────────────────────────────────────
-
-function StatusAlert({ status, periodEnd }: {
-  status: string | null;
-  periodEnd: string | null;
-}) {
-  if (status === "GRACE" || status === "PAST_DUE") {
-    return (
-      <View style={[styles.alertBanner, styles.alertBannerWarning]}>
-        <MaterialIcons name="warning" size={16} color="#92400E" />
-        <Text style={[styles.alertText, styles.alertTextWarning]}>
-          Houve um problema com seu pagamento. Atualize sua forma de pagamento
-          para manter o acesso.
-        </Text>
-      </View>
-    );
-  }
-  if (status === "CANCELED") {
-    const date = formatDate(periodEnd);
-    return (
-      <View style={[styles.alertBanner, styles.alertBannerNeutral]}>
-        <MaterialIcons name="info" size={16} color="#374151" />
-        <Text style={[styles.alertText, styles.alertTextNeutral]}>
-          Assinatura cancelada.
-          {date ? ` Seu acesso continua até ${date}.` : ""}
-        </Text>
-      </View>
-    );
-  }
-  if (status === "EXPIRED") {
-    return (
-      <View style={[styles.alertBanner, styles.alertBannerError]}>
-        <MaterialIcons name="cancel" size={16} color="#991B1B" />
-        <Text style={[styles.alertText, styles.alertTextError]}>
-          Sua assinatura expirou. Assine novamente para continuar criando obras.
-        </Text>
-      </View>
-    );
-  }
-  return null;
-}
-
-// ── Tela principal ────────────────────────────────────────────────────────────
 
 export default function MyPlanScreen() {
   const { plan, isLoading, refresh } = useSubscription();
@@ -127,26 +158,17 @@ export default function MyPlanScreen() {
   const trialEnd = plan?.trialEndsAt ?? null;
   const ownedCount = plan?.ownedProjectCount ?? 0;
   const limit = plan?.projectLimit ?? 0;
-  const price = plan ? formatPrice(plan.priceCents) : "Grátis";
+  const price = plan ? formatPrice(plan.priceCents) : "Gratis";
 
   const renewalDate = formatDate(periodEnd);
   const trialEndDate = formatDate(trialEnd);
-
-  const hasActiveSubscription =
-    status === "ACTIVE" ||
-    status === "GRACE" ||
-    status === "PAST_DUE" ||
-    status === "CANCELED" ||
-    status === "TRIAL";
-
-  const usagePercent =
-    limit > 0 ? Math.min(ownedCount / limit, 1) : 0;
+  const hasEntitlement = hasSubscriptionEntitlement(status);
+  const usagePercent = limit > 0 ? Math.min(ownedCount / limit, 1) : 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="light" />
 
-      {/* NavBar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.navBack}
@@ -158,7 +180,7 @@ export default function MyPlanScreen() {
         <Text style={styles.navTitle}>Meu Plano</Text>
         <TouchableOpacity
           style={styles.navBack}
-          onPress={refresh}
+          onPress={() => void refresh()}
           activeOpacity={0.7}
           disabled={isLoading}
         >
@@ -175,17 +197,17 @@ export default function MyPlanScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Alert de status problemático */}
-        <StatusAlert status={status} periodEnd={periodEnd} />
+        <StatusAlert status={status} periodEnd={periodEnd} trialEnd={trialEnd} />
 
-        {/* Card principal do plano */}
         <View style={styles.planCard}>
           <View style={styles.planCardHeader}>
             <View>
               <Text style={styles.planName}>{PLAN_LABELS[code].toUpperCase()}</Text>
               <Text style={styles.planPrice}>{price}</Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: badge.color + "18" }]}>
+            <View
+              style={[styles.statusBadge, { backgroundColor: `${badge.color}18` }]}
+            >
               <View style={[styles.statusDot, { backgroundColor: badge.color }]} />
               <Text style={[styles.statusLabel, { color: badge.color }]}>
                 {badge.label}
@@ -193,22 +215,49 @@ export default function MyPlanScreen() {
             </View>
           </View>
 
-          {/* Data de renovação / trial */}
-          {status === "ACTIVE" && renewalDate && (
+          {status === "ACTIVE" && renewalDate ? (
             <View style={styles.dateRow}>
-              <MaterialIcons name="event-repeat" size={14} color={colors.textMuted} />
+              <MaterialIcons
+                name="event-repeat"
+                size={14}
+                color={colors.textMuted}
+              />
               <Text style={styles.dateText}>Renova em {renewalDate}</Text>
             </View>
-          )}
-          {status === "TRIAL" && trialEndDate && (
+          ) : null}
+
+          {status === "TRIAL" && trialEndDate ? (
             <View style={styles.dateRow}>
               <MaterialIcons name="event" size={14} color={colors.textMuted} />
-              <Text style={styles.dateText}>Período de teste até {trialEndDate}</Text>
+              <Text style={styles.dateText}>Trial ate {trialEndDate}</Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Barra de uso de projetos */}
-          {code !== "FREE" && limit > 0 && (
+          {status === "CANCELED" && renewalDate ? (
+            <View style={styles.dateRow}>
+              <MaterialIcons
+                name="event-busy"
+                size={14}
+                color={colors.textMuted}
+              />
+              <Text style={styles.dateText}>Acesso ate {renewalDate}</Text>
+            </View>
+          ) : null}
+
+          {status === "GRACE" && renewalDate ? (
+            <View style={styles.dateRow}>
+              <MaterialIcons
+                name="schedule"
+                size={14}
+                color={colors.textMuted}
+              />
+              <Text style={styles.dateText}>
+                Acesso temporariamente mantido ate {renewalDate}
+              </Text>
+            </View>
+          ) : null}
+
+          {code !== "FREE" && limit > 0 ? (
             <View style={styles.usageSection}>
               <View style={styles.usageHeader}>
                 <Text style={styles.usageLabel}>Obras ativas</Text>
@@ -229,41 +278,44 @@ export default function MyPlanScreen() {
                 />
               </View>
             </View>
-          )}
+          ) : null}
 
-          {/* Obras ilimitadas para PRO */}
-          {code === "PRO" && (
+          {code === "PRO" ? (
             <View style={styles.dateRow}>
-              <MaterialIcons name="all-inclusive" size={14} color={colors.textMuted} />
+              <MaterialIcons
+                name="all-inclusive"
+                size={14}
+                color={colors.textMuted}
+              />
               <Text style={styles.dateText}>Obras ilimitadas</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {/* O que está incluído */}
         <View style={styles.featuresCard}>
-          <Text style={styles.featuresTitle}>O que está incluído</Text>
+          <Text style={styles.featuresTitle}>O que esta incluido</Text>
           <View style={styles.featureList}>
-            {features.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
+            {features.map((feature, index) => (
+              <View key={index} style={styles.featureRow}>
                 <MaterialIcons
-                  name={f.ok ? "check-circle" : "cancel"}
+                  name={feature.ok ? "check-circle" : "cancel"}
                   size={17}
-                  color={f.ok ? colors.success : colors.border}
+                  color={feature.ok ? colors.success : colors.border}
                 />
-                <Text style={[styles.featureText, !f.ok && styles.featureTextOff]}>
-                  {f.text}
+                <Text
+                  style={[styles.featureText, !feature.ok && styles.featureTextOff]}
+                >
+                  {feature.text}
                 </Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Ações */}
-        {hasActiveSubscription && code !== "FREE" && (
+        {hasEntitlement && code !== "FREE" ? (
           <TouchableOpacity
             style={styles.manageButton}
-            onPress={openSubscriptionManagement}
+            onPress={() => void openSubscriptionManagement(refresh)}
             activeOpacity={0.85}
           >
             <MaterialIcons
@@ -273,12 +325,12 @@ export default function MyPlanScreen() {
             />
             <Text style={styles.manageButtonText}>Gerenciar assinatura</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
 
         <TouchableOpacity
           style={[
             styles.plansButton,
-            hasActiveSubscription && code !== "FREE" && styles.plansButtonSecondary,
+            hasEntitlement && code !== "FREE" && styles.plansButtonSecondary,
           ]}
           onPress={() => router.push("/subscription/plans")}
           activeOpacity={0.85}
@@ -286,12 +338,12 @@ export default function MyPlanScreen() {
           <MaterialIcons
             name="workspace-premium"
             size={18}
-            color={hasActiveSubscription && code !== "FREE" ? colors.primary : colors.white}
+            color={hasEntitlement && code !== "FREE" ? colors.primary : colors.white}
           />
           <Text
             style={[
               styles.plansButtonText,
-              hasActiveSubscription && code !== "FREE" && styles.plansButtonTextSecondary,
+              hasEntitlement && code !== "FREE" && styles.plansButtonTextSecondary,
             ]}
           >
             {code === "FREE" ? "Assinar agora" : "Ver todos os planos"}
@@ -301,8 +353,6 @@ export default function MyPlanScreen() {
     </SafeAreaView>
   );
 }
-
-// ── Estilos ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -347,9 +397,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing[12],
   },
-  alertBannerWarning: {
-    backgroundColor: "#FFFBEB",
-    borderColor: "#FDE68A",
+  alertBannerSuccess: {
+    backgroundColor: "#DCFCE7",
+    borderColor: "#86EFAC",
+  },
+  alertBannerInfo: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#BFDBFE",
   },
   alertBannerNeutral: {
     backgroundColor: "#F9FAFB",
@@ -365,7 +419,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "500",
   },
-  alertTextWarning: { color: "#92400E" },
+  alertTextSuccess: { color: "#166534" },
+  alertTextInfo: { color: "#1D4ED8" },
   alertTextNeutral: { color: "#374151" },
   alertTextError: { color: "#991B1B" },
   planCard: {
@@ -401,7 +456,7 @@ const styles = StyleSheet.create({
     gap: spacing[5],
     paddingHorizontal: spacing[10],
     paddingVertical: spacing[5],
-    borderRadius: radius.full,
+    borderRadius: radius.pill,
   },
   statusDot: {
     width: 7,

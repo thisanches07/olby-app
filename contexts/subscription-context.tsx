@@ -27,6 +27,11 @@ interface SubscriptionState {
   purchaseError: string | null;
   purchaseSuccess: string | null;
   refresh: () => Promise<void>;
+  fetchBillingIdentity: () => Promise<{
+    accountToken: string;
+    appleAppAccountToken: string;
+    googleObfuscatedAccountId: string;
+  }>;
   clearPurchaseFeedback: () => void;
   verifyApplePurchase: (
     transactionId: string,
@@ -84,6 +89,10 @@ export function SubscriptionProvider({
   const clearPurchaseFeedback = useCallback(() => {
     setPurchaseError(null);
     setPurchaseSuccess(null);
+  }, []);
+
+  const fetchBillingIdentity = useCallback(async () => {
+    return billingApi.getBillingIdentity();
   }, []);
 
   const verifyWithIdempotency = useCallback(
@@ -190,6 +199,7 @@ export function SubscriptionProvider({
       purchaseError,
       purchaseSuccess,
       refresh,
+      fetchBillingIdentity,
       clearPurchaseFeedback,
       verifyApplePurchase,
       verifyGooglePurchase,
@@ -202,6 +212,7 @@ export function SubscriptionProvider({
       purchaseError,
       purchaseSuccess,
       refresh,
+      fetchBillingIdentity,
       clearPurchaseFeedback,
       verifyApplePurchase,
       verifyGooglePurchase,

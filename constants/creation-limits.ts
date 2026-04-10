@@ -1,4 +1,5 @@
 export const PROJECT_ITEM_LIMIT = 500;
+export const CREATE_PROJECT_TASK_LIMIT = 100;
 
 export type LimitedProjectItem = "tarefas" | "gastos" | "registros";
 

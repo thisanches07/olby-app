@@ -10,7 +10,7 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, AppState, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -105,9 +105,23 @@ function SubscriptionLoader() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      refresh();
+      void refresh();
     }
   }, [user, authLoading, refresh]);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void refresh();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [authLoading, refresh, user]);
 
   return null;
 }

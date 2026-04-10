@@ -15,6 +15,7 @@ export interface EffectivePlanResponse {
   priceCents: number;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
 }
 
 export interface MySubscriptionResponse {
@@ -24,6 +25,7 @@ export interface MySubscriptionResponse {
   priceCents: number;
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
   ownedProjectCount: number;
   canCreateProject: boolean;
 }
@@ -138,6 +140,7 @@ export function mapEffectivePlanToSubscription(
     priceCents: effectivePlan.priceCents,
     subscriptionStatus: normalizedStatus,
     trialEndsAt: effectivePlan.trialEndsAt,
+    currentPeriodEnd: effectivePlan.currentPeriodEnd,
     ownedProjectCount: snapshot.ownedProjectCount,
     canCreateProject: snapshot.canCreateProject,
   };

@@ -14,10 +14,12 @@ const mapEffectivePlanToSubscription =
       priceCents: number;
       subscriptionStatus: string | null;
       trialEndsAt: string | null;
+      currentPeriodEnd: string | null;
     },
     snapshot: { ownedProjectCount: number; canCreateProject: boolean },
   ) => {
     subscriptionStatus: string | null;
+    currentPeriodEnd: string | null;
     ownedProjectCount: number;
     canCreateProject: boolean;
   };
@@ -62,6 +64,7 @@ function run() {
         priceCents: 7990,
         subscriptionStatus: "SOMETHING_ELSE",
         trialEndsAt: null,
+        currentPeriodEnd: "2026-05-01T00:00:00.000Z",
       },
       {
         ownedProjectCount: 2,
@@ -70,6 +73,7 @@ function run() {
     );
 
     assert.equal(mapped.subscriptionStatus, null);
+    assert.equal(mapped.currentPeriodEnd, "2026-05-01T00:00:00.000Z");
     assert.equal(mapped.ownedProjectCount, 2);
     assert.equal(mapped.canCreateProject, true);
   }

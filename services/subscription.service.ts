@@ -41,25 +41,82 @@ export const subscriptionService = {
   getMyPlan: (): Promise<SubscriptionInfo> => billingApi.getMySubscription(),
 };
 
+export function hasSubscriptionEntitlement(status: SubscriptionStatus): boolean {
+  return (
+    status === "TRIAL" ||
+    status === "ACTIVE" ||
+    status === "GRACE" ||
+    status === "CANCELED"
+  );
+}
+
+export function getSubscriptionStatusMessage(params: {
+  status: SubscriptionStatus;
+  currentPeriodEnd?: string | null;
+  trialEndsAt?: string | null;
+}): string | null {
+  const { status, currentPeriodEnd, trialEndsAt } = params;
+
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  switch (status) {
+    case "ACTIVE":
+      return "Assinatura ativa.";
+    case "GRACE": {
+      const date = formatDate(currentPeriodEnd);
+      return date
+        ? `Houve um problema na renovacao, mas seu acesso segue ativo temporariamente ate ${date}.`
+        : "Houve um problema na renovacao, mas seu acesso segue ativo temporariamente.";
+    }
+    case "CANCELED": {
+      const date = formatDate(currentPeriodEnd);
+      return date
+        ? `Renovacao cancelada. Seu acesso continua ate ${date}.`
+        : "Renovacao cancelada. Seu acesso continua ate o fim do periodo atual.";
+    }
+    case "TRIAL": {
+      const date = formatDate(trialEndsAt);
+      return date
+        ? `Periodo de teste ativo ate ${date}.`
+        : "Periodo de teste ativo.";
+    }
+    case "PAST_DUE":
+      return "Sua assinatura nao esta mais ativa por falha de cobranca. Atualize o pagamento para recuperar o acesso.";
+    case "EXPIRED":
+      return "Sua assinatura expirou.";
+    case null:
+      return "Sem assinatura ativa.";
+  }
+}
+
 export function getStatusBadge(status: SubscriptionStatus): {
   label: string;
   color: string;
 } {
   switch (status) {
     case "TRIAL":
-      return { label: "Teste Grátis", color: "#2563EB" };
+      return { label: "Trial ativo", color: "#2563EB" };
     case "ACTIVE":
-      return { label: "Ativo", color: "#16A34A" };
+      return { label: "Assinatura ativa", color: "#16A34A" };
     case "GRACE":
-      return { label: "Em carencia", color: "#D97706" };
+      return { label: "Renovacao com problema", color: "#D97706" };
     case "PAST_DUE":
-      return { label: "Pagamento falhou", color: "#DC2626" };
+      return { label: "Sem acesso por cobranca", color: "#DC2626" };
     case "CANCELED":
-      return { label: "Cancelado", color: "#6B7280" };
+      return { label: "Cancelada com acesso", color: "#6B7280" };
     case "EXPIRED":
       return { label: "Expirado", color: "#6B7280" };
     case null:
-      return { label: "Gratuito", color: "#6B7280" };
+      return { label: "Sem assinatura", color: "#6B7280" };
   }
 }
 

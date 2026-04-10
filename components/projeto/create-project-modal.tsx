@@ -27,7 +27,7 @@ import DraggableFlatList, {
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
 
-import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
+import { CREATE_PROJECT_TASK_LIMIT } from "@/constants/creation-limits";
 import { ObraDetalhe } from "@/data/obras";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
 import { firebaseAuth } from "@/services/firebase";
@@ -404,6 +404,9 @@ export function CreateProjectModal({
     actions.setOrcamento(limitBudgetValueDigits(text));
   };
 
+  const createTaskLimitReached =
+    formState.tarefas.length >= CREATE_PROJECT_TASK_LIMIT;
+
   const handleAddTask = () => {
     setSubmitError(null);
 
@@ -419,15 +422,15 @@ export function CreateProjectModal({
       });
       return;
     }
-    if (formState.tarefas.length >= PROJECT_ITEM_LIMIT) {
+    if (createTaskLimitReached) {
       showToast({
         title: "Limite atingido",
-        message: `Maximo de ${PROJECT_ITEM_LIMIT} tarefas iniciais.`,
+        message: `Limite de ${CREATE_PROJECT_TASK_LIMIT} tarefas iniciais atingido.`,
         tone: "info",
       });
       setSubmitError({
         title: "Limite atingido",
-        message: `Maximo de ${PROJECT_ITEM_LIMIT} tarefas iniciais.`,
+        message: `Limite de ${CREATE_PROJECT_TASK_LIMIT} tarefas iniciais atingido.`,
       });
       return;
     }
@@ -964,13 +967,31 @@ export function CreateProjectModal({
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
-                      style={[styles.addBtn, isSaving && styles.addBtnDisabled]}
+                      style={[
+                        styles.addBtn,
+                        (isSaving || createTaskLimitReached) &&
+                          styles.addBtnDisabled,
+                      ]}
                       onPress={handleAddTask}
-                      disabled={isSaving}
+                      disabled={isSaving || createTaskLimitReached}
                     >
                       <MaterialIcons name="add" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
+
+                  {createTaskLimitReached && (
+                    <View style={styles.taskLimitBanner}>
+                      <MaterialIcons
+                        name="info-outline"
+                        size={15}
+                        color="#9A3412"
+                      />
+                      <Text style={styles.taskLimitBannerText}>
+                        Limite de {CREATE_PROJECT_TASK_LIMIT} tarefas iniciais
+                        atingido. Remova uma tarefa para adicionar outra.
+                      </Text>
+                    </View>
+                  )}
 
                   {formState.tarefas.length > 0 && (
                     <View style={styles.tasksList}>
@@ -978,6 +999,7 @@ export function CreateProjectModal({
                         {formState.tarefas.length} tarefa
                         {formState.tarefas.length !== 1 ? "s" : ""} adicionada
                         {formState.tarefas.length !== 1 ? "s" : ""}
+                        {` (${formState.tarefas.length}/${CREATE_PROJECT_TASK_LIMIT})`}
                       </Text>
                       {formState.tarefas.length >= 2 && (
                         <Text style={styles.tasksReorderHint}>
@@ -1503,6 +1525,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   addBtnDisabled: { opacity: 0.5 },
+  taskLimitBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFF7ED",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  taskLimitBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9A3412",
+  },
 
   tasksList: {
     backgroundColor: "#F9FAFB",
