@@ -36,6 +36,8 @@ import { formatBRLInput } from "@/utils/obra-utils";
 const PRIMARY = "#2563EB";
 const PROJECT_NAME_MAX = 30;
 const PROJECT_ADDRESS_MAX = 50;
+const MAX_BUDGET_VALUE_DIGITS = 9;
+
 const PRIORITY_CONFIG = {
   ALTA: { color: "#DC2626", label: "Alta" },
   MEDIA: { color: "#F59E0B", label: "Média" },
@@ -135,6 +137,10 @@ async function getFirebaseIdTokenSafe(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+function limitBudgetValueDigits(raw: string) {
+  return raw.replace(/\D/g, "").slice(0, MAX_BUDGET_VALUE_DIGITS);
 }
 
 type CreateProjectTaskDto = {
@@ -366,6 +372,9 @@ export function CreateProjectModal({
     "orcamento" | "horas" | "previsaoEntrega" | "expense" | null
   >(null);
 
+  const isAtBudgetLimit =
+    (formState.orcamento?.length ?? 0) >= MAX_BUDGET_VALUE_DIGITS;
+
   const scrollToKeyboard = (
     ref: React.RefObject<TextInput | null>,
     extraOffset = 220,
@@ -391,11 +400,14 @@ export function CreateProjectModal({
     Keyboard.dismiss();
   };
 
+  const handleBudgetChange = (text: string) => {
+    actions.setOrcamento(limitBudgetValueDigits(text));
+  };
+
   const handleAddTask = () => {
     setSubmitError(null);
 
     if (!taskInput.trim()) {
-      // Toast dentro de Modal nativo pode ficar “atrás”, mas aqui ainda ajuda quando esse componente for usado sem Modal.
       showToast({
         title: "Campo vazio",
         message: "Digite o título da tarefa.",
@@ -453,6 +465,24 @@ export function CreateProjectModal({
         showToast({
           title: "Data inválida",
           message: "Use o formato DD/MM/AAAA.",
+          tone: "error",
+        });
+        setIsSaving(false);
+        return;
+      }
+
+      if (
+        trackFinancial &&
+        formState.orcamento &&
+        formState.orcamento.length > MAX_BUDGET_VALUE_DIGITS
+      ) {
+        setSubmitError({
+          title: "Valor acima do limite",
+          message: "Reduza a quantidade de dígitos do valor informado.",
+        });
+        showToast({
+          title: "Valor acima do limite",
+          message: "Reduza a quantidade de dígitos do valor informado.",
           tone: "error",
         });
         setIsSaving(false);
@@ -539,7 +569,6 @@ export function CreateProjectModal({
 
       onSave(newObra);
 
-      // reset
       actions.reset();
       setTaskInput("");
       setExpenseInput("");
@@ -557,9 +586,7 @@ export function CreateProjectModal({
           ? (error as { status?: number }).status
           : undefined;
 
-      // ✅ Plano/limite atingido
       if (status === 403) {
-        // Se você tem modal de upgrade, usa ele (melhor UX).
         if (onRequireUpgrade) {
           setIsSaving(false);
           onClose();
@@ -567,7 +594,6 @@ export function CreateProjectModal({
           return;
         }
 
-        // Fallback premium dentro do próprio modal (toast não aparece por cima de Modal nativo)
         setSubmitError({
           title: "Limite do plano atingido",
           message:
@@ -613,7 +639,6 @@ export function CreateProjectModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <SafeAreaView style={styles.safe}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Criar Novo Projeto</Text>
           <TouchableOpacity
@@ -625,7 +650,6 @@ export function CreateProjectModal({
           </TouchableOpacity>
         </View>
 
-        {/* ✅ Banner inline (aparece dentro do Modal) */}
         {submitError && (
           <InlineBanner
             title={submitError.title}
@@ -654,14 +678,12 @@ export function CreateProjectModal({
               Platform.OS === "ios" ? "interactive" : "on-drag"
             }
           >
-            {/* ── Section 1: Informações Básicas ────────────────────────── */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <MaterialIcons name="info" size={20} color={PRIMARY} />
                 <Text style={styles.sectionTitle}>Informações Básicas</Text>
               </View>
 
-              {/* Nome */}
               <View style={styles.formGroup}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>Nome do Projeto</Text>
@@ -697,7 +719,6 @@ export function CreateProjectModal({
                 )}
               </View>
 
-              {/* Endereço */}
               <View style={styles.formGroup}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>Endereço</Text>
@@ -734,9 +755,7 @@ export function CreateProjectModal({
                 )}
               </View>
 
-              {/* Previsão de entrega + Horas — em linha */}
               <View style={styles.deliveryHorasRow}>
-                {/* Previsão de entrega */}
                 <View style={[styles.formGroup, { flex: 1, marginBottom: 0 }]}>
                   <View style={styles.labelRow}>
                     <Text style={styles.label}>Previsão de entrega</Text>
@@ -800,7 +819,6 @@ export function CreateProjectModal({
                   </View>
                 </View>
 
-                {/* Horas Contratadas */}
                 <View
                   style={[styles.formGroup, { width: 110, marginBottom: 0 }]}
                 >
@@ -857,7 +875,6 @@ export function CreateProjectModal({
               </View>
             </View>
 
-            {/* ── Section 2: Acompanhamento de Tarefas (toggle) ─────────── */}
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.trackingToggleRow}
@@ -1057,7 +1074,6 @@ export function CreateProjectModal({
               )}
             </View>
 
-            {/* ── Section 3: Acompanhamento Financeiro (toggle) ─────────── */}
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.trackingToggleRow}
@@ -1117,7 +1133,7 @@ export function CreateProjectModal({
                           placeholder="0,00"
                           placeholderTextColor="#9CA3AF"
                           value={formatBRLInput(formState.orcamento)}
-                          onChangeText={actions.setOrcamento}
+                          onChangeText={handleBudgetChange}
                           keyboardType="number-pad"
                           editable={!isSaving}
                           onFocus={() => {
@@ -1128,6 +1144,19 @@ export function CreateProjectModal({
                           onSubmitEditing={() => nextFor("orcamento")}
                         />
                       </View>
+
+                      {isAtBudgetLimit && (
+                        <View style={styles.valueLimitBanner}>
+                          <MaterialIcons
+                            name="warning-amber"
+                            size={14}
+                            color="#D97706"
+                          />
+                          <Text style={styles.valueLimitText}>
+                            Limite máximo de orçamento atingido.
+                          </Text>
+                        </View>
+                      )}
 
                       {focusedField === "orcamento" && (
                         <View style={styles.inlineActions}>
@@ -1161,7 +1190,6 @@ export function CreateProjectModal({
           </ScrollView>
         </KeyboardAvoidingView>
 
-        {/* Footer FIXO */}
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.cancelBtn}
@@ -1321,7 +1349,6 @@ const styles = StyleSheet.create({
   },
   inlineSecondaryText: { color: "#374151", fontWeight: "800" },
 
-  // Previsão de entrega + Horas lado a lado
   deliveryHorasRow: {
     flexDirection: "row",
     gap: 12,
@@ -1340,7 +1367,6 @@ const styles = StyleSheet.create({
   },
   dateField: { flex: 1, paddingVertical: 10, fontSize: 14, color: "#111827" },
 
-  // Horas compacto (ao lado da data)
   horasInput: {
     flexDirection: "row",
     alignItems: "center",
@@ -1366,7 +1392,6 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
 
-  // ── Tracking toggle rows ──────────────────────────────────────────
   trackingToggleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1406,7 +1431,6 @@ const styles = StyleSheet.create({
     borderTopColor: "#F3F4F6",
   },
 
-  // Pill toggle customizado
   togglePill: {
     width: 46,
     height: 27,
@@ -1435,7 +1459,6 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
 
-  // Tasks
   taskInputContainer: {
     flexDirection: "row",
     gap: 8,
@@ -1534,7 +1557,6 @@ const styles = StyleSheet.create({
   },
   taskPriorityText: { fontSize: 12, fontWeight: "600" },
 
-  // Budget
   budgetInput: {
     flexDirection: "row",
     alignItems: "center",
@@ -1549,7 +1571,25 @@ const styles = StyleSheet.create({
   currencyLabel: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
   budgetField: { flex: 1, paddingVertical: 10, fontSize: 14, color: "#111827" },
 
-  // Footer
+  valueLimitBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginTop: 6,
+    backgroundColor: "#FFF7ED",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  valueLimitText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9A3412",
+  },
+
   footer: {
     flexDirection: "row",
     gap: 12,

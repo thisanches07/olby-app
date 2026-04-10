@@ -18,7 +18,7 @@ import {
 } from "react-native";
 
 const PRIMARY = "#2563EB";
-const MAX_BUDGET_VALUE_DIGITS = 12;
+const MAX_BUDGET_VALUE_DIGITS = 9;
 
 interface BudgetAdjustmentModalProps {
   visible: boolean;

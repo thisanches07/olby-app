@@ -157,7 +157,6 @@ function TaskCard({
           animStyle,
         ]}
       >
-
         {/* Checkbox */}
         <TaskCheckbox
           checked={tarefa.concluida}
@@ -485,7 +484,8 @@ export function EngTasksList({
         <View style={styles.limitBanner}>
           <MaterialIcons name="info-outline" size={15} color="#9A3412" />
           <Text style={styles.limitBannerText}>
-            Limite de 500 tarefas atingido. Exclua uma tarefa para adicionar outra.
+            Limite de 500 tarefas atingido. Exclua uma tarefa para adicionar
+            outra.
           </Text>
         </View>
       )}
@@ -631,7 +631,7 @@ export function EngTasksList({
           onPress={() => setShowHeaderMenu(false)}
         >
           <View style={styles.actionSheet}>
-            <Text style={styles.actionSheetTitle}>OpÃ§Ãµes das tarefas</Text>
+            <Text style={styles.actionSheetTitle}>Opções das tarefas</Text>
             {onDeleteAll && (
               <TouchableOpacity
                 style={styles.actionSheetItem}
@@ -640,11 +640,7 @@ export function EngTasksList({
                   onDeleteAll();
                 }}
               >
-                <MaterialIcons
-                  name="delete-sweep"
-                  size={20}
-                  color="#EF4444"
-                />
+                <MaterialIcons name="delete-sweep" size={20} color="#EF4444" />
                 <Text
                   style={[
                     styles.actionSheetItemText,
