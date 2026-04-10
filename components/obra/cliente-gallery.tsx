@@ -1,4 +1,5 @@
 import { ImageLightboxModal } from "@/components/diario/image-lightbox-modal";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { PhotoItem } from "@/hooks/use-diary-state";
 import { dailyLogEntriesService } from "@/services/daily-log-entries.service";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
@@ -7,7 +8,6 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +21,73 @@ interface GalleryPhoto {
   photoItem: PhotoItem;
   dateLabel: string;
   entryId: string;
+}
+
+function CompactGallerySkeleton() {
+  return (
+    <>
+      <View style={styles.galeriaHeader}>
+        <View style={styles.galeriaHeaderLeft}>
+          <Skeleton width={116} height={10} borderRadius={5} />
+          <Skeleton width={44} height={10} borderRadius={5} />
+        </View>
+        <View style={styles.verTudoBtn}>
+          <Skeleton width={48} height={12} borderRadius={6} />
+          <Skeleton width={10} height={10} borderRadius={5} />
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.galeriaScroll}
+      >
+        <View style={styles.galeriaItem}>
+          <Skeleton width="100%" height={110} borderRadius={14} />
+        </View>
+        <View style={styles.galeriaItem}>
+          <Skeleton width="100%" height={110} borderRadius={14} />
+        </View>
+        <View style={styles.galeriaItem}>
+          <Skeleton width="100%" height={110} borderRadius={14} />
+        </View>
+      </ScrollView>
+    </>
+  );
+}
+
+function FullGallerySkeleton({ showDiaryButton }: { showDiaryButton: boolean }) {
+  return (
+    <View style={styles.fullContainer}>
+      <View style={styles.fullHeader}>
+        <Skeleton width={124} height={20} borderRadius={8} />
+        <Skeleton width={58} height={12} borderRadius={6} />
+      </View>
+
+      <View style={styles.grid}>
+        <View style={styles.gridItem}>
+          <Skeleton width="100%" height="100%" borderRadius={14} />
+        </View>
+        <View style={styles.gridItem}>
+          <Skeleton width="100%" height="100%" borderRadius={14} />
+        </View>
+        <View style={styles.gridItem}>
+          <Skeleton width="100%" height="100%" borderRadius={14} />
+        </View>
+        <View style={styles.gridItem}>
+          <Skeleton width="100%" height="100%" borderRadius={14} />
+        </View>
+      </View>
+
+      {showDiaryButton && (
+        <View style={styles.diaryButton}>
+          <Skeleton width={18} height={18} borderRadius={5} />
+          <Skeleton width="62%" height={14} borderRadius={7} style={styles.flex1} />
+          <Skeleton width={18} height={18} borderRadius={9} />
+        </View>
+      )}
+    </View>
+  );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -123,11 +190,7 @@ export function ClienteGallery({
 
   if (fullView) {
     if (loading) {
-      return (
-        <View style={styles.loadingFull}>
-          <ActivityIndicator size="large" color={PRIMARY} />
-        </View>
-      );
+      return <FullGallerySkeleton showDiaryButton={!!onViewDiary} />;
     }
 
     return (
@@ -197,18 +260,7 @@ export function ClienteGallery({
   // ── Compact view (visao_geral tab) ─────────────────────────────────────────
 
   if (loading) {
-    return (
-      <>
-        <View style={styles.galeriaHeader}>
-          <View style={styles.galeriaHeaderLeft}>
-            <Text style={styles.sectionTitle}>GALERIA RECENTE</Text>
-          </View>
-        </View>
-        <View style={styles.loadingCompact}>
-          <ActivityIndicator size="small" color={PRIMARY} />
-        </View>
-      </>
-    );
+    return <CompactGallerySkeleton />;
   }
 
   if (photos.length === 0) {
@@ -265,19 +317,6 @@ export function ClienteGallery({
 
 const styles = StyleSheet.create({
   // ── Loading ──────────────────────────────────────────────────────────────
-  loadingFull: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  loadingCompact: {
-    height: 110,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 16,
-  },
-
   // ── Empty (full view) ─────────────────────────────────────────────────────
   emptyFull: {
     alignItems: "center",
@@ -421,5 +460,8 @@ const styles = StyleSheet.create({
     color: PRIMARY,
     flex: 1,
     textAlign: "center",
+  },
+  flex1: {
+    flex: 1,
   },
 });

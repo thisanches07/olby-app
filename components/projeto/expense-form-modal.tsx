@@ -1,5 +1,6 @@
 import { useToast } from "@/components/obra/toast";
 import { AppModal as Modal } from "@/components/ui/app-modal";
+import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import type { DocumentSource } from "@/data/obras";
 import { Gasto, Tarefa } from "@/data/obras";
@@ -32,6 +33,7 @@ import { CaptureOptionsSheet } from "./capture-options-sheet";
 
 const PRIMARY = "#2563EB";
 const MAX_EXPENSE_DESCRIPTION = 30;
+const MAX_EXPENSE_VALUE_DIGITS = 12;
 
 const CATEGORIES = [
   {
@@ -123,6 +125,10 @@ function isoToBRDate(iso: string): string {
 
 function onlyDigitsLen(text: string) {
   return text.replace(/\D/g, "").length;
+}
+
+function limitExpenseValueDigits(raw: string) {
+  return raw.replace(/\D/g, "").slice(0, MAX_EXPENSE_VALUE_DIGITS);
 }
 
 const PRIORITY_CONFIG: Record<
@@ -266,6 +272,10 @@ export function ExpenseFormModal({
     const v = parseInt(valor, 10) / 100;
     return Number.isFinite(v) ? v : NaN;
   }, [valor]);
+  const isAtValueLimit = useMemo(
+    () => valor.length >= MAX_EXPENSE_VALUE_DIGITS,
+    [valor],
+  );
 
   const dateDigitsLen = useMemo(() => onlyDigitsLen(dateText), [dateText]);
 
@@ -385,6 +395,14 @@ export function ExpenseFormModal({
       });
       return;
     }
+    if (valor.length > MAX_EXPENSE_VALUE_DIGITS) {
+      showToast({
+        title: "Valor acima do limite",
+        message: "Reduza a quantidade de dÃ­gitos do valor informado.",
+        tone: "error",
+      });
+      return;
+    }
     const rawDate = dateText.trim();
     if (!rawDate || dateDigitsLen !== 8 || !parsedDate) {
       const msg = !rawDate
@@ -464,9 +482,10 @@ export function ExpenseFormModal({
               }
               maxLength={MAX_EXPENSE_DESCRIPTION}
             />
-            <Text style={styles.charCounter}>
-              {descricao.length}/{MAX_EXPENSE_DESCRIPTION}
-            </Text>
+            <CharacterLimitHint
+              current={descricao.length}
+              max={MAX_EXPENSE_DESCRIPTION}
+            />
           </View>
 
           {/* ── Valor + Data (linha) ── */}
@@ -480,10 +499,22 @@ export function ExpenseFormModal({
                 placeholder="0,00"
                 placeholderTextColor="#9CA3AF"
                 value={formatBRLInput(valor)}
-                onChangeText={(t) => setValor(t.replace(/\D/g, ""))}
+                onChangeText={(t) => setValor(limitExpenseValueDigits(t))}
                 keyboardType="number-pad"
                 returnKeyType="done"
               />
+              {isAtValueLimit && (
+                <View style={styles.valueLimitBanner}>
+                  <MaterialIcons
+                    name="warning-amber"
+                    size={14}
+                    color="#D97706"
+                  />
+                  <Text style={styles.valueLimitText}>
+                    Limite máximo de valor atingido.
+                  </Text>
+                </View>
+              )}
             </View>
             <View style={[styles.field, { flex: 1 }]}>
               <Text style={styles.label}>
@@ -856,14 +887,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#111827",
   },
-  charCounter: {
+  valueLimitBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
     marginTop: 6,
-    fontSize: 11,
-    color: "#9CA3AF",
-    textAlign: "right",
-    fontWeight: "600",
+    backgroundColor: "#FFF7ED",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
   },
-
+  valueLimitText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9A3412",
+  },
   dateInputWrap: {
     flexDirection: "row",
     alignItems: "center",

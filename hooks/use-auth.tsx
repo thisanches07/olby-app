@@ -10,6 +10,10 @@ import {
 } from "@/services/auth.service";
 import { api } from "@/services/api";
 import { firebaseAuth } from "@/services/firebase";
+import {
+  resetNotificationDeviceState,
+  revokeStoredPushToken,
+} from "@/services/notifications.service";
 
 interface AuthContextValue {
   user: User | null;
@@ -103,6 +107,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendCurrentUserEmailVerification();
   }, []);
 
+  const handleSignOut = useCallback(async () => {
+    try {
+      await revokeStoredPushToken();
+    } catch {
+      // O logout não deve falhar se a revogação do token push der erro.
+    } finally {
+      await resetNotificationDeviceState();
+      await logout();
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -183,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isBackendLoading,
         isLoading,
         registrationInProgress,
-        signOut: logout,
+        signOut: handleSignOut,
         refreshUser: handleRefreshUser,
         sendVerificationEmail: handleSendVerificationEmail,
         setPhoneVerified: handleSetPhoneVerified,

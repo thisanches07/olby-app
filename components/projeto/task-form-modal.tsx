@@ -1,5 +1,6 @@
 import { Tarefa } from "@/data/obras";
 import { useToast } from "@/components/obra/toast";
+import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
@@ -15,6 +16,8 @@ import {
 } from "react-native";
 
 const PRIMARY = "#2563EB";
+const TASK_TITLE_MAX = 30;
+const TASK_DESCRIPTION_MAX = 120;
 
 interface TaskFormModalProps {
   visible: boolean;
@@ -65,7 +68,9 @@ export function TaskFormModal({
   };
 
   const handleSave = async () => {
-    if (!titulo.trim()) {
+    const trimmedTitulo = titulo.trim().slice(0, TASK_TITLE_MAX);
+    const trimmedDescricao = descricao.trim().slice(0, TASK_DESCRIPTION_MAX);
+    if (!trimmedTitulo) {
       setTituloError(true);
       showToast({ title: "Título obrigatório", tone: "error" });
       return;
@@ -75,8 +80,8 @@ export function TaskFormModal({
     setIsSaving(true);
     try {
       await onSave({
-        titulo: titulo.trim(),
-        descricao: descricao.trim(),
+        titulo: trimmedTitulo,
+        descricao: trimmedDescricao,
         prioridade,
         concluida: task?.concluida ?? false,
         order: task?.order ?? 0,
@@ -144,8 +149,9 @@ export function TaskFormModal({
                 setTitulo(t);
                 if (tituloError) setTituloError(false);
               }}
-              maxLength={60}
+              maxLength={TASK_TITLE_MAX}
             />
+            <CharacterLimitHint current={titulo.length} max={TASK_TITLE_MAX} />
           </View>
 
           {/* Descrição */}
@@ -157,10 +163,14 @@ export function TaskFormModal({
               placeholderTextColor="#9CA3AF"
               value={descricao}
               onChangeText={setDescricao}
-              maxLength={200}
+              maxLength={TASK_DESCRIPTION_MAX}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+            />
+            <CharacterLimitHint
+              current={descricao.length}
+              max={TASK_DESCRIPTION_MAX}
             />
           </View>
 

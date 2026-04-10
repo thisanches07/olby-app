@@ -2,7 +2,6 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { ClientTimelineSection } from "@/components/diario/client-timeline-section";
+import { DiaryLoadingScreen } from "@/components/diario/diary-loading-screen";
 import { DiaryHeader } from "@/components/diario/diary-header";
 import {
   DiaryTabsSegmented,
@@ -270,16 +270,7 @@ export default function DiarioScreen() {
 
   // ── Estados de loading / error ─────────────────────────────────────────────
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safe} edges={["top"]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-        <DiaryHeader title={projectName} mode={mode} onModeChange={() => {}} />
-        <View style={styles.centerState}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.centerText}>Carregando registros...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <DiaryLoadingScreen variant={mode} />;
   }
 
   if (error) {

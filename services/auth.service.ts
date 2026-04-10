@@ -22,6 +22,7 @@ import {
 
 import { api } from "./api";
 import { firebaseAuth } from "./firebase";
+import { toBrazilPhoneE164 } from "@/utils/phone";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 const WEB_BASE_URL = "https://oblyapp.com";
@@ -90,6 +91,7 @@ export async function registerWithEmail(
   name: string,
   phone?: string,
 ) {
+  const normalizedPhone = phone ? toBrazilPhoneE164(phone) ?? phone : undefined;
   // Passo 1: cria conta no Firebase
   const result = await createUserWithEmailAndPassword(
     firebaseAuth,
@@ -107,7 +109,7 @@ export async function registerWithEmail(
       Authorization: `Bearer ${idToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, ...(phone ? { phone } : {}) }),
+    body: JSON.stringify({ name, ...(normalizedPhone ? { phone: normalizedPhone } : {}) }),
   });
 
   if (!response.ok) {

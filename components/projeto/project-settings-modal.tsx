@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
+import { useAuth } from "@/hooks/use-auth";
 import { ApiError, api } from "@/services/api";
 import { firebaseAuth } from "@/services/firebase";
 import { tasksService } from "@/services/tasks.service";
@@ -31,6 +32,7 @@ import {
   canManageMembers,
   type ProjectApiRole,
 } from "@/utils/project-role";
+import { toWhatsAppUrl } from "@/utils/phone";
 
 export type ProjectMemberRole = "engenheiro" | "cliente" | "convidado";
 
@@ -48,6 +50,16 @@ export type ProjectMember = {
 };
 
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
+
+async function openWhatsApp(phone: string): Promise<void> {
+  const url = toWhatsAppUrl(phone);
+  if (!url) return;
+
+  const supported = await Linking.canOpenURL(url);
+  if (!supported) return;
+
+  await Linking.openURL(url);
+}
 
 export type ProjectResponseDto = {
   id: string;
@@ -179,6 +191,7 @@ export function ProjectSettingsModal({
   onArchive,
   onReactivate,
 }: ProjectSettingsModalProps) {
+  const { backendUserId } = useAuth();
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
@@ -375,9 +388,6 @@ export function ProjectSettingsModal({
   const mapApiMembersToProjectMembers = (
     apiData: ApiMember[],
   ): ProjectMember[] => {
-    const currentEmail =
-      firebaseAuth.currentUser?.email?.trim().toLowerCase() ?? null;
-
     return Array.isArray(apiData)
       ? apiData
           .filter((m) => m.status === "ACTIVE")
@@ -385,7 +395,7 @@ export function ProjectSettingsModal({
             const email = m.userEmail?.trim() || "";
             const isOwner = m.role.toUpperCase() === "OWNER";
             const isCurrentUser =
-              !!currentEmail && email.toLowerCase() === currentEmail;
+              !!backendUserId && m.userId === backendUserId;
 
             return {
               id: m.id,
@@ -435,7 +445,7 @@ export function ProjectSettingsModal({
         setMembersLoading(false);
       }
     },
-    [projectId, showToast],
+    [backendUserId, projectId, showToast],
   );
 
   const busy = saving || deleting || pendingStatus !== null;
@@ -1356,11 +1366,6 @@ export function ProjectSettingsModal({
                             {m.name}
                             {m.isCurrentUser ? " (Eu)" : ""}
                           </Text>
-                          {!!m.email && (
-                            <Text style={styles.memberEmail} numberOfLines={1}>
-                              {m.email}
-                            </Text>
-                          )}
                         </View>
                       </View>
 
@@ -1382,11 +1387,7 @@ export function ProjectSettingsModal({
                           <TouchableOpacity
                             style={styles.whatsappBtn}
                             activeOpacity={0.8}
-                            onPress={() =>
-                              Linking.openURL(
-                                `https://wa.me/${m.phone!.replace(/\D/g, "")}`,
-                              )
-                            }
+                            onPress={() => void openWhatsApp(m.phone!)}
                           >
                             <FontAwesome
                               name="whatsapp"

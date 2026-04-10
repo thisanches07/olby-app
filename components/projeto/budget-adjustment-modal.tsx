@@ -1,8 +1,8 @@
 import { useToast } from "@/components/obra/toast";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import { formatBRLInput } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
-import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -18,6 +18,7 @@ import {
 } from "react-native";
 
 const PRIMARY = "#2563EB";
+const MAX_BUDGET_VALUE_DIGITS = 12;
 
 interface BudgetAdjustmentModalProps {
   visible: boolean;
@@ -25,6 +26,10 @@ interface BudgetAdjustmentModalProps {
   totalInvestido: number;
   onSave: (newBudget: number) => void;
   onClose: () => void;
+}
+
+function limitBudgetValueDigits(raw: string) {
+  return raw.replace(/\D/g, "").slice(0, MAX_BUDGET_VALUE_DIGITS);
 }
 
 export function BudgetAdjustmentModal({
@@ -40,6 +45,7 @@ export function BudgetAdjustmentModal({
   const scrollRef = useRef<ScrollView | null>(null);
   const [focusedField, setFocusedField] = useState<"orcamento" | null>(null);
   const orcamentoRef = useRef<TextInput | null>(null);
+  const isAtBudgetLimit = newBudget.length >= MAX_BUDGET_VALUE_DIGITS;
 
   useEffect(() => {
     const showEvent =
@@ -87,7 +93,19 @@ export function BudgetAdjustmentModal({
     if (newBudget !== "") {
       const parsedBudget = parseInt(newBudget, 10) / 100;
       if (isNaN(parsedBudget) || parsedBudget <= 0) {
-        showToast({ title: "Valor inválido", message: "Orçamento deve ser um número positivo.", tone: "error" });
+        showToast({
+          title: "Valor inválido",
+          message: "Orçamento deve ser um número positivo.",
+          tone: "error",
+        });
+        return;
+      }
+      if (newBudget.length > MAX_BUDGET_VALUE_DIGITS) {
+        showToast({
+          title: "Valor acima do limite",
+          message: "Reduza a quantidade de dÃ­gitos do valor informado.",
+          tone: "error",
+        });
         return;
       }
       if (parsedBudget < totalInvestido) {
@@ -107,7 +125,7 @@ export function BudgetAdjustmentModal({
   };
 
   const handleValueChange = (text: string) => {
-    setNewBudget(text.replace(/\D/g, ""));
+    setNewBudget(limitBudgetValueDigits(text));
   };
 
   const percentageUsed =
@@ -256,6 +274,18 @@ export function BudgetAdjustmentModal({
                   onBlur={() => setFocusedField(null)}
                   onSubmitEditing={() => Keyboard.dismiss()}
                 />
+                {isAtBudgetLimit && (
+                  <View style={styles.valueLimitBanner}>
+                    <MaterialIcons
+                      name="warning-amber"
+                      size={14}
+                      color="#D97706"
+                    />
+                    <Text style={styles.valueLimitText}>
+                      Limite máximo de orçamento atingido.
+                    </Text>
+                  </View>
+                )}
 
                 {focusedField === "orcamento" && (
                   <View style={styles.inlineActions}>
@@ -276,15 +306,14 @@ export function BudgetAdjustmentModal({
               </View>
             </View>
 
-            {newBudget &&
-              parseInt(newBudget, 10) / 100 < totalInvestido && (
-                <View style={styles.warningBox}>
-                  <MaterialIcons name="warning" size={16} color="#DC2626" />
-                  <Text style={styles.warningText}>
-                    Orçamento deve ser maior ou igual ao total investido
-                  </Text>
-                </View>
-              )}
+            {newBudget && parseInt(newBudget, 10) / 100 < totalInvestido && (
+              <View style={styles.warningBox}>
+                <MaterialIcons name="warning" size={16} color="#DC2626" />
+                <Text style={styles.warningText}>
+                  Orçamento deve ser maior ou igual ao total investido
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -434,6 +463,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#111827",
     fontWeight: "600",
+  },
+  valueLimitBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    marginTop: 6,
+    backgroundColor: "#FFF7ED",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  valueLimitText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9A3412",
   },
 
   warningBox: {

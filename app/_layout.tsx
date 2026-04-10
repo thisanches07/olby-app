@@ -26,6 +26,7 @@ import {
 } from "@/contexts/subscription-context";
 import { AppSessionProvider, useAppSession } from "@/hooks/use-app-session";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { PushNotificationsProvider } from "@/hooks/use-push-notifications";
 import { setPlanErrorHandler } from "@/services/api";
 import { loginWithEmail } from "@/services/auth.service";
 import { pendingInviteToken } from "@/utils/pending-invite";
@@ -209,64 +210,70 @@ export default function RootLayout() {
                   <ToastProvider>
                     <EmailVerificationToastBridge />
                     <ProjectsProvider>
-                      <AuthGate>
-                        <SubscriptionLoader />
-                        <PlanErrorInterceptor />
+                      <PushNotificationsProvider>
+                        <AuthGate>
+                          <SubscriptionLoader />
+                          <PlanErrorInterceptor />
 
-                        <Stack>
-                          <Stack.Screen
-                            name="login"
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="(tabs)"
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="obra/[id]"
-                            options={{
-                              headerShown: false,
-                              headerBackButtonMenuEnabled: false,
-                            }}
-                          />
-                          <Stack.Screen
-                            name="diario/[id]"
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="profile"
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="invite"
-                            options={{
-                              headerShown: false,
-                              presentation: "modal",
-                              animation: "slide_from_bottom",
-                            }}
-                          />
-                          <Stack.Screen
-                            name="subscription/plans"
-                            options={{
-                              headerShown: false,
-                              presentation: "modal",
-                              animation: "slide_from_bottom",
-                            }}
-                          />
-                          <Stack.Screen
-                            name="subscription/my-plan"
-                            options={{
-                              headerShown: false,
-                              presentation: "modal",
-                              animation: "slide_from_bottom",
-                            }}
-                          />
-                          <Stack.Screen
-                            name="modal"
-                            options={{ presentation: "modal", title: "Modal" }}
-                          />
-                        </Stack>
-                      </AuthGate>
+                          <Stack>
+                            <Stack.Screen
+                              name="login"
+                              options={{ headerShown: false }}
+                            />
+                            <Stack.Screen
+                              name="(tabs)"
+                              options={{ headerShown: false }}
+                            />
+                            <Stack.Screen
+                              name="obra/[id]"
+                              options={{
+                                headerShown: false,
+                                headerBackButtonMenuEnabled: false,
+                              }}
+                            />
+                            <Stack.Screen
+                              name="diario/[id]"
+                              options={{ headerShown: false }}
+                            />
+                            <Stack.Screen
+                              name="profile"
+                              options={{ headerShown: false }}
+                            />
+                            <Stack.Screen
+                              name="notifications"
+                              options={{ headerShown: false }}
+                            />
+                            <Stack.Screen
+                              name="invite"
+                              options={{
+                                headerShown: false,
+                                presentation: "modal",
+                                animation: "slide_from_bottom",
+                              }}
+                            />
+                            <Stack.Screen
+                              name="subscription/plans"
+                              options={{
+                                headerShown: false,
+                                presentation: "modal",
+                                animation: "slide_from_bottom",
+                              }}
+                            />
+                            <Stack.Screen
+                              name="subscription/my-plan"
+                              options={{
+                                headerShown: false,
+                                presentation: "modal",
+                                animation: "slide_from_bottom",
+                              }}
+                            />
+                            <Stack.Screen
+                              name="modal"
+                              options={{ presentation: "modal", title: "Modal" }}
+                            />
+                          </Stack>
+                        </AuthGate>
+                      </PushNotificationsProvider>
 
                       <StatusBar style="dark" />
                       {__DEV__ ? <DevPanelBridge /> : null}

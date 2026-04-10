@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "obraapp",
+    "notification": {
+      "icon": "./assets/images/logo.png",
+      "color": "#2563EB"
+    },
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -58,6 +62,7 @@
     },
     "plugins": [
       "expo-dev-client",
+      "expo-notifications",
       "expo-router",
       [
         "expo-splash-screen",

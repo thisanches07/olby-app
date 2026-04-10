@@ -320,6 +320,7 @@ export function EngTasksList({
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionTask, setActionTask] = useState<Tarefa | null>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
   const pendingToggleTask = tarefas.find((t) => t.id === pendingToggleId);
   const pendingDeleteTask = tarefas.find((t) => t.id === pendingDeleteId);
@@ -339,6 +340,8 @@ export function EngTasksList({
     readOnlyReason === "concluida" ? "Projeto concluído" : "Projeto arquivado";
   const readOnlyIcon =
     readOnlyReason === "concluida" ? "check-circle" : "archive";
+  const hasHeaderMenuItems =
+    !readOnly && showActions && tarefas.length > 0 && !!onDeleteAll;
 
   // ── Render swipe delete action ─────────────────────────────────────────────
   const renderRightActions = (tarefa: Tarefa) => (
@@ -418,6 +421,16 @@ export function EngTasksList({
               <Text style={styles.addTaskBtn}>+ tarefa</Text>
             </TouchableOpacity>
           )}
+          {hasHeaderMenuItems && (
+            <TouchableOpacity
+              style={styles.headerMoreBtn}
+              onPress={() => setShowHeaderMenu(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.6}
+            >
+              <MaterialIcons name="more-vert" size={22} color="#6B7280" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -489,17 +502,7 @@ export function EngTasksList({
   );
 
   // ── Footer (danger btn) ────────────────────────────────────────────────────
-  const footer =
-    !readOnly && tarefas.length > 0 && onDeleteAll ? (
-      <TouchableOpacity
-        style={styles.dangerBtn}
-        onPress={onDeleteAll}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="delete-sweep" size={16} color="#EF4444" />
-        <Text style={styles.dangerBtnText}>Excluir todas as tarefas</Text>
-      </TouchableOpacity>
-    ) : null;
+  const footer = null;
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   const emptyNode = (
@@ -612,6 +615,46 @@ export function EngTasksList({
                 Excluir tarefa
               </Text>
             </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        visible={showHeaderMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHeaderMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.actionSheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowHeaderMenu(false)}
+        >
+          <View style={styles.actionSheet}>
+            <Text style={styles.actionSheetTitle}>OpÃ§Ãµes das tarefas</Text>
+            {onDeleteAll && (
+              <TouchableOpacity
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  setShowHeaderMenu(false);
+                  onDeleteAll();
+                }}
+              >
+                <MaterialIcons
+                  name="delete-sweep"
+                  size={20}
+                  color="#EF4444"
+                />
+                <Text
+                  style={[
+                    styles.actionSheetItemText,
+                    styles.actionSheetItemDanger,
+                  ]}
+                >
+                  Excluir todas as tarefas
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -755,6 +798,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: PRIMARY,
+  },
+  headerMoreBtn: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // ── Progress bar ──────────────────────────────────────────────────────────
@@ -971,25 +1020,6 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textAlign: "center",
     lineHeight: 19,
-  },
-
-  dangerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#FEE2E2",
-    backgroundColor: "#FFF5F5",
-  },
-  dangerBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#EF4444",
   },
 
   searchBar: {

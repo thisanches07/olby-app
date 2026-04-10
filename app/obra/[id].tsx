@@ -14,7 +14,6 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
@@ -51,6 +50,7 @@ import { TaskFormModal } from "@/components/projeto/task-form-modal";
 
 import { ObraViewCliente } from "@/components/obra/obra-view-cliente";
 import { ObraViewEng } from "@/components/obra/obra-view-eng";
+import { ProjectDetailLoadingScreen } from "@/components/obra/project-detail-loading-screen";
 
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -58,14 +58,7 @@ import { spacing } from "@/theme/spacing";
 
 // ─── Loading screen ───────────────────────────────────────────────────────────
 function LoadingScreen() {
-  return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Carregando obra...</Text>
-      </View>
-    </SafeAreaView>
-  );
+  return <ProjectDetailLoadingScreen />;
 }
 
 // ─── Error screen ─────────────────────────────────────────────────────────────
@@ -136,7 +129,7 @@ export default function ObraDetalheScreen() {
     [],
   );
 
-  const { updateObra, deleteObra } = useProjects();
+  const { obras, updateObra, deleteObra } = useProjects();
   const { refresh: refreshSubscription } = useSubscription();
 
   const {
@@ -187,9 +180,20 @@ export default function ObraDetalheScreen() {
   }, [obra, updateObra]);
 
   const obraView = (obraOverride ?? obra) as any;
+  const cachedObra = useMemo(
+    () => obras.find((item) => item.id === id),
+    [id, obras],
+  );
+  const loadingRole = (cachedObra?.myRole ?? null) as ProjectApiRole;
+  const loadingVariant =
+    loadingRole == null
+      ? "generic"
+      : isClientView(loadingRole)
+        ? "cliente"
+        : "responsavel";
 
   // Guards
-  if (loading && !obra) return <LoadingScreen />;
+  if (loading && !obra) return <ProjectDetailLoadingScreen variant={loadingVariant} />;
   if (error && !obra) return <ErrorScreen message={error} onRetry={refresh} />;
   if (!obra) return null;
 

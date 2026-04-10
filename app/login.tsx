@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -35,6 +36,11 @@ import {
 } from "@/services/auth.service";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
+import {
+  extractBrazilPhoneDigits,
+  formatBRPhone,
+  isValidBrazilMobilePhone,
+} from "@/utils/phone";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -42,6 +48,7 @@ type AuthMode = "login" | "register";
 
 const PRIMARY = "#2563EB";
 const BG = "#EFF6FF";
+const MAX_NAME_LENGTH = 30;
 
 // ─────────────────────────────────────────
 // Password rules
@@ -55,13 +62,6 @@ const PASSWORD_RULES = [
     test: (p: string) => /[^a-zA-Z0-9]/.test(p),
   },
 ] as const;
-
-function formatBRPhone(digits: string): string {
-  const d = digits.slice(0, 11);
-  if (d.length <= 2) return d.length ? `(${d}` : "";
-  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-}
 
 function validatePassword(password: string): string | null {
   for (const rule of PASSWORD_RULES) {
@@ -176,6 +176,10 @@ interface InputFieldProps {
   returnKeyType?: React.ComponentProps<typeof TextInput>["returnKeyType"];
   onSubmitEditing?: () => void;
   submitBehavior?: React.ComponentProps<typeof TextInput>["submitBehavior"];
+  onFocus?: () => void;
+  onBlur?: () => void;
+  helperText?: string;
+  maxLength?: number;
 }
 
 const InputField = React.forwardRef<TextInput, InputFieldProps>(
@@ -192,6 +196,10 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
       returnKeyType = "default",
       onSubmitEditing,
       submitBehavior = "blurAndSubmit",
+      onFocus,
+      onBlur,
+      helperText,
+      maxLength,
     },
     ref,
   ) {
@@ -204,7 +212,8 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
         duration: 150,
         useNativeDriver: false,
       }).start();
-    }, [focusAnim]);
+      onFocus?.();
+    }, [focusAnim, onFocus]);
 
     const handleBlur = useCallback(() => {
       Animated.timing(focusAnim, {
@@ -212,7 +221,8 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
         duration: 150,
         useNativeDriver: false,
       }).start();
-    }, [focusAnim]);
+      onBlur?.();
+    }, [focusAnim, onBlur]);
 
     const borderColor = focusAnim.interpolate({
       inputRange: [0, 1],
@@ -246,6 +256,7 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
             autoCorrect={false}
+            maxLength={maxLength}
             secureTextEntry={isPassword && !showPassword}
             returnKeyType={returnKeyType}
             onSubmitEditing={onSubmitEditing}
@@ -267,6 +278,7 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
             </TouchableOpacity>
           )}
         </Animated.View>
+        {!!helperText && <Text style={styles.inputHelperText}>{helperText}</Text>}
       </View>
     );
   },
@@ -311,10 +323,31 @@ export default function LoginScreen() {
   const confirmSenhaRef = useRef<TextInput>(null);
 
   const scrollRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const showError = (msg: string) => setError(msg);
   const clearError = () => setError(null);
   const isBusy = loading || googleLoading || appleLoading;
+  const isNameAtLimit = nome.length >= MAX_NAME_LENGTH;
+
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setIsKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setIsKeyboardVisible(false),
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const handleGoogleResponse = async () => {
@@ -393,7 +426,7 @@ export default function LoginScreen() {
       return;
     }
     // Telefone é opcional — se preenchido precisa ter 11 dígitos (DDD + número)
-    if (phoneRaw.length > 0 && phoneRaw.length !== 11) {
+    if (phoneRaw.length > 0 && !isValidBrazilMobilePhone(phoneRaw)) {
       showError("Informe seu celular com DDD (11 dígitos).");
       return;
     }
@@ -407,7 +440,7 @@ export default function LoginScreen() {
       return;
     }
 
-    if (phoneRaw.length === 11) {
+    if (isValidBrazilMobilePhone(phoneRaw)) {
       // Telefone preenchido → verificar primeiro, depois criar conta dentro do onVerified
       setRegistrationInProgress(true);
       setShowPhoneVerify(true);
@@ -578,11 +611,17 @@ export default function LoginScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "android" ? "height" : undefined}
+        enabled={Platform.OS === "android"}
       >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            isKeyboardVisible && styles.scrollKeyboardOpen,
+          ]}
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -695,9 +734,15 @@ export default function LoginScreen() {
                     label="Nome completo"
                     placeholder="Seu nome"
                     value={nome}
-                    onChangeText={setNome}
+                    onChangeText={(text) => setNome(text.slice(0, MAX_NAME_LENGTH))}
                     icon="person-outline"
                     autoCapitalize="words"
+                    maxLength={MAX_NAME_LENGTH}
+                    helperText={
+                      isNameAtLimit
+                        ? `Limite maximo de ${MAX_NAME_LENGTH} caracteres atingido.`
+                        : undefined
+                    }
                     returnKeyType="next"
                     submitBehavior="submit"
                     onSubmitEditing={() => phoneRef.current?.focus()}
@@ -708,7 +753,7 @@ export default function LoginScreen() {
                     placeholder="(11) 99999-8888"
                     value={formatBRPhone(phoneRaw)}
                     onChangeText={(text) =>
-                      setPhoneRaw(text.replace(/\D/g, "").slice(0, 11))
+                      setPhoneRaw(extractBrazilPhoneDigits(text))
                     }
                     icon="phone"
                     keyboardType="phone-pad"
@@ -864,6 +909,11 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     justifyContent: "center",
   },
+  scrollKeyboardOpen: {
+    justifyContent: "flex-start",
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
   logoSection: { alignItems: "center", marginBottom: 28 },
   logoImage: { width: 88, height: 88, borderRadius: 22, marginBottom: 14 },
   appName: { fontSize: 30, fontWeight: "800", color: "#1E293B" },
@@ -968,6 +1018,12 @@ const styles = StyleSheet.create({
   },
   ruleTextMet: {
     color: "#16A34A",
+  },
+  inputHelperText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#B45309",
+    fontWeight: "600",
   },
 
   form: { gap: 14 },

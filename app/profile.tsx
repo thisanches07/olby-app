@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -19,12 +20,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import { useSubscription } from "@/contexts/subscription-context";
 import { useAccountDeletion } from "@/hooks/use-account-deletion";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
-import { requestPasswordReset, unlinkPhone } from "@/services/auth.service";
+import { requestPasswordReset } from "@/services/auth.service";
 import { firebaseAuth } from "@/services/firebase";
 import { getStatusBadge } from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
@@ -32,8 +32,14 @@ import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
+import {
+  isValidBrazilMobilePhone,
+  normalizeBrazilPhone,
+  toBrazilPhoneE164,
+} from "@/utils/phone";
 
 const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+const MAX_NAME_LENGTH = 30;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -309,6 +315,11 @@ interface InfoRowProps {
   onChangeText?: (text: string) => void;
   keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
   autoCapitalize?: React.ComponentProps<typeof TextInput>["autoCapitalize"];
+  returnKeyType?: React.ComponentProps<typeof TextInput>["returnKeyType"];
+  onSubmitEditing?: () => void;
+  submitBehavior?: React.ComponentProps<typeof TextInput>["submitBehavior"];
+  helperText?: string;
+  maxLength?: number;
   isLast?: boolean;
   badge?: React.ReactNode;
 }
@@ -323,6 +334,11 @@ function InfoRow({
   onChangeText,
   keyboardType = "default",
   autoCapitalize = "words",
+  returnKeyType = "default",
+  onSubmitEditing,
+  submitBehavior,
+  helperText,
+  maxLength,
   isLast = false,
   badge,
 }: InfoRowProps) {
@@ -353,6 +369,10 @@ function InfoRow({
               keyboardType={keyboardType}
               autoCapitalize={autoCapitalize}
               autoCorrect={false}
+              maxLength={maxLength}
+              returnKeyType={returnKeyType}
+              onSubmitEditing={onSubmitEditing}
+              submitBehavior={submitBehavior}
               placeholderTextColor={colors.subtext}
               selectionColor={colors.primary}
             />
@@ -383,6 +403,12 @@ function InfoRow({
         <View style={styles.infoErrorRow}>
           <MaterialIcons name="error-outline" size={13} color={colors.danger} />
           <Text style={styles.infoErrorText}>{error}</Text>
+        </View>
+      )}
+      {!error && !!helperText && (
+        <View style={styles.infoHelperRow}>
+          <MaterialIcons name="info-outline" size={13} color="#B45309" />
+          <Text style={styles.infoHelperText}>{helperText}</Text>
         </View>
       )}
     </View>
@@ -541,11 +567,13 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [name, setName] = useState(user?.displayName ?? "");
-  const [phone, setPhone] = useState(user?.phoneNumber ?? "");
+  const [phone, setPhone] = useState(normalizeBrazilPhone(user?.phoneNumber ?? ""));
   const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
-  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
   const [draftName, setDraftName] = useState(name);
+  const [draftPhone, setDraftPhone] = useState(phone);
   const [nameError, setNameError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const isNameAtLimit = draftName.length >= MAX_NAME_LENGTH;
 
   const [sheetConfig, setSheetConfig] = useState<SheetConfig | null>(null);
   const [toastState, setToastState] = useState<ToastState | null>(null);
@@ -565,15 +593,11 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     api
-      .get<{ phone?: string | null; phoneVerifiedAt?: string | null }>(
-        "/users/me",
-      )
+      .get<{ phone?: string | null }>("/users/me")
       .then((u) => {
-        if (u.phone) {
-          setPhone(u.phone);
-          setPhone(u.phone);
-        }
-        setPhoneVerifiedAt(u.phoneVerifiedAt ?? null);
+        const nextPhone = normalizeBrazilPhone(u.phone ?? "");
+        setPhone(nextPhone);
+        setDraftPhone(nextPhone);
       })
       .catch(() => {});
   }, []);
@@ -615,7 +639,9 @@ export default function ProfileScreen() {
 
   const enterEdit = useCallback(() => {
     setDraftName(name);
+    setDraftPhone(phone);
     setNameError("");
+    setPhoneError("");
     setIsEditing(true);
     Animated.spring(saveBarAnim, {
       toValue: 1,
@@ -627,7 +653,9 @@ export default function ProfileScreen() {
 
   const cancelEdit = useCallback(() => {
     setDraftName(name);
+    setDraftPhone(phone);
     setNameError("");
+    setPhoneError("");
     Animated.timing(saveBarAnim, {
       toValue: 0,
       duration: 180,
@@ -637,21 +665,33 @@ export default function ProfileScreen() {
 
   const saveChanges = useCallback(async () => {
     const trimmedName = draftName.trim();
+    const normalizedPhone = normalizeBrazilPhone(draftPhone);
+    const phoneE164 = toBrazilPhoneE164(normalizedPhone);
     if (!trimmedName) {
       setNameError("O nome não pode estar vazio.");
       return;
     }
+    if (normalizedPhone && !isValidBrazilMobilePhone(normalizedPhone)) {
+      setPhoneError("Informe um celular valido com DDD ou deixe vazio.");
+      return;
+    }
     setNameError("");
+    setPhoneError("");
     setIsSaving(true);
     try {
       const firebaseUser = firebaseAuth.currentUser;
       if (firebaseUser && trimmedName !== name) {
         await firebaseUser.updateProfile({ displayName: trimmedName });
       }
-      if (trimmedName !== name) {
-        await api.patch("/users/me", { name: trimmedName });
+      if (trimmedName !== name || normalizedPhone !== phone) {
+        await api.patch("/users/me", {
+          name: trimmedName,
+          phone: phoneE164,
+        });
       }
       setName(trimmedName);
+      setPhone(normalizedPhone);
+      setDraftPhone(normalizedPhone);
       Animated.timing(saveBarAnim, {
         toValue: 0,
         duration: 180,
@@ -663,7 +703,7 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [draftName, name, saveBarAnim, showToast]);
+  }, [draftName, draftPhone, name, phone, saveBarAnim, showToast]);
 
   const handleLogout = useCallback(() => {
     setSheetConfig({
@@ -1077,24 +1117,34 @@ export default function ProfileScreen() {
               editable
               isEditing={isEditing}
               error={nameError}
+              helperText={
+                isEditing && isNameAtLimit
+                  ? `Limite maximo de ${MAX_NAME_LENGTH} caracteres atingido.`
+                  : undefined
+              }
               onChangeText={(t) => {
-                setDraftName(t);
+                setDraftName(t.slice(0, MAX_NAME_LENGTH));
                 if (nameError) setNameError("");
               }}
+              maxLength={MAX_NAME_LENGTH}
               autoCapitalize="words"
             />
-            <PhoneRow
-              phone={phone}
-              phoneVerifiedAt={phoneVerifiedAt}
+            <InfoRow
+              icon="phone"
+              label="Telefone"
+              value={isEditing ? draftPhone : phone}
+              editable
               isEditing={isEditing}
-              isEmailUser={
-                hasGoogleProvider === false &&
-                (user?.providerData?.some((p) => p.providerId === "password") ??
-                  false)
-              }
-              onAdd={() => setShowPhoneVerify(true)}
-              onEdit={() => setShowPhoneVerify(true)}
-              onRemove={handleRemovePhone}
+              error={phoneError}
+              onChangeText={(text) => {
+                setDraftPhone(normalizeBrazilPhone(text));
+                if (phoneError) setPhoneError("");
+              }}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
             <InfoRow
               icon="mail-outline"
@@ -1118,6 +1168,14 @@ export default function ProfileScreen() {
               label="Minha assinatura"
               sublabel={subSublabel}
               onPress={() => router.push("/subscription/my-plan")}
+            />
+            <ActionRow
+              icon="notifications"
+              iconBg="#EEF2FF"
+              iconColor={colors.primary}
+              label="Notificações"
+              sublabel="Gerenciar alertas de projetos neste aparelho"
+              onPress={() => router.push("/notifications")}
             />
             {!isEmailPasswordUser ? (
               <View style={[styles.actionRow, styles.rowBorder]}>
@@ -1394,8 +1452,12 @@ export default function ProfileScreen() {
         </Animated.View>
       </Modal>
 
-      {/* Phone Verify Modal */}
-      <PhoneVerifyModal
+      {/*
+        TODO: Reativar a verificacao de telefone com Firebase quando esse fluxo
+        for revisado. Por enquanto o telefone ficou como edicao simples no
+        perfil, igual ao nome do usuario.
+
+        <PhoneVerifyModal
         visible={showPhoneVerify}
         initialPhone={phone}
         onSuccess={(updatedUser) => {
@@ -1407,6 +1469,7 @@ export default function ProfileScreen() {
         }}
         onClose={() => setShowPhoneVerify(false)}
       />
+      */}
     </SafeAreaView>
   );
 }
@@ -1500,6 +1563,7 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+    backgroundColor: colors.primary,
   },
   navBar: {
     flexDirection: "row",
@@ -1527,8 +1591,6 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
     backgroundColor: colors.primary,
-    borderTopLeftRadius: radius["2xl"],
-    borderTopRightRadius: radius["2xl"],
   },
   scrollContent: {
     flexGrow: 1,
@@ -1829,6 +1891,18 @@ const styles = StyleSheet.create({
   infoErrorText: {
     fontSize: 12,
     color: colors.danger,
+    fontWeight: "500",
+  },
+  infoHelperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing[16],
+    paddingBottom: spacing[10],
+  },
+  infoHelperText: {
+    fontSize: 12,
+    color: "#B45309",
     fontWeight: "500",
   },
   phoneActions: {

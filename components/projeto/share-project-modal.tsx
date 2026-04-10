@@ -28,8 +28,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
+import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
-import { firebaseAuth } from "@/services/firebase";
 import { invitesService } from "@/services/invites.service";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -38,6 +38,7 @@ import {
   canManageMembers as canManageMembersByRole,
   type ProjectApiRole,
 } from "@/utils/project-role";
+import { toWhatsAppUrl } from "@/utils/phone";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,16 @@ function formatExpiresAt(isoString: string): string {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+async function openWhatsApp(phone: string): Promise<void> {
+  const url = toWhatsAppUrl(phone);
+  if (!url) return;
+
+  const supported = await Linking.canOpenURL(url);
+  if (!supported) return;
+
+  await Linking.openURL(url);
+}
 
 interface InviteResult {
   inviteUrl: string;
@@ -103,6 +114,7 @@ export function ShareProjectModal({
   onClose,
   canShare = true,
 }: ShareProjectModalProps) {
+  const { backendUserId } = useAuth();
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
@@ -286,9 +298,6 @@ export function ShareProjectModal({
           `/projects/${encodeURIComponent(projectId)}/members`,
         );
 
-        const currentEmail =
-          firebaseAuth.currentUser?.email?.trim().toLowerCase() ?? null;
-
         const mapRole = (rawRole: string): ProjectMemberRole => {
           const r = rawRole.toUpperCase();
           if (r === "OWNER" || r === "ENGINEER" || r === "ENGINEER_OWNER") {
@@ -307,7 +316,7 @@ export function ShareProjectModal({
                 const email = m.userEmail?.trim() || "";
                 const isOwner = m.role.toUpperCase() === "OWNER";
                 const isCurrentUser =
-                  !!currentEmail && email.toLowerCase() === currentEmail;
+                  !!backendUserId && m.userId === backendUserId;
 
                 return {
                   id: m.id,
@@ -334,7 +343,7 @@ export function ShareProjectModal({
     return () => {
       cancelled = true;
     };
-  }, [visible, projectId]);
+  }, [backendUserId, visible, projectId]);
 
   const memberRoleLabel = (m: ProjectMember) => {
     if (m.isOwner) return "RESPONSÁVEL";
@@ -615,11 +624,7 @@ export function ShareProjectModal({
                               <TouchableOpacity
                                 style={styles.whatsappBtn}
                                 activeOpacity={0.8}
-                                onPress={() =>
-                                  Linking.openURL(
-                                    `https://wa.me/${m.phone!.replace(/\D/g, "")}`,
-                                  )
-                                }
+                                onPress={() => void openWhatsApp(m.phone!)}
                               >
                                 <FontAwesome
                                   name="whatsapp"
