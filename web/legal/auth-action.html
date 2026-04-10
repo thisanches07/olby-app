@@ -590,7 +590,7 @@
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
-            <span class="banner-text"
+            <span id="success-verify-hint" class="banner-text"
               >Abra o Obly App e faça login com sua nova senha.</span
             >
           </div>
@@ -617,8 +617,8 @@
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
-          <h1 class="auth-title">E-mail verificado</h1>
-          <p class="auth-desc">
+          <h1 id="success-verify-title" class="auth-title">E-mail verificado</h1>
+          <p id="success-verify-desc" class="auth-desc">
             Sua conta foi confirmada com sucesso. Volte ao app para atualizar o
             status automaticamente.
           </p>
@@ -683,6 +683,36 @@
         document.getElementById("invalid-title").textContent = title;
         document.getElementById("invalid-desc").textContent = desc;
         document.getElementById("invalid-hint").textContent = hint;
+      }
+
+      function setVerifySuccessContent(actionMode) {
+        const title = document.getElementById("success-verify-title");
+        const desc = document.getElementById("success-verify-desc");
+        const hint = document.getElementById("success-verify-hint");
+
+        if (actionMode === "verifyAndChangeEmail") {
+          title.textContent = "Novo e-mail confirmado";
+          desc.textContent =
+            "Seu novo endereço de e-mail foi confirmado com sucesso. Volte ao app para atualizar os dados da conta.";
+          hint.textContent =
+            "Se o app já estiver aberto, volte para a tela de perfil para concluir a atualização.";
+          return;
+        }
+
+        if (actionMode === "recoverEmail") {
+          title.textContent = "E-mail recuperado";
+          desc.textContent =
+            "O endereço de e-mail anterior foi restaurado com sucesso. Volte ao app para revisar a segurança da sua conta.";
+          hint.textContent =
+            "Abra o app e, se necessário, envie um novo link para confirmar o endereço correto.";
+          return;
+        }
+
+        title.textContent = "E-mail verificado";
+        desc.textContent =
+          "Sua conta foi confirmada com sucesso. Volte ao app para atualizar o status automaticamente.";
+        hint.textContent =
+          "Se o app já estiver aberto, volte para a tela de perfil para concluir a confirmação.";
       }
 
       function setError(msg) {
@@ -760,11 +790,16 @@
             );
             show("st-invalid");
           });
-      } else if (mode === "verifyEmail" || mode === "recoverEmail") {
+      } else if (
+        mode === "verifyEmail" ||
+        mode === "recoverEmail" ||
+        mode === "verifyAndChangeEmail"
+      ) {
         auth
           .applyActionCode(oobCode)
           .then(() => {
             console.log("[WEB][AUTH_ACTION] action code applied", { mode });
+            setVerifySuccessContent(mode);
             show("st-success-verify");
           })
           .catch((error) => {
