@@ -70,7 +70,7 @@ export function mapBillingError(error: unknown): BillingApiError {
 
   if (status === 400) {
     return new BillingApiError(
-      "Compra invalida ou produto não mapeado.",
+      "Compra inválida ou produto não mapeado.",
       400,
       "INVALID_PURCHASE",
       false,
@@ -78,7 +78,7 @@ export function mapBillingError(error: unknown): BillingApiError {
   }
   if (status === 401) {
     return new BillingApiError(
-      "Sessao expirada. Façalogin novamente.",
+      "Sessão expirada. Faça login novamente.",
       401,
       "UNAUTHORIZED",
       false,
@@ -86,7 +86,7 @@ export function mapBillingError(error: unknown): BillingApiError {
   }
   if (status === 404) {
     return new BillingApiError(
-      "Usuario ou plano não encontrado.",
+      "Usuário ou plano não encontrado.",
       404,
       "NOT_FOUND",
       false,

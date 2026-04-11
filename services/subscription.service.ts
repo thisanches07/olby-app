@@ -13,7 +13,7 @@ export type SubscriptionStatus =
 export interface SubscriptionInfo {
   code: PlanCode;
   name: string;
-  /** Maximo de obras como OWNER. -1 = ilimitado */
+  /** Máximo de obras como OWNER. -1 = ilimitado */
   projectLimit: number;
   priceCents: number;
   subscriptionStatus: SubscriptionStatus;
@@ -74,23 +74,23 @@ export function getSubscriptionStatusMessage(params: {
     case "GRACE": {
       const date = formatDate(currentPeriodEnd);
       return date
-        ? `Houve um problema na renovacao, mas seu acesso segue ativo temporariamente ate ${date}.`
-        : "Houve um problema na renovacao, mas seu acesso segue ativo temporariamente.";
+        ? `Houve um problema na renovação, mas seu acesso segue ativo temporariamente até ${date}.`
+        : "Houve um problema na renovação, mas seu acesso segue ativo temporariamente.";
     }
     case "CANCELED": {
       const date = formatDate(currentPeriodEnd);
       return date
-        ? `Renovacao cancelada. Seu acesso continua ate ${date}.`
-        : "Renovacao cancelada. Seu acesso continua ate o fim do periodo atual.";
+        ? `Renovação cancelada. Seu acesso continua até ${date}.`
+        : "Renovação cancelada. Seu acesso continua até o fim do período atual.";
     }
     case "TRIAL": {
       const date = formatDate(trialEndsAt);
       return date
-        ? `Periodo de teste ativo ate ${date}.`
-        : "Periodo de teste ativo.";
+        ? `Período de teste ativo até ${date}.`
+        : "Período de teste ativo.";
     }
     case "PAST_DUE":
-      return "Sua assinatura nao esta mais ativa por falha de cobranca. Atualize o pagamento para recuperar o acesso.";
+      return "Sua assinatura não está mais ativa por falha de cobrança. Atualize o pagamento para recuperar o acesso.";
     case "EXPIRED":
       return "Sua assinatura expirou.";
     case null:
@@ -108,9 +108,9 @@ export function getStatusBadge(status: SubscriptionStatus): {
     case "ACTIVE":
       return { label: "Assinatura ativa", color: "#16A34A" };
     case "GRACE":
-      return { label: "Renovacao com problema", color: "#D97706" };
+      return { label: "Renovação com problema", color: "#D97706" };
     case "PAST_DUE":
-      return { label: "Sem acesso por cobranca", color: "#DC2626" };
+      return { label: "Sem acesso por cobrança", color: "#DC2626" };
     case "CANCELED":
       return { label: "Cancelada com acesso", color: "#6B7280" };
     case "EXPIRED":
@@ -121,6 +121,6 @@ export function getStatusBadge(status: SubscriptionStatus): {
 }
 
 export function formatPrice(cents: number): string {
-  if (cents === 0) return "Gratis";
-  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}/mes`;
+  if (cents === 0) return "Grátis";
+  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}/mês`;
 }

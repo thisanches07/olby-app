@@ -44,13 +44,13 @@ const PLANS = [
   },
   {
     code: "BASIC" as const,
-    label: "Basico",
+    label: "Básico",
     price: "R$ 79,90",
     priceNote: "por mês",
     features: [
-      { ok: true, text: "Criar ate 3 obras ativas" },
+      { ok: true, text: "Criar até 3 obras ativas" },
       { ok: true, text: "Convidar clientes (ilimitado)" },
-      { ok: true, text: "Diario de obra" },
+      { ok: true, text: "Diário de obra" },
       { ok: true, text: "Controle de despesas" },
       { ok: true, text: "Gestão de tarefas" },
     ],
@@ -64,8 +64,8 @@ const PLANS = [
     priceNote: "por mês",
     features: [
       { ok: true, text: "Obras ilimitadas" },
-      { ok: true, text: "Tudo do plano Basico" },
-      { ok: true, text: "Suporte prioritario" },
+      { ok: true, text: "Tudo do plano Básico" },
+      { ok: true, text: "Suporte prioritário" },
     ],
     productId: "com.tsanc.obraapp.sub.pro",
     highlight: true,
@@ -133,7 +133,7 @@ function toFriendlyMessage(
 
   const normalized = message.toLowerCase();
   if (normalized.includes("sessao") || normalized.includes("401")) {
-    return "Sessao expirada. Façalogin novamente.";
+    return "Sessão expirada. Faça login novamente.";
   }
   if (
     normalized.includes("compra invalida") ||
@@ -141,7 +141,7 @@ function toFriendlyMessage(
     normalized.includes("invalid_purchase") ||
     normalized.includes("400")
   ) {
-    return "Compra invalida ou produto não mapeado.";
+    return "Compra inválida ou produto não mapeado.";
   }
   if (
     normalized.includes("erro temporario no servidor") ||
@@ -152,14 +152,14 @@ function toFriendlyMessage(
     return "Erro temporario no servidor. Tente novamente.";
   }
   if (normalized.includes("cancel")) {
-    return "Operacao cancelada.";
+    return "Operação cancelada.";
   }
   if (
     normalized.includes("request failed") ||
     normalized.includes("network") ||
     normalized.includes("internet")
   ) {
-    return "Sem conexao com a internet. Verifique sua rede e tente novamente.";
+    return "Sem conexão com a internet. Verifique sua rede e tente novamente.";
   }
   if (normalized.includes("json") || normalized.includes("unexpected")) {
     return fallback;
@@ -281,8 +281,8 @@ function SubscriptionPlansIapEnabled() {
         code: (iapError as { code?: unknown }).code,
       });
       const message =
-        toFriendlyMessage(iapError.message, "A compra não foi concluida.") ??
-        "A compra não foi concluida.";
+        toFriendlyMessage(iapError.message, "A compra não foi concluída.") ??
+        "A compra não foi concluída.";
       showToast({
         title: "Compra cancelada",
         message,
@@ -296,8 +296,8 @@ function SubscriptionPlansIapEnabled() {
         code: (iapError as { code?: unknown }).code,
       });
       setStoreError(
-        toFriendlyMessage(iapError.message, "Falha na conexao com a loja.") ??
-          "Falha na conexao com a loja.",
+        toFriendlyMessage(iapError.message, "Falha na conexão com a loja.") ??
+          "Falha na conexão com a loja.",
       );
     },
   });
@@ -415,8 +415,8 @@ function SubscriptionPlansIapEnabled() {
         setStoreError(
           toFriendlyMessage(
             rawMessage,
-            "Não foi possivel carregar os produtos da loja.",
-          ) ?? "Não foi possivel carregar os produtos da loja.",
+            "Não foi possível carregar os produtos da loja.",
+          ) ?? "Não foi possível carregar os produtos da loja.",
         );
       } finally {
         if (mounted) {
@@ -470,19 +470,19 @@ function SubscriptionPlansIapEnabled() {
     rawReason === "free_required"
       ? "Assine um plano para criar e acompanhar suas obras."
       : rawReason === "project_limit_reached"
-        ? "Voce atingiu o limite do seu plano atual. Façaupgrade para continuar criando obras."
+        ? "Você atingiu o limite do seu plano atual. Faça upgrade para continuar criando obras."
         : null;
   const subscriptionError = toFriendlyMessage(
     error,
-    "Não foi possivel carregar sua assinatura agora.",
+    "Não foi possível carregar sua assinatura agora.",
   );
   const friendlyStoreError = toFriendlyMessage(
     storeError,
-    "Não foi possivel conectar com a loja no momento.",
+    "Não foi possível conectar com a loja no momento.",
   );
   const friendlyPurchaseError = toFriendlyMessage(
     purchaseError,
-    "Não foi possivel concluir a compra.",
+    "Não foi possível concluir a compra.",
   );
   const entitlementMessage = getSubscriptionStatusMessage({
     status: plan?.subscriptionStatus ?? null,
@@ -512,7 +512,7 @@ function SubscriptionPlansIapEnabled() {
 
     if (Platform.OS === "web") {
       showToast({
-        title: "Indisponivel na web",
+        title: "Indisponível na web",
         message: "Assinatura deve ser feita no app iOS ou Android.",
         tone: "info",
       });
@@ -522,8 +522,8 @@ function SubscriptionPlansIapEnabled() {
     if (!connected) {
       iapLog("handleSubscribe → abort: not connected");
       showToast({
-        title: "Loja indisponivel",
-        message: "Não foi possivel conectar na App Store/Google Play.",
+        title: "Loja indisponível",
+        message: "Não foi possível conectar na App Store/Google Play.",
         tone: "error",
       });
       return;
@@ -537,7 +537,7 @@ function SubscriptionPlansIapEnabled() {
       });
       showToast({
         title: "Produto não encontrado",
-        message: "Confirme se o SKU existe e esta ativo na loja.",
+        message: "Confirme se o SKU existe e está ativo na loja.",
         tone: "error",
       });
       return;
@@ -556,7 +556,7 @@ function SubscriptionPlansIapEnabled() {
 
       if (Platform.OS === "ios") {
         if (!identity.appleAppAccountToken) {
-          throw new Error("Nao foi possivel preparar a compra para este usuario.");
+          throw new Error("Não foi possível preparar a compra para este usuário.");
         }
         await requestPurchase({
           type: "subs",
@@ -569,7 +569,7 @@ function SubscriptionPlansIapEnabled() {
         });
       } else {
         if (!identity.googleObfuscatedAccountId) {
-          throw new Error("Nao foi possivel preparar a compra para este usuario.");
+          throw new Error("Não foi possível preparar a compra para este usuário.");
         }
         const firstOfferToken =
           storeProduct.subscriptionOffers?.[0]?.offerTokenAndroid;
@@ -613,7 +613,7 @@ function SubscriptionPlansIapEnabled() {
 
     if (!connected) {
       showToast({
-        title: "Loja indisponivel",
+        title: "Loja indisponível",
         message: "Conecte-se a App Store ou Google Play para restaurar.",
         tone: "error",
       });

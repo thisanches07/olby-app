@@ -273,7 +273,7 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
 
       setRawEntries(sortEntries(enriched));
     } catch {
-      setError("Não foi possivel carregar os registros.");
+      setError("Não foi possível carregar os registros.");
     } finally {
       setIsLoading(false);
     }

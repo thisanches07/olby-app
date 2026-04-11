@@ -41,7 +41,7 @@ import { colors } from "@/theme/colors";
 const FILTROS: { label: string; value: StatusType | "todas" }[] = [
   { label: "Todas", value: "todas" },
   { label: "Em Andamento", value: "em_andamento" },
-  { label: "Concluidas", value: "concluida" },
+  { label: "Concluídas", value: "concluida" },
   { label: "Arquivadas", value: "pausada" },
 ];
 
@@ -273,7 +273,7 @@ export default function MinhasObrasScreen() {
                   <View>
                     <Text style={styles.limitBannerTitle}>
                       {isFreePlan
-                        ? "Assinatura necessaria"
+                        ? "Assinatura necessária"
                         : "Limite do plano atingido"}
                     </Text>
                     <Text style={styles.limitBannerText}>

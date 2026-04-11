@@ -31,28 +31,28 @@ import {
 const PLAN_FEATURES: Record<PlanCode, { ok: boolean; text: string }[]> = {
   FREE: [
     { ok: true, text: "Visualizar obras como convidado (ilimitado)" },
-    { ok: false, text: "Criar suas proprias obras" },
+    { ok: false, text: "Criar suas próprias obras" },
   ],
   BASIC: [
-    { ok: true, text: "Criar ate 3 obras ativas" },
+    { ok: true, text: "Criar até 3 obras ativas" },
     { ok: true, text: "Convidar clientes (ilimitado)" },
-    { ok: true, text: "Diario de obra" },
+    { ok: true, text: "Diário de obra" },
     { ok: true, text: "Controle de despesas" },
-    { ok: true, text: "Gestao de tarefas" },
+    { ok: true, text: "Gestão de tarefas" },
   ],
   PRO: [
     { ok: true, text: "Obras ilimitadas" },
     { ok: true, text: "Convidar clientes (ilimitado)" },
-    { ok: true, text: "Diario de obra" },
+    { ok: true, text: "Diário de obra" },
     { ok: true, text: "Controle de despesas" },
-    { ok: true, text: "Gestao de tarefas" },
-    { ok: true, text: "Suporte prioritario" },
+    { ok: true, text: "Gestão de tarefas" },
+    { ok: true, text: "Suporte prioritário" },
   ],
 };
 
 const PLAN_LABELS: Record<PlanCode, string> = {
   FREE: "Gratuito",
-  BASIC: "Basico",
+  BASIC: "Básico",
   PRO: "Profissional",
 };
 
@@ -158,7 +158,7 @@ export default function MyPlanScreen() {
   const trialEnd = plan?.trialEndsAt ?? null;
   const ownedCount = plan?.ownedProjectCount ?? 0;
   const limit = plan?.projectLimit ?? 0;
-  const price = plan ? formatPrice(plan.priceCents) : "Gratis";
+  const price = plan ? formatPrice(plan.priceCents) : "Grátis";
 
   const renewalDate = formatDate(periodEnd);
   const trialEndDate = formatDate(trialEnd);
@@ -229,7 +229,7 @@ export default function MyPlanScreen() {
           {status === "TRIAL" && trialEndDate ? (
             <View style={styles.dateRow}>
               <MaterialIcons name="event" size={14} color={colors.textMuted} />
-              <Text style={styles.dateText}>Trial ate {trialEndDate}</Text>
+              <Text style={styles.dateText}>Trial até {trialEndDate}</Text>
             </View>
           ) : null}
 
@@ -240,7 +240,7 @@ export default function MyPlanScreen() {
                 size={14}
                 color={colors.textMuted}
               />
-              <Text style={styles.dateText}>Acesso ate {renewalDate}</Text>
+              <Text style={styles.dateText}>Acesso até {renewalDate}</Text>
             </View>
           ) : null}
 
@@ -252,7 +252,7 @@ export default function MyPlanScreen() {
                 color={colors.textMuted}
               />
               <Text style={styles.dateText}>
-                Acesso temporariamente mantido ate {renewalDate}
+                Acesso temporariamente mantido até {renewalDate}
               </Text>
             </View>
           ) : null}
@@ -293,7 +293,7 @@ export default function MyPlanScreen() {
         </View>
 
         <View style={styles.featuresCard}>
-          <Text style={styles.featuresTitle}>O que esta incluido</Text>
+          <Text style={styles.featuresTitle}>O que está incluído</Text>
           <View style={styles.featureList}>
             {features.map((feature, index) => (
               <View key={index} style={styles.featureRow}>

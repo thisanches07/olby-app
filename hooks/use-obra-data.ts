@@ -97,13 +97,13 @@ function fromApiProjectStatus(s: string): StatusType {
 function statusToEtapaLabel(s: string): string {
   const map: Record<string, string> = {
     ACTIVE: "Em Andamento",
-    COMPLETED: "Concluida",
+    COMPLETED: "Concluída",
     ARCHIVED: "Arquivada",
     PLANNING: "Planejamento",
     in_progress: "Em Andamento",
     em_andamento: "Em Andamento",
-    completed: "Concluida",
-    concluida: "Concluida",
+    completed: "Concluída",
+    concluida: "Concluída",
     paused: "Arquivada",
     pausada: "Arquivada",
     planning: "Planejamento",
@@ -253,7 +253,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
       setExpenses(expenseList);
       setDiaryEntries(entryList);
     } catch {
-      setError("Não foi possivel carregar os dados da obra. Tente novamente.");
+      setError("Não foi possível carregar os dados da obra. Tente novamente.");
     } finally {
       setLoading(false);
     }

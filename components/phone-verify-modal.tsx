@@ -58,9 +58,9 @@ function mapFirebaseError(err: unknown): string {
       return "Número de telefone inválido.";
     case "auth/invalid-app-credential":
     case "auth/missing-app-credential":
-      return "Não foi possivel validar a verificacao de segurança. Tente novamente.";
+      return "Não foi possível validar a verificação de segurança. Tente novamente.";
     case "auth/internal-error":
-      return "Não foi possivel concluir a validacao de segurança. Tente novamente.";
+      return "Não foi possível concluir a validação de segurança. Tente novamente.";
     default:
       if (
         message.includes("invalid-app-credential") ||
@@ -68,7 +68,7 @@ function mapFirebaseError(err: unknown): string {
         message.includes("reCAPTCHA") ||
         message.includes("recaptcha")
       ) {
-        return "Não foi possivel validar a verificacao de segurança. Tente novamente.";
+        return "Não foi possível validar a verificação de segurança. Tente novamente.";
       }
       return "Ocorreu um erro. Tente novamente.";
   }

@@ -265,7 +265,7 @@ function ConfirmSheet({
       await localConfig.onConfirm();
       dismiss(() => onSuccess(localConfig.successMessage));
     } catch {
-      onError("Não foi possivel concluir esta operacao.");
+      onError("Não foi possível concluir esta operação.");
     } finally {
       setLoading(false);
     }
@@ -1018,7 +1018,7 @@ export default function ProfileScreen() {
       showToast(
         errorCode === "auth/too-many-requests"
           ? "Muitas tentativas seguidas. Aguarde 60 segundos para reenviar."
-          : "Não foi possivel enviar o e-mail de verificacao.",
+          : "Não foi possível enviar o e-mail de verificação.",
         "error",
       );
     } finally {
@@ -1042,7 +1042,7 @@ export default function ProfileScreen() {
         firebaseAuth.currentUser?.emailVerified ? "success" : "error",
       );
     } catch {
-      showToast("Não foi possivel atualizar o status do e-mail.", "error");
+      showToast("Não foi possível atualizar o status do e-mail.", "error");
     } finally {
       setIsRefreshingEmailVerification(false);
     }
@@ -1250,7 +1250,7 @@ export default function ProfileScreen() {
                     <Text style={styles.emailVerifyPrimaryText}>
                       {isEmailVerificationCooldownActive
                         ? `Reenviar em ${emailVerificationCooldownSecondsLeft}s`
-                        : "Enviar link de verificacao"}
+                        : "Enviar link de verificação"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -1267,7 +1267,7 @@ export default function ProfileScreen() {
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={styles.emailVerifySecondaryText}>
-                      Ja confirmei meu e-mail
+                      Já confirmei meu e-mail
                     </Text>
                   )}
                 </TouchableOpacity>

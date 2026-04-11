@@ -356,16 +356,16 @@ export function ProjectSettingsModal({
 
   const membersListErrorMessage = (status: number) => {
     if (status === 401) return "Sessão expirada. Faça login novamente.";
-    if (status === 403) return "Voce não tem permissao para ver os membros.";
+    if (status === 403) return "Você não tem permissão para ver os membros.";
     if (status === 404) return "Projeto não encontrado.";
-    return "Não foi possivel carregar os membros agora.";
+    return "Não foi possível carregar os membros agora.";
   };
 
   const memberRemoveErrorMessage = (status: number) => {
-    if (status === 401) return "Sessao expirada. Façalogin novamente.";
-    if (status === 403) return "Voce não tem permissao para remover membros.";
+    if (status === 401) return "Sessão expirada. Faça login novamente.";
+    if (status === 403) return "Você não tem permissão para remover membros.";
     if (status === 404) return "Membro não encontrado no projeto.";
-    return "Não foi possivel remover o membro agora.";
+    return "Não foi possível remover o membro agora.";
   };
 
   type ApiMember = {
@@ -402,7 +402,7 @@ export function ProjectSettingsModal({
 
             return {
               id: m.id,
-              name: m.userName?.trim() || "Usuario",
+              name: m.userName?.trim() || "Usuário",
               email: email || undefined,
               phone: m.userPhone ?? null,
               role: mapRole(m.role),
@@ -441,7 +441,7 @@ export function ProjectSettingsModal({
 
         showToast({
           tone: "error",
-          title: "Não foi possivel carregar os membros",
+          title: "Não foi possível carregar os membros",
           message,
         });
       } finally {
@@ -651,7 +651,7 @@ export function ProjectSettingsModal({
 
       showToast({
         tone: "error",
-        title: "Não foi possivel remover o acesso",
+        title: "Não foi possível remover o acesso",
         message,
       });
     } finally {

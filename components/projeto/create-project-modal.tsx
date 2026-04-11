@@ -613,7 +613,7 @@ export function CreateProjectModal({
       }
 
       const genericMessage =
-        "Não foi possivel criar o projeto. Tente novamente.";
+        "Não foi possível criar o projeto. Tente novamente.";
       setSubmitError({
         title: "Erro ao criar projeto",
         message: genericMessage,
