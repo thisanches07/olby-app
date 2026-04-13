@@ -507,16 +507,16 @@ export function useObraData(projectId: string): UseObraDataReturn {
   }, [projectId]);
 
   const updateBudget = useCallback(
-    async (newBudget: number, newHoras: number) => {
+    async (newBudget: number | null, newHoras: number) => {
       await projectsService.update(projectId, {
-        budgetCents: Math.round(newBudget * 100),
+        budgetCents: newBudget !== null ? Math.round(newBudget * 100) : null,
         hoursContracted: newHoras,
       });
       setProject((prev) =>
         prev
           ? {
               ...prev,
-              budgetCents: Math.round(newBudget * 100),
+              budgetCents: newBudget !== null ? Math.round(newBudget * 100) : null,
               hoursContracted: newHoras,
             }
           : null,

@@ -24,7 +24,7 @@ interface BudgetAdjustmentModalProps {
   visible: boolean;
   currentBudget: number;
   totalInvestido: number;
-  onSave: (newBudget: number) => void;
+  onSave: (newBudget: number | null) => void;
   onClose: () => void;
 }
 
@@ -89,38 +89,25 @@ export function BudgetAdjustmentModal({
   };
 
   const handleSave = () => {
-    let budgetToSave = currentBudget;
-    if (newBudget !== "") {
-      const parsedBudget = parseInt(newBudget, 10) / 100;
-      if (isNaN(parsedBudget) || parsedBudget <= 0) {
-        showToast({
-          title: "Valor inválido",
-          message: "Orçamento deve ser um número positivo.",
-          tone: "error",
-        });
-        return;
-      }
-      if (newBudget.length > MAX_BUDGET_VALUE_DIGITS) {
-        showToast({
-          title: "Valor acima do limite",
-          message: "Reduza a quantidade de dÃ­gitos do valor informado.",
-          tone: "error",
-        });
-        return;
-      }
-      if (parsedBudget < totalInvestido) {
-        showToast({
-          title: "Orçamento insuficiente",
-          message: `Não pode ser menor que o total investido (${totalInvestido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}).`,
-          tone: "error",
-          durationMs: 4000,
-        });
-        return;
-      }
-      budgetToSave = parsedBudget;
+    const parsedBudget = parseInt(newBudget, 10) / 100;
+    const isEffectivelyEmpty = newBudget === "" || parsedBudget === 0;
+
+    if (isEffectivelyEmpty) {
+      // Campo vazio ou zero: remove o orçamento se havia um, senão fecha sem mudança
+      onSave(currentBudget > 0 ? null : currentBudget);
+      onClose();
+      return;
     }
 
-    onSave(budgetToSave);
+    if (newBudget.length > MAX_BUDGET_VALUE_DIGITS) {
+      showToast({
+        title: "Valor acima do limite",
+        message: "Reduza a quantidade de dígitos do valor informado.",
+        tone: "error",
+      });
+      return;
+    }
+    onSave(parsedBudget);
     onClose();
   };
 
@@ -308,7 +295,7 @@ export function BudgetAdjustmentModal({
 
             {newBudget && parseInt(newBudget, 10) / 100 < totalInvestido && (
               <View style={styles.warningBox}>
-                <MaterialIcons name="warning" size={16} color="#DC2626" />
+                <MaterialIcons name="warning" size={16} color="#F59E0B" />
                 <Text style={styles.warningText}>
                   Orçamento deve ser maior ou igual ao total investido
                 </Text>
@@ -486,7 +473,7 @@ const styles = StyleSheet.create({
   warningBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "#FFFBEB",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -495,7 +482,7 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 12,
-    color: "#DC2626",
+    color: "#F59E0B",
     fontWeight: "600",
   },
 
