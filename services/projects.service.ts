@@ -3,10 +3,16 @@ import { api } from "./api";
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED" | "PLANNING";
 
 export interface ProjectMemberDto {
+  id?: string;
+  projectId?: string;
   userId: string;
   userName: string | null;
+  userEmail?: string | null;
   userPhone: string | null;
   role: string;
+  status?: string;
+  joinedAt?: string;
+  createdAt?: string;
 }
 
 export interface ProjectResponseDto {

@@ -14,8 +14,8 @@ import {
 } from "react-native-safe-area-context";
 
 import { ClientTimelineSection } from "@/components/diario/client-timeline-section";
-import { DiaryLoadingScreen } from "@/components/diario/diary-loading-screen";
 import { DiaryHeader } from "@/components/diario/diary-header";
+import { DiaryLoadingScreen } from "@/components/diario/diary-loading-screen";
 import {
   DiaryTabsSegmented,
   type DiaryTab,
@@ -27,11 +27,11 @@ import { PhotosTab } from "@/components/diario/photos-tab";
 import { useToast } from "@/components/obra/toast";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 
-import { useProjects } from "@/contexts/projects-context";
 import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
+import { useProjects } from "@/contexts/projects-context";
 import { useAppSession } from "@/hooks/use-app-session";
 import { useDiaryData, type EntryFormData } from "@/hooks/use-diary-data";
 import type { DiaryEntry, PhotoItem } from "@/hooks/use-diary-state";
@@ -60,11 +60,19 @@ export default function DiarioScreen() {
   const [projectRole, setProjectRole] = useState<ProjectApiRole>(
     obra?.myRole ?? null,
   );
+  const [projectStatus, setProjectStatus] = useState<string | null>(
+    obra?.status ?? null,
+  );
+
+  useEffect(() => {
+    if (obra?.status) {
+      setProjectStatus(obra.status);
+    }
+  }, [obra?.status]);
 
   useEffect(() => {
     if (obra?.myRole) {
       setProjectRole(obra.myRole);
-      return;
     }
 
     if (!id) return;
@@ -75,6 +83,15 @@ export default function DiarioScreen() {
       .then((project) => {
         if (!cancelled) {
           setProjectRole(project.myRole ?? null);
+          setProjectStatus(
+            project.status === "COMPLETED"
+              ? "concluida"
+              : project.status === "ARCHIVED"
+                ? "pausada"
+                : project.status === "PLANNING"
+                  ? "planejamento"
+                  : "em_andamento",
+          );
         }
       })
       .catch(() => {});
@@ -87,6 +104,10 @@ export default function DiarioScreen() {
   const mode: "cliente" | "engenheiro" =
     projectRole == null ? fallbackMode : toAppViewRole(projectRole);
   const isEng = mode === "engenheiro";
+  const isReadOnly =
+    projectStatus === "concluida" || projectStatus === "pausada";
+  const readOnlyLabel =
+    projectStatus === "concluida" ? "Projeto concluido" : "Projeto arquivado";
   const projectName = obra?.nome ?? "Diário de Obra";
 
   // ── Hook de dados do diário ────────────────────────────────────────────────
@@ -110,7 +131,9 @@ export default function DiarioScreen() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxEntryId, setLightboxEntryId] = useState<string | undefined>();
   const [showLightbox, setShowLightbox] = useState(false);
-  const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
+  const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<
+    string | null
+  >(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const diaryEntryCount = useMemo(
     () => sections.reduce((sum, section) => sum + section.entries.length, 0),
@@ -128,16 +151,16 @@ export default function DiarioScreen() {
   }, [refresh]);
 
   useEffect(() => {
-    if (!isEng) {
+    if (!isEng || isReadOnly) {
       setShowFormModal(false);
       setEditingEntry(null);
     }
     setShowLightbox(false);
-  }, [isEng]);
+  }, [isEng, isReadOnly]);
 
   // ── Handlers de entry ──────────────────────────────────────────────────────
   const handleOpenNewEntry = () => {
-    if (!isEng) return;
+    if (!isEng || isReadOnly) return;
     if (diaryLimitReached) {
       showToast({
         title: "Limite atingido",
@@ -152,7 +175,7 @@ export default function DiarioScreen() {
   };
 
   const handleEditEntry = (entryId: string) => {
-    if (!isEng) return;
+    if (!isEng || isReadOnly) return;
     const entry = sections
       .flatMap((s) => s.entries)
       .find((e) => e.id === entryId);
@@ -163,22 +186,34 @@ export default function DiarioScreen() {
   };
 
   const handleDeleteEntry = (entryId: string) => {
-    if (!isEng) return;
+    if (!isEng || isReadOnly) return;
     setPendingDeleteEntryId(entryId);
   };
 
   const handleConfirmDeleteEntry = async () => {
-    if (!pendingDeleteEntryId) return;
+    if (!pendingDeleteEntryId || isReadOnly) return;
     try {
       await deleteEntry(id ?? "", pendingDeleteEntryId);
     } catch {
-      showToast({ title: "Erro ao deletar", message: "Não foi possível deletar.", tone: "error" });
+      showToast({
+        title: "Erro ao deletar",
+        message: "Não foi possível deletar.",
+        tone: "error",
+      });
     } finally {
       setPendingDeleteEntryId(null);
     }
   };
 
   const handleSaveEntry = async (data: EntryFormData) => {
+    if (isReadOnly) {
+      showToast({
+        title: readOnlyLabel,
+        message: "O diario de obra esta somente leitura para este projeto.",
+        tone: "info",
+      });
+      return;
+    }
     if (editingEntry) {
       await updateEntry(id ?? "", editingEntry.id, data);
     } else {
@@ -201,7 +236,9 @@ export default function DiarioScreen() {
   const handlePhotoPress = (photos: PhotoItem[], index: number) => {
     const entry = sections
       .flatMap((s) => s.entries)
-      .find((e) => photos.length > 0 && e.photos.some((p) => p.id === photos[0].id));
+      .find(
+        (e) => photos.length > 0 && e.photos.some((p) => p.id === photos[0].id),
+      );
     setLightboxPhotos(photos);
     setLightboxIndex(index);
     setLightboxEntryId(entry?.id);
@@ -259,10 +296,15 @@ export default function DiarioScreen() {
   };
 
   const handleDeletePhoto = async (photoId: string, entryId: string) => {
+    if (isReadOnly) return;
     try {
       await deletePhoto(id ?? "", photoId, entryId);
     } catch {
-      showToast({ title: "Erro ao remover foto", message: "Não foi possível deletar a foto.", tone: "error" });
+      showToast({
+        title: "Erro ao remover foto",
+        message: "Não foi possível deletar a foto.",
+        tone: "error",
+      });
     }
   };
 
@@ -295,35 +337,40 @@ export default function DiarioScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <View style={styles.stickyHeader}>
-        <DiaryHeader
-          title={projectName}
-          mode={mode}
-          onModeChange={() => {}}
-        />
+        <DiaryHeader title={projectName} mode={mode} onModeChange={() => {}} />
 
         <DiaryTabsSegmented activeTab={activeTab} onTabChange={setActiveTab} />
 
         {showEngineerActions && (
           <View style={styles.actionsWrap}>
+            {isReadOnly && (
+              <Text style={styles.readOnlyHelper}>
+                {readOnlyLabel}. Os registros do diário estão em modo somente
+                leitura.
+              </Text>
+            )}
             <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.primaryAction,
-                  diaryLimitReached && styles.primaryActionDisabled,
-                ]}
-                onPress={handleOpenNewEntry}
-                activeOpacity={diaryLimitReached ? 1 : 0.88}
-                disabled={diaryLimitReached}
-              >
-                <MaterialIcons name="add" size={18} color={colors.white} />
-                <Text style={styles.primaryActionText}>
-                  {diaryLimitReached ? "Limite atingido" : "Novo registro"}
-                </Text>
-              </TouchableOpacity>
+              {!isReadOnly && (
+                <TouchableOpacity
+                  style={[
+                    styles.primaryAction,
+                    diaryLimitReached && styles.primaryActionDisabled,
+                  ]}
+                  onPress={handleOpenNewEntry}
+                  activeOpacity={diaryLimitReached ? 1 : 0.88}
+                  disabled={diaryLimitReached}
+                >
+                  <MaterialIcons name="add" size={18} color={colors.white} />
+                  <Text style={styles.primaryActionText}>
+                    {diaryLimitReached ? "Limite atingido" : "Novo registro"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
-            {diaryLimitReached && (
+            {!isReadOnly && diaryLimitReached && (
               <Text style={styles.limitHelper}>
-                Limite de {PROJECT_ITEM_LIMIT} registros atingido. Exclua um registro para liberar novas insercoes.
+                Limite de {PROJECT_ITEM_LIMIT} registros atingido. Exclua um
+                registro para liberar novas insercoes.
               </Text>
             )}
             <View style={styles.actionsDivider} />
@@ -334,7 +381,7 @@ export default function DiarioScreen() {
       {activeTab === "timeline" ? (
         mode === "cliente" ? (
           <ClientTimelineSection
-            obra={obra as any ?? { id: id ?? "", nome: projectName }}
+            obra={(obra as any) ?? { id: id ?? "", nome: projectName }}
             sections={sections}
             onPhotoPress={handlePhotoPress}
             onDownloadEntry={handleDownloadEntryPhotos}
@@ -349,6 +396,7 @@ export default function DiarioScreen() {
             onDeleteEntry={handleDeleteEntry}
             onPhotoPress={handlePhotoPress}
             onDeletePhoto={handleDeletePhoto}
+            canEdit={!isReadOnly}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
           />
@@ -357,7 +405,7 @@ export default function DiarioScreen() {
         <View style={styles.tabContent}>
           <PhotosTab
             sections={sections}
-            canDelete={isEng}
+            canDelete={isEng && !isReadOnly}
             onDeletePhoto={(photoId, entryId) =>
               handleDeletePhoto(photoId, entryId)
             }
@@ -418,7 +466,7 @@ export default function DiarioScreen() {
         photos={lightboxPhotos}
         initialIndex={lightboxIndex}
         onClose={() => setShowLightbox(false)}
-        canDelete={isEng}
+        canDelete={isEng && !isReadOnly}
         projectId={id}
         entryId={lightboxEntryId}
         onDelete={(photoId) => {
@@ -482,6 +530,13 @@ const styles = StyleSheet.create({
   },
   limitHelper: {
     marginTop: spacing[10],
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.subtext,
+    fontWeight: "600",
+  },
+  readOnlyHelper: {
+    marginBottom: spacing[10],
     fontSize: 12,
     lineHeight: 18,
     color: colors.subtext,

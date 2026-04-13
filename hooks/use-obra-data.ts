@@ -186,6 +186,7 @@ function buildObraDetalhe(
     trackFinancial: project.trackFinancial ?? true,
     trackActivities: project.trackActivities ?? true,
     myRole: project.myRole ?? null,
+    members: project.members ?? [],
   };
 }
 

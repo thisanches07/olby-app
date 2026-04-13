@@ -20,6 +20,7 @@ import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
+import type { ProjectAccessMember } from "@/utils/project-members";
 import type { ProjectApiRole } from "@/utils/project-role";
 
 import { BottomTabs, type TabDefinition } from "@/components/obra/bottom-tabs";
@@ -126,6 +127,7 @@ function formatDatePtBrShort(d: Date) {
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface ObraViewEngProps {
   obra: ObraDetalhe;
+  projectMembers?: ProjectAccessMember[];
   onAddTask: () => void;
   onEditTask: (task: Tarefa) => void;
   onDeleteTask: (taskId: string) => void;
@@ -158,6 +160,7 @@ interface ObraViewEngProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 export function ObraViewEng({
   obra,
+  projectMembers = [],
   onAddTask,
   onEditTask,
   onDeleteTask,
@@ -300,6 +303,7 @@ export function ObraViewEng({
         title={obra.nome}
         projectId={obra.id}
         projectRole={projectRole}
+        members={projectMembers}
         onBack={handleBack}
       />
 

@@ -46,7 +46,7 @@ const FILTROS: { label: string; value: StatusType | "todas" }[] = [
 ];
 
 export default function MinhasObrasScreen() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, backendUserId, isLoading: authLoading } = useAuth();
   const [busca, setBusca] = useState("");
   const [filtroAtivo, setFiltroAtivo] = useState<StatusType | "todas">("todas");
   const [mode, setMode] = useState<"cliente" | "engenheiro">("cliente");
@@ -94,22 +94,34 @@ export default function MinhasObrasScreen() {
 
   const obrasFiltradas = useMemo(() => {
     const query = busca.trim().toLowerCase();
+    const currentUserName = (user?.displayName ?? "").trim().toLowerCase();
 
     return obras.filter((obra) => {
+      const matchMember =
+        (obra.members ?? [])
+          .filter((m) => {
+            if (backendUserId && m.userId === backendUserId) return false;
+
+            const memberName = (m.userName ?? "").trim().toLowerCase();
+            const isCurrentUserByIdentity =
+              !!currentUserName && memberName === currentUserName;
+
+            return !isCurrentUserByIdentity;
+          })
+          .some((m) => (m.userName ?? "").toLowerCase().includes(query));
+
       const matchBusca =
         !query ||
         obra.nome.toLowerCase().includes(query) ||
         (obra.cliente || "").toLowerCase().includes(query) ||
-        (obra.members ?? []).some((m) =>
-          (m.userName ?? "").toLowerCase().includes(query),
-        );
+        matchMember;
 
       const matchFiltro =
         filtroAtivo === "todas" || obra.status === filtroAtivo;
 
       return matchBusca && matchFiltro;
     });
-  }, [obras, busca, filtroAtivo]);
+  }, [obras, busca, filtroAtivo, backendUserId, user?.displayName]);
 
   const openPlansForBlockedCreation = useCallback(() => {
     router.push({

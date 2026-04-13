@@ -23,7 +23,7 @@ export function HomeSearchBar({
       />
       <TextInput
         style={styles.searchInput}
-        placeholder="Buscar obra ou cliente..."
+        placeholder="Buscar obra ou cliente"
         placeholderTextColor="#9CA3AF"
         value={value}
         onChangeText={onChangeText}

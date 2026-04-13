@@ -17,6 +17,7 @@ import type { ObraDetalhe } from "@/data/obras";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
+import type { ProjectAccessMember } from "@/utils/project-members";
 import type { ProjectApiRole } from "@/utils/project-role";
 
 import { ClienteCTAButton } from "@/components/obra/cliente-cta-button";
@@ -37,6 +38,7 @@ const BOTTOM_H = 84;
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface ObraViewClienteProps {
   obra: ObraDetalhe;
+  projectMembers?: ProjectAccessMember[];
   onViewDiary: () => void;
   projectRole: ProjectApiRole;
   onTabChange?: (isPrimary: boolean) => void;
@@ -46,6 +48,7 @@ interface ObraViewClienteProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 export function ObraViewCliente({
   obra,
+  projectMembers = [],
   onViewDiary,
   projectRole,
   onTabChange,
@@ -117,6 +120,7 @@ export function ObraViewCliente({
         title={obra.nome}
         projectId={obra.id}
         projectRole={projectRole}
+        members={projectMembers}
         onBack={handleBack}
       />
 

@@ -1,5 +1,6 @@
 import { ShareProjectButton } from "@/components/projeto/share-project-button";
 import { PressableScale } from "@/components/ui/pressable-scale";
+import type { ProjectAccessMember } from "@/utils/project-members";
 import type { ProjectApiRole } from "@/utils/project-role";
 import { canManageMembers } from "@/utils/project-role";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -11,6 +12,7 @@ interface ObraHeaderProps {
   title: string;
   projectId: string;
   projectRole: ProjectApiRole;
+  members?: ProjectAccessMember[];
   onBack?: () => void;
 }
 
@@ -18,6 +20,7 @@ export function ObraHeader({
   title,
   projectId,
   projectRole,
+  members = [],
   onBack,
 }: ObraHeaderProps) {
   return (
@@ -43,6 +46,7 @@ export function ObraHeader({
             projectId={projectId}
             projectName={title}
             projectRole={projectRole}
+            members={members}
           />
         ) : (
           <View style={styles.headerBtn} />

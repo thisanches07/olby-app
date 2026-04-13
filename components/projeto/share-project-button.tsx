@@ -2,6 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useState } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 
+import type { ProjectAccessMember } from "@/utils/project-members";
 import type { ProjectApiRole } from "@/utils/project-role";
 import { canManageMembers } from "@/utils/project-role";
 import { ShareProjectModal } from "./share-project-modal";
@@ -10,12 +11,14 @@ interface ShareProjectButtonProps {
   projectId: string;
   projectName: string;
   projectRole?: ProjectApiRole;
+  members?: ProjectAccessMember[];
 }
 
 export function ShareProjectButton({
   projectId,
   projectName,
   projectRole = null,
+  members = [],
 }: ShareProjectButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
@@ -35,6 +38,7 @@ export function ShareProjectButton({
         projectId={projectId}
         projectName={projectName}
         projectRole={projectRole}
+        members={members}
         canShare={canManageMembers(projectRole)}
         onClose={() => setShowModal(false)}
       />

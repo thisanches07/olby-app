@@ -34,6 +34,7 @@ interface EngineerTimelineSectionProps {
   onDeleteEntry: (entryId: string) => void;
   onPhotoPress: (photos: PhotoItem[], index: number) => void;
   onDeletePhoto: (photoId: string, entryId: string) => void;
+  canEdit?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
@@ -45,6 +46,7 @@ export function EngineerTimelineSection({
   onDeleteEntry,
   onPhotoPress,
   onDeletePhoto,
+  canEdit = true,
   onRefresh,
   isRefreshing = false,
 }: EngineerTimelineSectionProps) {
@@ -128,7 +130,9 @@ export function EngineerTimelineSection({
           </View>
           <Text style={styles.emptyTitle}>Nenhum registro ainda</Text>
           <Text style={styles.emptySubtext}>
-            Toque em Novo registro para criar seu primeiro registro de visita.
+            {canEdit
+              ? "Toque em Novo registro para criar seu primeiro registro de visita."
+              : "Este projeto esta em modo somente leitura."}
           </Text>
         </View>
       ) : null}
@@ -143,7 +147,7 @@ export function EngineerTimelineSection({
               <View key={entry.id}>
                 <TouchableOpacity
                   activeOpacity={0.97}
-                  onPress={() => onEditEntry(entry.id)}
+                  onPress={canEdit ? () => onEditEntry(entry.id) : undefined}
                 >
                 {/* Data / hora / duração + ações */}
                 <View style={styles.entryHeader}>
@@ -178,13 +182,15 @@ export function EngineerTimelineSection({
                     </View>
                   </View>
 
-                  <EntryActions
-                    entryId={entry.id}
-                    onEdit={onEditEntry}
-                    onDelete={onDeleteEntry}
-                    hasPhotos={entry.photos.length > 0}
-                    onDownloadAll={handleDownloadAllPhotos}
-                  />
+                  {canEdit ? (
+                    <EntryActions
+                      entryId={entry.id}
+                      onEdit={onEditEntry}
+                      onDelete={onDeleteEntry}
+                      hasPhotos={entry.photos.length > 0}
+                      onDownloadAll={handleDownloadAllPhotos}
+                    />
+                  ) : null}
                 </View>
 
                 {/* Título */}
@@ -224,19 +230,24 @@ export function EngineerTimelineSection({
                           </View>
                         )}
                         {/* Botão deletar foto */}
-                        <TouchableOpacity
-                          style={styles.photoDeleteBtn}
-                          onPress={() =>
-                            setPendingDeletePhoto({ photoId: photo.id, entryId: entry.id })
-                          }
-                          activeOpacity={0.8}
-                        >
-                          <MaterialIcons
-                            name="close"
-                            size={12}
-                            color="#FFFFFF"
-                          />
-                        </TouchableOpacity>
+                        {canEdit && (
+                          <TouchableOpacity
+                            style={styles.photoDeleteBtn}
+                            onPress={() =>
+                              setPendingDeletePhoto({
+                                photoId: photo.id,
+                                entryId: entry.id,
+                              })
+                            }
+                            activeOpacity={0.8}
+                          >
+                            <MaterialIcons
+                              name="close"
+                              size={12}
+                              color="#FFFFFF"
+                            />
+                          </TouchableOpacity>
+                        )}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -276,7 +287,7 @@ export function EngineerTimelineSection({
     </ScrollView>
 
     <ConfirmSheet
-      visible={pendingDeletePhoto !== null}
+      visible={canEdit && pendingDeletePhoto !== null}
       icon="delete-outline"
       iconColor="#EF4444"
       title="Remover foto?"

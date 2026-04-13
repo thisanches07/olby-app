@@ -10,13 +10,14 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
-import { ActivityIndicator, AppState, View } from "react-native";
+import { AppState, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // expo-router v6 already calls preventAutoHideAsync() internally
 
 import DevPanel from "@/app/dev/DevPanel";
+import { BootstrapLoadingScreen } from "@/components/app/bootstrap-loading-screen";
 import { ToastProvider, useToast } from "@/components/obra/toast";
 import type { DevUser } from "@/constants/dev-users";
 import { ProjectsProvider } from "@/contexts/projects-context";
@@ -71,23 +72,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router, registrationInProgress]);
 
   if (isLoading) {
-    return (
-      <View
-        pointerEvents="auto"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#EFF6FF",
-        }}
-      >
-        <ActivityIndicator size="large" color="#2563EB" />
-      </View>
-    );
+    return <BootstrapLoadingScreen />;
   }
 
   const onLoginPage = pathname === "/login";

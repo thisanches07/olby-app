@@ -66,10 +66,16 @@ export function mapSummaryToObra(s: ProjectSummaryDto): ObraDetalhe {
     trackActivities: true,
     myRole: s.myRole ?? null,
     members: (s.members ?? []).map((m) => ({
+      id: m.id,
+      projectId: m.projectId,
       userId: m.userId,
       userName: m.userName,
+      userEmail: m.userEmail,
       userPhone: m.userPhone,
       role: m.role,
+      status: m.status,
+      joinedAt: m.joinedAt,
+      createdAt: m.createdAt,
     })),
   };
 }

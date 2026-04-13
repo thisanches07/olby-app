@@ -35,6 +35,10 @@ import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import {
+  type ProjectAccessMember,
+  mapMemberWithIdentityToAccessMember,
+} from "@/utils/project-members";
+import {
   canManageMembers as canManageMembersByRole,
   type ProjectApiRole,
 } from "@/utils/project-role";
@@ -73,6 +77,7 @@ interface ShareProjectModalProps {
   projectId: string;
   projectName: string;
   projectRole: ProjectApiRole;
+  members?: ProjectAccessMember[];
   onClose: () => void;
   /** Defaults to true. Passe false para CLIENT_VIEWER. */
   canShare?: boolean;
@@ -111,6 +116,7 @@ export function ShareProjectModal({
   projectId,
   projectName,
   projectRole,
+  members = [],
   onClose,
   canShare = true,
 }: ShareProjectModalProps) {
@@ -266,84 +272,50 @@ export function ShareProjectModal({
     setIsLoading(false);
     setError(null);
     setCopied(false);
-    setMembersState([]);
+    setMembersState(members);
     setMembersLoading(false);
 
     void (async () => {
       const active = await invitesService.getActive(projectId);
       setInviteResult(active);
     })();
-  }, [visible, projectId]);
+  }, [visible, projectId, members]);
 
-  useEffect(() => {
-    if (!visible) return;
+  const loadMembers = useCallback(async () => {
+    try {
+      setMembersLoading(true);
 
-    let cancelled = false;
+      type ApiMember = {
+        id: string;
+        role: string;
+        status: string;
+        userId: string;
+        userName: string | null;
+        userEmail: string | null;
+        userPhone?: string | null;
+      }[];
 
-    const loadMembers = async () => {
-      try {
-        setMembersLoading(true);
+      const apiData = await api.get<ApiMember>(
+        `/projects/${encodeURIComponent(projectId)}/members`,
+      );
 
-        type ApiMember = {
-          id: string;
-          role: string;
-          status: string;
-          userId: string;
-          userName: string | null;
-          userEmail: string | null;
-          userPhone?: string | null;
-        }[];
+      const mapped: ProjectMember[] = Array.isArray(apiData)
+        ? apiData
+            .filter((m) => m.status === "ACTIVE")
+            .map((m) => mapMemberWithIdentityToAccessMember(m, backendUserId))
+        : [];
 
-        const apiData = await api.get<ApiMember>(
-          `/projects/${encodeURIComponent(projectId)}/members`,
-        );
-
-        const mapRole = (rawRole: string): ProjectMemberRole => {
-          const r = rawRole.toUpperCase();
-          if (r === "OWNER" || r === "ENGINEER" || r === "ENGINEER_OWNER") {
-            return "engenheiro";
-          }
-          if (r.startsWith("CLIENT")) {
-            return "cliente";
-          }
-          return "convidado";
-        };
-
-        const mapped: ProjectMember[] = Array.isArray(apiData)
-          ? apiData
-              .filter((m) => m.status === "ACTIVE")
-              .map((m) => {
-                const email = m.userEmail?.trim() || "";
-                const isOwner = m.role.toUpperCase() === "OWNER";
-                const isCurrentUser =
-                  !!backendUserId && m.userId === backendUserId;
-
-                return {
-                  id: m.id,
-                  name: m.userName?.trim() || "Usuário",
-                  email: email || undefined,
-                  phone: m.userPhone ?? null,
-                  role: mapRole(m.role),
-                  isOwner,
-                  isCurrentUser,
-                };
-              })
-          : [];
-
-        if (!cancelled) setMembersState(mapped);
-      } catch {
-        if (!cancelled) setMembersState([]);
-      } finally {
-        if (!cancelled) setMembersLoading(false);
-      }
-    };
-
-    void loadMembers();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [backendUserId, visible, projectId]);
+      setMembersState(mapped);
+    } catch {
+      showToast({
+        title: "Nao foi possivel atualizar os acessos",
+        message: "Tente novamente em instantes.",
+        tone: "error",
+      });
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [backendUserId, projectId, showToast]);
 
   const memberRoleLabel = (m: ProjectMember) => {
     if (m.isOwner) return "RESPONSÁVEL";
@@ -583,6 +555,28 @@ export function ShareProjectModal({
                       </Text>
                     </View>
                   </View>
+
+                  <TouchableOpacity
+                    style={styles.refreshMembersBtn}
+                    onPress={() => void loadMembers()}
+                    activeOpacity={0.85}
+                    disabled={membersLoading}
+                  >
+                    {membersLoading ? (
+                      <ActivityIndicator size="small" color={colors.title} />
+                    ) : (
+                      <>
+                        <MaterialIcons
+                          name="refresh"
+                          size={15}
+                          color={colors.title}
+                        />
+                        <Text style={styles.refreshMembersText}>
+                          Atualizar acessos
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
 
                   {membersLoading && membersState.length === 0 ? (
                     <View style={styles.memberLoadingRow}>
@@ -1192,6 +1186,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   countPillText: { fontSize: 12, fontWeight: "800", color: colors.textMuted },
+  refreshMembersBtn: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[6],
+    marginBottom: spacing[12],
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
+    borderRadius: 999,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.dividerSoft,
+  },
+  refreshMembersText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.title,
+  },
 
   memberList: { gap: spacing[10] },
   memberRow: {

@@ -32,9 +32,14 @@ import {
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
 import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
+import { useAuth } from "@/hooks/use-auth";
 import { useObraData } from "@/hooks/use-obra-data";
 import { api, getErrorMessage } from "@/services/api";
 import type { LocalDocumentAsset } from "@/utils/document-upload";
+import {
+  isActiveProjectMember,
+  mapObraMemberToAccessMember,
+} from "@/utils/project-members";
 import {
   canEditProject,
   isClientView,
@@ -98,6 +103,7 @@ export default function ObraDetalheScreen() {
   const insets = useSafeAreaInsets();
   const bottomPad = useMemo(() => insets.bottom + spacing[16], [insets.bottom]);
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { backendUserId } = useAuth();
 
   // Controls iOS swipe-back gesture: disabled on secondary tabs
   const [isOnPrimaryTab, setIsOnPrimaryTab] = useState(true);
@@ -183,6 +189,22 @@ export default function ObraDetalheScreen() {
   const cachedObra = useMemo(
     () => obras.find((item) => item.id === id),
     [id, obras],
+  );
+  const projectMembersSource = useMemo(
+    () =>
+      obraView?.members?.length
+        ? obraView.members
+        : obra?.members?.length
+          ? obra.members
+          : cachedObra?.members ?? [],
+    [cachedObra?.members, obra?.members, obraView?.members],
+  );
+  const projectMembers = useMemo(
+    () =>
+      projectMembersSource
+        .filter((member: any) => isActiveProjectMember(member))
+        .map((member: any) => mapObraMemberToAccessMember(member, backendUserId)),
+    [projectMembersSource, backendUserId],
   );
   const loadingRole = (cachedObra?.myRole ?? null) as ProjectApiRole;
   const loadingVariant =
@@ -478,6 +500,7 @@ export default function ObraDetalheScreen() {
       {isCliente && (
         <ObraViewCliente
           obra={obraView}
+          projectMembers={projectMembers}
           onViewDiary={handleViewDiary}
           projectRole={projectRole}
           onTabChange={(isPrimary) => setIsOnPrimaryTab(isPrimary)}
@@ -488,6 +511,7 @@ export default function ObraDetalheScreen() {
       {isEng && (
         <ObraViewEng
           obra={obraView}
+          projectMembers={projectMembers}
           projectRole={projectRole}
           onTabChange={(isPrimary) => setIsOnPrimaryTab(isPrimary)}
           onRefresh={refresh}
@@ -600,7 +624,7 @@ export default function ObraDetalheScreen() {
                 ? "ARCHIVED"
                 : "ACTIVE"
           }
-          members={[]}
+          members={projectMembers}
           apiBaseUrl={apiBaseUrl}
           onConclude={applyStatusAndClose}
           onArchive={applyStatusAndClose}

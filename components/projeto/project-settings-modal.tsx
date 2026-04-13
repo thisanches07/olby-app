@@ -488,11 +488,6 @@ export function ProjectSettingsModal({
     members,
   ]);
 
-  useEffect(() => {
-    if (!visible) return;
-    void loadMembers();
-  }, [visible, loadMembers]);
-
   const expectedDeliveryDigitsLen = useMemo(
     () => onlyDigitsLen(expectedDeliveryText),
     [expectedDeliveryText],
@@ -1361,6 +1356,28 @@ export function ProjectSettingsModal({
                 </View>
               </View>
 
+              <TouchableOpacity
+                style={styles.refreshMembersBtn}
+                onPress={() => void loadMembers()}
+                activeOpacity={0.85}
+                disabled={membersLoading}
+              >
+                {membersLoading ? (
+                  <ActivityIndicator size="small" color={colors.title} />
+                ) : (
+                  <>
+                    <MaterialIcons
+                      name="refresh"
+                      size={15}
+                      color={colors.title}
+                    />
+                    <Text style={styles.refreshMembersText}>
+                      Atualizar membros com acesso
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
               <View style={styles.memberList}>
                 {membersLoading && membersState.length === 0 ? (
                   <View style={styles.memberLoadingRow}>
@@ -1691,6 +1708,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   countPillText: { fontSize: 12, fontWeight: "800", color: colors.textMuted },
+  refreshMembersBtn: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[6],
+    marginBottom: spacing[12],
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
+    borderRadius: 999,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.dividerSoft,
+  },
+  refreshMembersText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.title,
+  },
 
   memberList: { gap: spacing[10] },
   memberRow: {

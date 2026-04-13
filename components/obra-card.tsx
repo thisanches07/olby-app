@@ -32,10 +32,16 @@ export type StatusType =
   | "planejamento";
 
 export interface ObraMember {
+  id?: string;
+  projectId?: string;
   userId: string;
   userName: string | null;
+  userEmail?: string | null;
   userPhone?: string | null;
   role: string;
+  status?: string;
+  joinedAt?: string;
+  createdAt?: string;
 }
 
 export interface Obra {
