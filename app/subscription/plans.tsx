@@ -243,6 +243,8 @@ function SubscriptionPlansIapEnabled() {
   const [isLoadingStoreProducts, setIsLoadingStoreProducts] =
     React.useState(false);
   const [storeError, setStoreError] = React.useState<string | null>(null);
+  const [productNotFoundError, setProductNotFoundError] =
+    React.useState<string | null>(null);
   const [incomingPurchase, setIncomingPurchase] =
     React.useState<Purchase | null>(null);
   const processedPurchasesRef = React.useRef<Set<string>>(new Set());
@@ -535,11 +537,9 @@ function SubscriptionPlansIapEnabled() {
         wanted: planItem.productId,
         got: subscriptions.map((s) => s.id),
       });
-      showToast({
-        title: "Produto não encontrado",
-        message: "Confirme se o SKU existe e está ativo na loja.",
-        tone: "error",
-      });
+      setProductNotFoundError(
+        "Planos indisponíveis no momento. Tente novamente mais tarde.",
+      );
       return;
     }
 
@@ -551,6 +551,7 @@ function SubscriptionPlansIapEnabled() {
     try {
       clearPurchaseFeedback();
       setStoreError(null);
+      setProductNotFoundError(null);
       setIsRequestingPurchase(true);
       const identity = await fetchBillingIdentity();
 
@@ -769,6 +770,14 @@ function SubscriptionPlansIapEnabled() {
           </View>
         )}
 
+        {productNotFoundError && (
+          <View style={[styles.feedbackCard, styles.feedbackCardError]}>
+            <Text style={[styles.feedbackText, styles.feedbackTextError]}>
+              {productNotFoundError}
+            </Text>
+          </View>
+        )}
+
         {(friendlyPurchaseError || purchaseSuccess) && (
           <View
             style={[
@@ -971,8 +980,7 @@ function SubscriptionPlansIapEnabled() {
                             !isCurrent && { color: colors.primary },
                         ]}
                       >
-                        Assinar por {pricing.price}
-                        {pricing.priceNote}
+                        Assinar por {pricing.price} {pricing.priceNote}
                       </Text>
                     )}
                   </TouchableOpacity>
