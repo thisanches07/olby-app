@@ -759,12 +759,12 @@ function SubscriptionPlansIapEnabled() {
           </View>
         ) : null}
 
-        {storeConnectedButEmpty && (
+        {storeConnectedButEmpty && __DEV__ && (
           <View style={[styles.feedbackCard, styles.feedbackCardError]}>
             <Text style={[styles.feedbackText, styles.feedbackTextError]}>
-              A App Store não retornou subscriptions para estes SKUs. Verifique
-              se os produtos estao ativos no App Store Connect e se o bundle ID
-              bate com o app.
+              [DEV] A App Store não retornou subscriptions para estes SKUs.
+              Verifique se os produtos estao ativos no App Store Connect e se o
+              bundle ID bate com o app.
             </Text>
           </View>
         )}
