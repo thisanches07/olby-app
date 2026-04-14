@@ -20,6 +20,9 @@
       "associatedDomains": ["applinks:oblyapp.com"],
       "infoPlist": {
         "CFBundleDisplayName": "Obly App",
+        "NSCameraUsageDescription": "O Obly usa a câmera para fotografar o andamento da obra no Diário de Obra. Exemplo: registrar a concretagem de uma laje ou a instalação de esquadrias.",
+        "NSPhotoLibraryUsageDescription": "O Obly acessa sua galeria para que você escolha fotos já tiradas e as adicione ao Diário de Obra. Exemplo: selecionar uma foto da fundação tirada ontem.",
+        "NSPhotoLibraryAddUsageDescription": "O Obly salva fotos de obra na sua galeria quando você exporta registros do Diário de Obra.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,
           "NSAllowsLocalNetworking": true,
