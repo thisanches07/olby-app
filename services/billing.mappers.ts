@@ -16,6 +16,11 @@ export interface EffectivePlanResponse {
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  accessUntil?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  willRenew?: boolean;
+  isCanceled?: boolean;
+  canceledAt?: string | null;
 }
 
 export interface MySubscriptionResponse {
@@ -26,6 +31,11 @@ export interface MySubscriptionResponse {
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  accessUntil: string | null;
+  cancelAtPeriodEnd: boolean;
+  willRenew: boolean;
+  isCanceled: boolean;
+  canceledAt: string | null;
   ownedProjectCount: number;
   canCreateProject: boolean;
 }
@@ -141,6 +151,11 @@ export function mapEffectivePlanToSubscription(
     subscriptionStatus: normalizedStatus,
     trialEndsAt: effectivePlan.trialEndsAt,
     currentPeriodEnd: effectivePlan.currentPeriodEnd,
+    accessUntil: effectivePlan.accessUntil ?? effectivePlan.currentPeriodEnd,
+    cancelAtPeriodEnd: effectivePlan.cancelAtPeriodEnd ?? false,
+    willRenew: effectivePlan.willRenew ?? !effectivePlan.isCanceled,
+    isCanceled: effectivePlan.isCanceled ?? false,
+    canceledAt: effectivePlan.canceledAt ?? null,
     ownedProjectCount: snapshot.ownedProjectCount,
     canCreateProject: snapshot.canCreateProject,
   };

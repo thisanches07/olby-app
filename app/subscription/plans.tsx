@@ -17,10 +17,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useToast } from "@/components/obra/toast";
+import { ToastRenderer, useToast } from "@/components/obra/toast";
+import { CanceledAccessCard } from "@/components/subscription/canceled-access-card";
 import { useSubscription } from "@/contexts/subscription-context";
+import { BillingApiError } from "@/services/billing.mappers";
 import {
   getSubscriptionStatusMessage,
+  hasCanceledAccess,
   hasSubscriptionEntitlement,
 } from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
@@ -230,7 +233,6 @@ function SubscriptionPlansIapEnabled() {
     error,
     isVerifyingPurchase,
     purchaseError,
-    purchaseSuccess,
     refresh,
     fetchBillingIdentity,
     verifyApplePurchase,
@@ -240,6 +242,8 @@ function SubscriptionPlansIapEnabled() {
 
   const [isRequestingPurchase, setIsRequestingPurchase] = React.useState(false);
   const [isRestoringPurchases, setIsRestoringPurchases] = React.useState(false);
+  const [pendingPurchaseProductId, setPendingPurchaseProductId] =
+    React.useState<string | null>(null);
   const [isLoadingStoreProducts, setIsLoadingStoreProducts] =
     React.useState(false);
   const [storeError, setStoreError] = React.useState<string | null>(null);
@@ -291,6 +295,7 @@ function SubscriptionPlansIapEnabled() {
         tone: "error",
       });
       setIsRequestingPurchase(false);
+      setPendingPurchaseProductId(null);
     },
     onError: (iapError) => {
       iapLog("onError (IAP global)", {
@@ -325,53 +330,129 @@ function SubscriptionPlansIapEnabled() {
 
   const processPurchase = React.useCallback(
     async (purchase: Purchase) => {
-      if (!STORE_SUBSCRIPTION_SKUS.includes(purchase.productId)) return;
+      iapLog("processPurchase → entry", {
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+        store: purchase.store,
+        platform: purchase.platform,
+        purchaseToken: purchase.purchaseToken
+          ? `${purchase.purchaseToken.slice(0, 20)}…`
+          : null,
+        environment: (purchase as { environmentIOS?: string }).environmentIOS ?? null,
+      });
+
+      if (!STORE_SUBSCRIPTION_SKUS.includes(purchase.productId)) {
+        iapLog("processPurchase → skip: productId not in SKUs", {
+          productId: purchase.productId,
+          skus: STORE_SUBSCRIPTION_SKUS,
+        });
+        return;
+      }
 
       const purchaseKey = purchaseKeyFromPurchase(purchase);
-      if (processedPurchasesRef.current.has(purchaseKey)) return;
+      if (processedPurchasesRef.current.has(purchaseKey)) {
+        iapLog("processPurchase → skip: already processed this session", { purchaseKey });
+        return;
+      }
       processedPurchasesRef.current.add(purchaseKey);
+      iapLog("processPurchase → starting verification", { purchaseKey });
 
       try {
-        clearPurchaseFeedback();
-        const normalizedStore =
-          purchase.store === "apple" || purchase.store === "google"
-            ? purchase.store
-            : purchase.platform === "ios"
-              ? "apple"
-              : purchase.platform === "android"
-                ? "google"
-                : Platform.OS === "ios"
-                  ? "apple"
-                  : Platform.OS === "android"
-                    ? "google"
-                    : null;
+        let verifyError: unknown = null;
+        try {
+          clearPurchaseFeedback();
+          const normalizedStore =
+            purchase.store === "apple" || purchase.store === "google"
+              ? purchase.store
+              : purchase.platform === "ios"
+                ? "apple"
+                : purchase.platform === "android"
+                  ? "google"
+                  : Platform.OS === "ios"
+                    ? "apple"
+                    : Platform.OS === "android"
+                      ? "google"
+                      : null;
 
-        if (normalizedStore === "apple") {
-          const transactionId = purchase.transactionId;
-          if (!transactionId) {
-            throw new Error("Transacao iOS sem transactionId.");
+          iapLog("processPurchase → normalizedStore", { normalizedStore });
+
+          if (normalizedStore === "apple") {
+            const transactionId = purchase.transactionId;
+            if (!transactionId) {
+              throw new Error("Transacao iOS sem transactionId.");
+            }
+            const sandbox = isAppleSandboxPurchase(purchase);
+            iapLog("processPurchase → calling verifyApplePurchase", {
+              transactionId,
+              sandbox,
+            });
+            await verifyApplePurchase(transactionId, sandbox);
+            iapLog("processPurchase → verifyApplePurchase returned OK");
+          } else if (normalizedStore === "google") {
+            const purchaseToken = purchase.purchaseToken;
+            if (!purchaseToken) {
+              throw new Error("Compra Android sem purchaseToken.");
+            }
+            iapLog("processPurchase → calling verifyGooglePurchase", {
+              purchaseToken: `${purchaseToken.slice(0, 20)}…`,
+            });
+            await verifyGooglePurchase(purchaseToken);
+            iapLog("processPurchase → verifyGooglePurchase returned OK");
+          } else {
+            throw new Error("Loja de compra não suportada.");
           }
-          await verifyApplePurchase(
-            transactionId,
-            isAppleSandboxPurchase(purchase),
-          );
-        } else if (normalizedStore === "google") {
-          const purchaseToken = purchase.purchaseToken;
-          if (!purchaseToken) {
-            throw new Error("Compra Android sem purchaseToken.");
-          }
-          await verifyGooglePurchase(purchaseToken);
-        } else {
-          throw new Error("Loja de compra não suportada.");
+        } catch (e: unknown) {
+          verifyError = e;
+          iapLog("processPurchase → verify threw", {
+            name: e instanceof Error ? e.name : typeof e,
+            message: e instanceof Error ? e.message : String(e),
+            retryable: e instanceof BillingApiError ? e.retryable : "n/a",
+            status: e instanceof BillingApiError ? e.status : "n/a",
+          });
         }
 
-        await finishTransaction({ purchase, isConsumable: false });
+        // Always finish the transaction unless it's a retryable server error (5xx).
+        // Non-retryable failures (expired, invalid, 400/404) must be cleared from the
+        // StoreKit queue — leaving them causes an infinite resend loop on iOS.
+        const isRetryable =
+          verifyError instanceof BillingApiError && verifyError.retryable;
+        iapLog("processPurchase → finishTransaction decision", {
+          isRetryable,
+          willFinish: !isRetryable,
+        });
+        if (!isRetryable) {
+          try {
+            await finishTransaction({ purchase, isConsumable: false });
+            iapLog("processPurchase → finishTransaction OK");
+          } catch (finishErr: unknown) {
+            iapLog("processPurchase → finishTransaction threw (ignored)", {
+              message: finishErr instanceof Error ? finishErr.message : String(finishErr),
+            });
+          }
+        } else {
+          iapLog("processPurchase → skipping finishTransaction (retryable 5xx)");
+        }
+
+        if (verifyError) {
+          throw verifyError;
+        }
+
+        const purchasedPlan = PLANS.find(
+          (p) => p.productId === purchase.productId,
+        );
+        iapLog("processPurchase → success", { planLabel: purchasedPlan?.label });
+        showToast({
+          title: "Assinatura ativada!",
+          message: `Plano ${purchasedPlan?.label ?? "assinado"} está ativo na sua conta.`,
+          tone: "success",
+        });
       } catch (purchaseProcessError: unknown) {
         processedPurchasesRef.current.delete(purchaseKey);
         const rawMessage =
           purchaseProcessError instanceof Error
             ? purchaseProcessError.message
             : null;
+        iapLog("processPurchase → outer catch (user-facing error)", { message: rawMessage });
         const message =
           toFriendlyMessage(rawMessage, "Falha ao validar sua compra.") ??
           "Falha ao validar sua compra.";
@@ -438,6 +519,14 @@ function SubscriptionPlansIapEnabled() {
   }, [incomingPurchase, processPurchase]);
 
   React.useEffect(() => {
+    iapLog("availablePurchases changed", {
+      count: availablePurchases.length,
+      items: availablePurchases.map((p) => ({
+        productId: p.productId,
+        transactionId: p.transactionId,
+        store: p.store,
+      })),
+    });
     if (!availablePurchases.length) return;
     for (const purchase of availablePurchases) {
       void processPurchase(purchase);
@@ -448,6 +537,7 @@ function SubscriptionPlansIapEnabled() {
     if (!isVerifyingPurchase) {
       setIsRequestingPurchase(false);
       setIsRestoringPurchases(false);
+      setPendingPurchaseProductId(null);
     }
   }, [isVerifyingPurchase]);
 
@@ -460,6 +550,20 @@ function SubscriptionPlansIapEnabled() {
   }, []);
 
   const currentCode = plan?.code ?? "FREE";
+  const isOnTrial = plan?.subscriptionStatus === "TRIAL";
+  const trialDaysLeft = React.useMemo(() => {
+    if (!isOnTrial || !plan?.trialEndsAt) return null;
+    const msLeft = new Date(plan.trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+  }, [isOnTrial, plan?.trialEndsAt]);
+  const trialDaysLabel =
+    trialDaysLeft === 0
+      ? "Expira hoje"
+      : trialDaysLeft === 1
+        ? "Último dia"
+        : trialDaysLeft != null
+          ? `${trialDaysLeft} dias restantes`
+          : null;
   const disableAllActions =
     isRequestingPurchase ||
     isRestoringPurchases ||
@@ -490,10 +594,13 @@ function SubscriptionPlansIapEnabled() {
     status: plan?.subscriptionStatus ?? null,
     currentPeriodEnd: plan?.currentPeriodEnd ?? null,
     trialEndsAt: plan?.trialEndsAt ?? null,
+    accessUntil: plan?.accessUntil ?? null,
+    isCanceled: plan?.isCanceled ?? false,
   });
   const hasEntitlement = hasSubscriptionEntitlement(
     plan?.subscriptionStatus ?? null,
   );
+  const showCanceledAccessCard = hasCanceledAccess(plan);
 
   // Aviso específico quando a loja conectou mas não retornou nenhum SKU
   const storeConnectedButEmpty =
@@ -552,6 +659,7 @@ function SubscriptionPlansIapEnabled() {
       clearPurchaseFeedback();
       setStoreError(null);
       setProductNotFoundError(null);
+      setPendingPurchaseProductId(planItem.productId);
       setIsRequestingPurchase(true);
       const identity = await fetchBillingIdentity();
 
@@ -606,6 +714,7 @@ function SubscriptionPlansIapEnabled() {
         tone: "error",
       });
       setIsRequestingPurchase(false);
+      setPendingPurchaseProductId(null);
     }
   }
 
@@ -722,7 +831,16 @@ function SubscriptionPlansIapEnabled() {
           </View>
         ) : null}
 
-        {entitlementMessage && plan?.code !== "FREE" ? (
+        {showCanceledAccessCard && plan?.code !== "FREE" && plan?.accessUntil ? (
+          <CanceledAccessCard
+            code={plan.code}
+            accessUntil={plan.accessUntil}
+            canceledAt={plan.canceledAt}
+            style={styles.canceledStatusCard}
+          />
+        ) : null}
+
+        {entitlementMessage && plan?.code !== "FREE" && !showCanceledAccessCard ? (
           <View
             style={[
               styles.feedbackCard,
@@ -778,40 +896,40 @@ function SubscriptionPlansIapEnabled() {
           </View>
         )}
 
-        {(friendlyPurchaseError || purchaseSuccess) && (
-          <View
-            style={[
-              styles.feedbackCard,
-              friendlyPurchaseError
-                ? styles.feedbackCardError
-                : styles.feedbackCardSuccess,
-            ]}
-          >
-            <Text
-              style={[
-                styles.feedbackText,
-                friendlyPurchaseError
-                  ? styles.feedbackTextError
-                  : styles.feedbackTextSuccess,
-              ]}
-            >
-              {friendlyPurchaseError ?? purchaseSuccess}
+        {friendlyPurchaseError && (
+          <View style={[styles.feedbackCard, styles.feedbackCardError]}>
+            <Text style={[styles.feedbackText, styles.feedbackTextError]}>
+              {friendlyPurchaseError}
             </Text>
           </View>
         )}
 
         {PLANS.map((planItem) => {
           const isCurrent = planItem.code === currentCode;
+          const isTrialing = isCurrent && isOnTrial;
+          const isSubscribed = isCurrent && !isOnTrial;
+          const isCanceledCurrent =
+            isSubscribed && Boolean(plan?.isCanceled && plan?.accessUntil);
           const isHighlight = planItem.highlight;
           const pricing = normalizeStorePrice(planItem, subscriptions);
+          const isPendingPurchaseButton =
+            pendingPurchaseProductId !== null &&
+            planItem.productId === pendingPurchaseProductId;
+          const shouldDisableSubscribeButton =
+            disableAllActions ||
+            (isRequestingPurchase && !isPendingPurchaseButton);
+          const showSubscribeSpinner =
+            isPendingPurchaseButton &&
+            (isRequestingPurchase || isVerifyingPurchase);
 
           return (
             <View
               key={planItem.code}
               style={[
                 styles.planCard,
-                isHighlight && styles.planCardHighlight,
-                isCurrent && styles.planCardCurrent,
+                isHighlight && !isCurrent && styles.planCardHighlight,
+                isSubscribed && styles.planCardCurrent,
+                isTrialing && styles.planCardTrial,
               ]}
             >
               {isHighlight && !isCurrent && (
@@ -822,6 +940,14 @@ function SubscriptionPlansIapEnabled() {
                   style={StyleSheet.absoluteFill}
                   pointerEvents="none"
                 />
+              )}
+              {isTrialing && (
+                <View style={styles.trialBadge}>
+                  <MaterialIcons name="hourglass-empty" size={11} color="#92400E" />
+                  <Text style={styles.trialBadgeText}>
+                    Trial · {trialDaysLabel ?? "ativo"}
+                  </Text>
+                </View>
               )}
               {isHighlight && !isCurrent && (
                 <View style={styles.popularBadge}>
@@ -905,17 +1031,42 @@ function SubscriptionPlansIapEnabled() {
                 ))}
               </View>
 
-              {isCurrent ? (
-                <View style={styles.currentBadge}>
+              {isSubscribed ? (
+                <View
+                  style={[
+                    styles.currentBadge,
+                    isCanceledCurrent && styles.currentBadgeCanceled,
+                  ]}
+                >
                   <MaterialIcons
-                    name="check"
+                    name={isCanceledCurrent ? "schedule" : "check"}
                     size={15}
-                    color={colors.primary}
+                    color={isCanceledCurrent ? "#92400E" : colors.primary}
                   />
-                  <Text style={styles.currentBadgeText}>Plano atual</Text>
+                  <Text
+                    style={[
+                      styles.currentBadgeText,
+                      isCanceledCurrent && styles.currentBadgeTextCanceled,
+                    ]}
+                  >
+                    {isCanceledCurrent ? "Ativo ate o fim do ciclo" : "Plano atual"}
+                  </Text>
                 </View>
               ) : planItem.code !== "FREE" ? (
                 <>
+                  {isTrialing && (
+                    <View style={styles.trialInfoRow}>
+                      <MaterialIcons
+                        name="hourglass-empty"
+                        size={14}
+                        color="#D97706"
+                      />
+                      <Text style={styles.trialInfoText}>
+                        Período de teste ativo
+                        {trialDaysLabel ? ` · ${trialDaysLabel}` : ""}
+                      </Text>
+                    </View>
+                  )}
                   <Text
                     style={[
                       styles.renewalNotice,
@@ -956,14 +1107,18 @@ function SubscriptionPlansIapEnabled() {
                   <TouchableOpacity
                     style={[
                       styles.subscribeButton,
-                      isHighlight && styles.subscribeButtonHighlight,
-                      disableAllActions && styles.subscribeButtonDisabled,
+                      isHighlight && !isCurrent && styles.subscribeButtonHighlight,
+                      shouldDisableSubscribeButton &&
+                        styles.subscribeButtonDisabled,
+                      isRequestingPurchase &&
+                        !isPendingPurchaseButton &&
+                        styles.subscribeButtonIdleWhileLocked,
                     ]}
                     onPress={() => handleSubscribe(planItem)}
                     activeOpacity={0.85}
-                    disabled={disableAllActions}
+                    disabled={shouldDisableSubscribeButton}
                   >
-                    {disableAllActions ? (
+                    {showSubscribeSpinner ? (
                       <ActivityIndicator
                         color={
                           isHighlight && !isCurrent
@@ -978,6 +1133,9 @@ function SubscriptionPlansIapEnabled() {
                           styles.subscribeButtonText,
                           isHighlight &&
                             !isCurrent && { color: colors.primary },
+                          isRequestingPurchase &&
+                            !isPendingPurchaseButton &&
+                            styles.subscribeButtonTextLocked,
                         ]}
                       >
                         Assinar por {pricing.price} {pricing.priceNote}
@@ -1023,6 +1181,7 @@ function SubscriptionPlansIapEnabled() {
           </Text>
         </View>
       </ScrollView>
+      <ToastRenderer topOffset={16} />
     </SafeAreaView>
   );
 }
@@ -1130,6 +1289,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#DCFCE7",
     borderColor: "#86EFAC",
   },
+  canceledStatusCard: {
+    marginBottom: spacing[12],
+  },
   feedbackText: {
     fontSize: 12,
     lineHeight: 18,
@@ -1162,6 +1324,47 @@ const styles = StyleSheet.create({
   planCardCurrent: {
     borderColor: colors.success,
     borderWidth: 2,
+  },
+  planCardTrial: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  trialBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[4],
+    borderBottomLeftRadius: radius.md,
+    borderTopRightRadius: radius.xl,
+  },
+  trialBadgeText: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    color: "#92400E",
+    letterSpacing: 0.2,
+  },
+  trialInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[6],
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
+    marginBottom: spacing[12],
+  },
+  trialInfoText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    color: "#B45309",
+    flex: 1,
   },
   popularBadge: {
     position: "absolute",
@@ -1255,6 +1458,9 @@ const styles = StyleSheet.create({
   subscribeButtonDisabled: {
     opacity: 0.7,
   },
+  subscribeButtonIdleWhileLocked: {
+    opacity: 0.5,
+  },
   verifyButtonDisabled: {
     opacity: 0.65,
   },
@@ -1262,6 +1468,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: colors.white,
+  },
+  subscribeButtonTextLocked: {
+    opacity: 0.8,
   },
   currentBadge: {
     flexDirection: "row",
@@ -1278,6 +1487,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.primary,
+  },
+  currentBadgeCanceled: {
+    backgroundColor: "#FFF7ED",
+    borderColor: "#FCD34D",
+  },
+  currentBadgeTextCanceled: {
+    color: "#92400E",
   },
   footer: {
     flexDirection: "row",

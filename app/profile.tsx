@@ -604,7 +604,10 @@ export default function ProfileScreen() {
   const isEmailPasswordUser =
     user?.providerData?.some((p) => p.providerId === "password") ?? false;
 
-  const subBadge = getStatusBadge(plan?.subscriptionStatus ?? null);
+  const subBadge = getStatusBadge({
+    status: plan?.subscriptionStatus ?? null,
+    isCanceled: plan?.isCanceled ?? false,
+  });
   const subSublabel = plan ? `${plan.name} · ${subBadge.label}` : "Gratuito";
 
   const [isEditing, setIsEditing] = useState(false);

@@ -7,6 +7,19 @@ import React, {
   useState,
 } from "react";
 
+import { forceRefreshIdToken } from "@/services/token";
+
+const TAG = "[SUB]";
+function subLog(event: string, data?: unknown): void {
+  if (__DEV__) {
+    if (data !== undefined) {
+      console.log(`${TAG} ${event}`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`${TAG} ${event}`);
+    }
+  }
+}
+
 import {
   BillingApiError,
   billingApi,
@@ -25,7 +38,6 @@ interface SubscriptionState {
   isVerifyingPurchase: boolean;
   error: string | null;
   purchaseError: string | null;
-  purchaseSuccess: string | null;
   refresh: () => Promise<void>;
   fetchBillingIdentity: () => Promise<{
     accountToken: string;
@@ -57,38 +69,66 @@ export function SubscriptionProvider({
   const [isVerifyingPurchase, setIsVerifyingPurchase] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
   const inFlightPurchases = useRef<Map<string, Promise<void>>>(new Map());
 
-  const refresh = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await subscriptionService.getMyPlan();
-      setPlan(data);
-    } catch (err: unknown) {
-      const mapped = mapBillingError(err);
+  const refresh = useCallback(
+    async (options?: { retryOnUnauthorized?: boolean }) => {
+      const retryOnUnauthorized = options?.retryOnUnauthorized === true;
 
-      // 401 = sessão expirada — não sobrescreve o plano, deixa o AuthGate agir.
-      if (mapped.status === 401 || mapped.code === "UNAUTHORIZED") {
-        setError(getFriendlySubscriptionError(mapped));
-        return;
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await subscriptionService.getMyPlan();
+        setPlan(data);
+      } catch (err: unknown) {
+        const mapped = mapBillingError(err);
+
+        if (
+          retryOnUnauthorized &&
+          (mapped.status === 401 || mapped.code === "UNAUTHORIZED")
+        ) {
+          subLog(
+            "refresh → 401 after purchase, force-refreshing token and retrying once",
+          );
+          try {
+            await forceRefreshIdToken();
+            const data = await subscriptionService.getMyPlan();
+            setPlan(data);
+            subLog("refresh → retry after token refresh succeeded");
+            return;
+          } catch (retryError: unknown) {
+            const retryMapped = mapBillingError(retryError);
+            subLog("refresh → retry after token refresh failed", {
+              status: retryMapped.status,
+              code: retryMapped.code,
+              message: retryMapped.message,
+            });
+            setError(getFriendlySubscriptionError(retryMapped));
+            return;
+          }
+        }
+
+        // 401 = sessão expirada — não sobrescreve o plano, deixa o AuthGate agir.
+        if (mapped.status === 401 || mapped.code === "UNAUTHORIZED") {
+          setError(getFriendlySubscriptionError(mapped));
+          return;
+        }
+
+        // Para qualquer outro erro (404, 500, timeout, rede), fazemos fallback
+        // para FREE para que o app mostre o modal de upgrade ao invés de
+        // "Assinatura indisponível". Isso evita que cold-starts do servidor
+        // bloqueiem completamente o fluxo do usuário.
+        setPlan(buildFreeSubscriptionInfo());
+        setError(null);
+      } finally {
+        setIsLoading(false);
       }
-
-      // Para qualquer outro erro (404, 500, timeout, rede), fazemos fallback
-      // para FREE para que o app mostre o modal de upgrade ao invés de
-      // "Assinatura indisponível". Isso evita que cold-starts do servidor
-      // bloqueiem completamente o fluxo do usuário.
-      setPlan(buildFreeSubscriptionInfo());
-      setError(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   const clearPurchaseFeedback = useCallback(() => {
     setPurchaseError(null);
-    setPurchaseSuccess(null);
   }, []);
 
   const fetchBillingIdentity = useCallback(async () => {
@@ -104,7 +144,6 @@ export function SubscriptionProvider({
         try {
           setIsVerifyingPurchase(true);
           setPurchaseError(null);
-          setPurchaseSuccess(null);
           await operation();
         } finally {
           inFlightPurchases.current.delete(key);
@@ -134,24 +173,41 @@ export function SubscriptionProvider({
       }
 
       return verifyWithIdempotency(`APPLE:${trimmed}`, async () => {
+        subLog("verifyApplePurchase → POST /billing/mobile/verify", {
+          provider: "APPLE",
+          transactionId: trimmed,
+          appleSandbox,
+        });
         try {
           const result = await billingApi.verifyApplePurchase(
             trimmed,
             appleSandbox,
           );
+          subLog("verifyApplePurchase → response", {
+            idempotent: result.idempotent,
+            eventId: result.eventId,
+            effectivePlan: result.effectivePlan,
+          });
+          subLog("verifyApplePurchase → force-refreshing Firebase token");
+          await forceRefreshIdToken().catch((e: unknown) => {
+            subLog("verifyApplePurchase → token refresh failed", {
+              message: e instanceof Error ? e.message : String(e),
+            });
+          });
           setPlan((prev) =>
             mapEffectivePlanToSubscription(result.effectivePlan, {
               ownedProjectCount: prev?.ownedProjectCount ?? 0,
               canCreateProject: prev?.canCreateProject ?? true,
             }),
           );
-          await refresh();
-          setPurchaseSuccess(
-            result.idempotent
-              ? "Compra ja processada anteriormente. Assinatura sincronizada."
-              : "Assinatura atualizada com sucesso.",
-          );
+          subLog("verifyApplePurchase → calling refresh()");
+          await refresh({ retryOnUnauthorized: true });
+          subLog("verifyApplePurchase → refresh() done");
         } catch (error: unknown) {
+          subLog("verifyApplePurchase → error", {
+            name: error instanceof Error ? error.name : typeof error,
+            message: error instanceof Error ? error.message : String(error),
+          });
           throw await handleVerifyError(error);
         }
       });
@@ -168,21 +224,37 @@ export function SubscriptionProvider({
       }
 
       return verifyWithIdempotency(`GOOGLE:${trimmed}`, async () => {
+        subLog("verifyGooglePurchase → POST /billing/mobile/verify", {
+          provider: "GOOGLE",
+          purchaseToken: `${trimmed.slice(0, 20)}…`,
+        });
         try {
           const result = await billingApi.verifyGooglePurchase(trimmed);
+          subLog("verifyGooglePurchase → response", {
+            idempotent: result.idempotent,
+            eventId: result.eventId,
+            effectivePlan: result.effectivePlan,
+          });
+          subLog("verifyGooglePurchase → force-refreshing Firebase token");
+          await forceRefreshIdToken().catch((e: unknown) => {
+            subLog("verifyGooglePurchase → token refresh failed", {
+              message: e instanceof Error ? e.message : String(e),
+            });
+          });
           setPlan((prev) =>
             mapEffectivePlanToSubscription(result.effectivePlan, {
               ownedProjectCount: prev?.ownedProjectCount ?? 0,
               canCreateProject: prev?.canCreateProject ?? true,
             }),
           );
-          await refresh();
-          setPurchaseSuccess(
-            result.idempotent
-              ? "Compra ja processada anteriormente. Assinatura sincronizada."
-              : "Assinatura atualizada com sucesso.",
-          );
+          subLog("verifyGooglePurchase → calling refresh()");
+          await refresh({ retryOnUnauthorized: true });
+          subLog("verifyGooglePurchase → refresh() done");
         } catch (error: unknown) {
+          subLog("verifyGooglePurchase → error", {
+            name: error instanceof Error ? error.name : typeof error,
+            message: error instanceof Error ? error.message : String(error),
+          });
           throw await handleVerifyError(error);
         }
       });
@@ -197,7 +269,6 @@ export function SubscriptionProvider({
       isVerifyingPurchase,
       error,
       purchaseError,
-      purchaseSuccess,
       refresh,
       fetchBillingIdentity,
       clearPurchaseFeedback,
@@ -210,7 +281,6 @@ export function SubscriptionProvider({
       isVerifyingPurchase,
       error,
       purchaseError,
-      purchaseSuccess,
       refresh,
       fetchBillingIdentity,
       clearPurchaseFeedback,

@@ -19,6 +19,11 @@ export interface SubscriptionInfo {
   subscriptionStatus: SubscriptionStatus;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  accessUntil: string | null;
+  cancelAtPeriodEnd: boolean;
+  willRenew: boolean;
+  isCanceled: boolean;
+  canceledAt: string | null;
   ownedProjectCount: number;
   canCreateProject: boolean;
 }
@@ -32,6 +37,11 @@ export function buildFreeSubscriptionInfo(): SubscriptionInfo {
     subscriptionStatus: null,
     trialEndsAt: null,
     currentPeriodEnd: null,
+    accessUntil: null,
+    cancelAtPeriodEnd: false,
+    willRenew: false,
+    isCanceled: false,
+    canceledAt: null,
     ownedProjectCount: 0,
     canCreateProject: false,
   };
@@ -41,7 +51,9 @@ export const subscriptionService = {
   getMyPlan: (): Promise<SubscriptionInfo> => billingApi.getMySubscription(),
 };
 
-export function hasSubscriptionEntitlement(status: SubscriptionStatus): boolean {
+export function hasSubscriptionEntitlement(
+  status: SubscriptionStatus,
+): boolean {
   return (
     status === "TRIAL" ||
     status === "ACTIVE" ||
@@ -50,45 +62,60 @@ export function hasSubscriptionEntitlement(status: SubscriptionStatus): boolean 
   );
 }
 
+export function formatSubscriptionDate(
+  value: string | null | undefined,
+  options?: { verbose?: boolean },
+): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (options?.verbose) {
+    return date.toLocaleDateString("pt-BR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+export function hasCanceledAccess(
+  subscription:
+    | Pick<SubscriptionInfo, "isCanceled" | "accessUntil">
+    | null
+    | undefined,
+): boolean {
+  return Boolean(subscription?.isCanceled && subscription?.accessUntil);
+}
+
 export function getSubscriptionStatusMessage(params: {
   status: SubscriptionStatus;
   currentPeriodEnd?: string | null;
   trialEndsAt?: string | null;
+  accessUntil?: string | null;
+  isCanceled?: boolean;
 }): string | null {
-  const { status, currentPeriodEnd, trialEndsAt } = params;
+  const { status, isCanceled } = params;
 
-  const formatDate = (value: string | null | undefined) => {
-    if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
+  if (isCanceled) {
+    return null;
+  }
 
   switch (status) {
     case "ACTIVE":
-      return "Assinatura ativa.";
-    case "GRACE": {
-      const date = formatDate(currentPeriodEnd);
-      return date
-        ? `Houve um problema na renovação, mas seu acesso segue ativo temporariamente até ${date}.`
-        : "Houve um problema na renovação, mas seu acesso segue ativo temporariamente.";
-    }
-    case "CANCELED": {
-      const date = formatDate(currentPeriodEnd);
-      return date
-        ? `Renovação cancelada. Seu acesso continua até ${date}.`
-        : "Renovação cancelada. Seu acesso continua até o fim do período atual.";
-    }
-    case "TRIAL": {
-      const date = formatDate(trialEndsAt);
-      return date
-        ? `Período de teste ativo até ${date}.`
-        : "Período de teste ativo.";
-    }
+      return null;
+    case "GRACE":
+      return "Identificamos um problema na renovação, mas seu acesso segue ativo temporariamente.";
+    case "CANCELED":
+      return "A renovação automática foi desativada para este plano.";
+    case "TRIAL":
+      return "Você está em período de teste.";
     case "PAST_DUE":
       return "Sua assinatura não está mais ativa por falha de cobrança. Atualize o pagamento para recuperar o acesso.";
     case "EXPIRED":
@@ -98,11 +125,18 @@ export function getSubscriptionStatusMessage(params: {
   }
 }
 
-export function getStatusBadge(status: SubscriptionStatus): {
+export function getStatusBadge(params: {
+  status: SubscriptionStatus;
+  isCanceled?: boolean;
+}): {
   label: string;
   color: string;
 } {
-  switch (status) {
+  if (params.isCanceled) {
+    return { label: "Cancelada ao fim do ciclo", color: "#B45309" };
+  }
+
+  switch (params.status) {
     case "TRIAL":
       return { label: "Trial ativo", color: "#2563EB" };
     case "ACTIVE":

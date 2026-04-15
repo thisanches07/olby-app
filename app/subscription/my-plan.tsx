@@ -14,58 +14,51 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ToastRenderer } from "@/components/obra/toast";
+import { CanceledAccessCard } from "@/components/subscription/canceled-access-card";
 import { useSubscription } from "@/contexts/subscription-context";
-import { colors } from "@/theme/colors";
-import { radius } from "@/theme/radius";
-import { shadow } from "@/theme/shadows";
-import { spacing } from "@/theme/spacing";
 import {
   formatPrice,
+  formatSubscriptionDate,
   getStatusBadge,
   getSubscriptionStatusMessage,
+  hasCanceledAccess,
   hasSubscriptionEntitlement,
   type PlanCode,
   type SubscriptionStatus,
 } from "@/services/subscription.service";
+import { colors } from "@/theme/colors";
+import { radius } from "@/theme/radius";
+import { shadow } from "@/theme/shadows";
+import { spacing } from "@/theme/spacing";
 
 const PLAN_FEATURES: Record<PlanCode, { ok: boolean; text: string }[]> = {
   FREE: [
     { ok: true, text: "Visualizar obras como convidado (ilimitado)" },
-    { ok: false, text: "Criar suas próprias obras" },
+    { ok: false, text: "Criar suas proprias obras" },
   ],
   BASIC: [
-    { ok: true, text: "Criar até 3 obras ativas" },
+    { ok: true, text: "Criar ate 3 obras ativas" },
     { ok: true, text: "Convidar clientes (ilimitado)" },
-    { ok: true, text: "Diário de obra" },
+    { ok: true, text: "Diario de obra" },
     { ok: true, text: "Controle de despesas" },
-    { ok: true, text: "Gestão de tarefas" },
+    { ok: true, text: "Gestao de tarefas" },
   ],
   PRO: [
     { ok: true, text: "Obras ilimitadas" },
     { ok: true, text: "Convidar clientes (ilimitado)" },
-    { ok: true, text: "Diário de obra" },
+    { ok: true, text: "Diario de obra" },
     { ok: true, text: "Controle de despesas" },
-    { ok: true, text: "Gestão de tarefas" },
-    { ok: true, text: "Suporte prioritário" },
+    { ok: true, text: "Gestao de tarefas" },
+    { ok: true, text: "Suporte prioritario" },
   ],
 };
 
 const PLAN_LABELS: Record<PlanCode, string> = {
   FREE: "Gratuito",
-  BASIC: "Básico",
+  BASIC: "Basico",
   PRO: "Profissional",
 };
-
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 function getAlertTone(status: SubscriptionStatus) {
   switch (status) {
@@ -113,11 +106,15 @@ function StatusAlert(props: {
   status: SubscriptionStatus;
   periodEnd: string | null;
   trialEnd: string | null;
+  accessUntil: string | null;
+  isCanceled: boolean;
 }) {
   const message = getSubscriptionStatusMessage({
     status: props.status,
     currentPeriodEnd: props.periodEnd,
     trialEndsAt: props.trialEnd,
+    accessUntil: props.accessUntil,
+    isCanceled: props.isCanceled,
   });
 
   if (!message) return null;
@@ -141,8 +138,6 @@ async function openSubscriptionManagement(refresh: () => Promise<void>) {
   try {
     await Linking.openURL(url);
   } finally {
-    // The global foreground refresh handles the usual return path.
-    // This keeps manual refresh available if the deep link bounces instantly.
     void refresh();
   }
 }
@@ -152,17 +147,23 @@ export default function MyPlanScreen() {
 
   const code = plan?.code ?? "FREE";
   const status = plan?.subscriptionStatus ?? null;
-  const badge = getStatusBadge(status);
+  const badge = getStatusBadge({
+    status,
+    isCanceled: plan?.isCanceled ?? false,
+  });
   const features = PLAN_FEATURES[code];
   const periodEnd = plan?.currentPeriodEnd ?? null;
   const trialEnd = plan?.trialEndsAt ?? null;
+  const accessUntil = plan?.accessUntil ?? null;
+  const canceledAt = plan?.canceledAt ?? null;
   const ownedCount = plan?.ownedProjectCount ?? 0;
   const limit = plan?.projectLimit ?? 0;
-  const price = plan ? formatPrice(plan.priceCents) : "Grátis";
+  const price = plan ? formatPrice(plan.priceCents) : "Gratis";
 
-  const renewalDate = formatDate(periodEnd);
-  const trialEndDate = formatDate(trialEnd);
+  const renewalDate = formatSubscriptionDate(periodEnd);
+  const trialEndDate = formatSubscriptionDate(trialEnd);
   const hasEntitlement = hasSubscriptionEntitlement(status);
+  const showCanceledAccessCard = hasCanceledAccess(plan);
   const usagePercent = limit > 0 ? Math.min(ownedCount / limit, 1) : 0;
 
   return (
@@ -197,7 +198,23 @@ export default function MyPlanScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <StatusAlert status={status} periodEnd={periodEnd} trialEnd={trialEnd} />
+        {!showCanceledAccessCard ? (
+          <StatusAlert
+            status={status}
+            periodEnd={periodEnd}
+            trialEnd={trialEnd}
+            accessUntil={accessUntil}
+            isCanceled={plan?.isCanceled ?? false}
+          />
+        ) : null}
+
+        {showCanceledAccessCard && accessUntil ? (
+          <CanceledAccessCard
+            code={code}
+            accessUntil={accessUntil}
+            canceledAt={canceledAt}
+          />
+        ) : null}
 
         <View style={styles.planCard}>
           <View style={styles.planCardHeader}>
@@ -215,7 +232,7 @@ export default function MyPlanScreen() {
             </View>
           </View>
 
-          {status === "ACTIVE" && renewalDate ? (
+          {status === "ACTIVE" && renewalDate && !showCanceledAccessCard ? (
             <View style={styles.dateRow}>
               <MaterialIcons
                 name="event-repeat"
@@ -229,7 +246,7 @@ export default function MyPlanScreen() {
           {status === "TRIAL" && trialEndDate ? (
             <View style={styles.dateRow}>
               <MaterialIcons name="event" size={14} color={colors.textMuted} />
-              <Text style={styles.dateText}>Trial até {trialEndDate}</Text>
+              <Text style={styles.dateText}>Trial ate {trialEndDate}</Text>
             </View>
           ) : null}
 
@@ -240,7 +257,7 @@ export default function MyPlanScreen() {
                 size={14}
                 color={colors.textMuted}
               />
-              <Text style={styles.dateText}>Acesso até {renewalDate}</Text>
+              <Text style={styles.dateText}>Acesso ate {renewalDate}</Text>
             </View>
           ) : null}
 
@@ -252,7 +269,7 @@ export default function MyPlanScreen() {
                 color={colors.textMuted}
               />
               <Text style={styles.dateText}>
-                Acesso temporariamente mantido até {renewalDate}
+                Acesso temporariamente mantido ate {renewalDate}
               </Text>
             </View>
           ) : null}
@@ -293,7 +310,7 @@ export default function MyPlanScreen() {
         </View>
 
         <View style={styles.featuresCard}>
-          <Text style={styles.featuresTitle}>O que está incluído</Text>
+          <Text style={styles.featuresTitle}>O que esta incluido</Text>
           <View style={styles.featureList}>
             {features.map((feature, index) => (
               <View key={index} style={styles.featureRow}>
@@ -350,6 +367,7 @@ export default function MyPlanScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      <ToastRenderer topOffset={16} />
     </SafeAreaView>
   );
 }
