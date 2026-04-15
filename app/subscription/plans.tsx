@@ -227,7 +227,7 @@ function ExpoGoIapUnavailable() {
 
 function SubscriptionPlansIapEnabled() {
   const { showToast } = useToast();
-  const params = useLocalSearchParams<{ reason?: string }>();
+  const params = useLocalSearchParams<{ reason?: string; source?: string }>();
   const {
     plan,
     error,
@@ -446,6 +446,11 @@ function SubscriptionPlansIapEnabled() {
           message: `Plano ${purchasedPlan?.label ?? "assinado"} está ativo na sua conta.`,
           tone: "success",
         });
+        if (source === "my-plan") {
+          router.back();
+        } else {
+          router.replace("/subscription/my-plan");
+        }
       } catch (purchaseProcessError: unknown) {
         processedPurchasesRef.current.delete(purchaseKey);
         const rawMessage =
@@ -572,6 +577,7 @@ function SubscriptionPlansIapEnabled() {
   const rawReason = Array.isArray(params.reason)
     ? params.reason[0]
     : params.reason;
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const reasonMessage =
     rawReason === "free_required"
       ? "Assine um plano para criar e acompanhar suas obras."

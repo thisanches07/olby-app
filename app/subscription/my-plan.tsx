@@ -349,7 +349,7 @@ export default function MyPlanScreen() {
             styles.plansButton,
             hasEntitlement && code !== "FREE" && styles.plansButtonSecondary,
           ]}
-          onPress={() => router.push("/subscription/plans")}
+          onPress={() => router.push("/subscription/plans?source=my-plan")}
           activeOpacity={0.85}
         >
           <MaterialIcons
