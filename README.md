@@ -5,7 +5,7 @@
 As lojas (App Store / Google Play) exigem uma **URL pública (HTTPS)** para a Política de Privacidade.
 
 - Arquivos: `legal/index.html`, `legal/privacy.html`, `legal/terms.html`
-- Suporte: `suporte@oblyapp.com.com`
+- Suporte: `suporte@oblyapp.com`
 
 ## Publicar (recomendado: Vercel ou Netlify)
 
