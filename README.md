@@ -5,7 +5,7 @@
 As lojas (App Store / Google Play) exigem uma **URL pública (HTTPS)** para a Política de Privacidade.
 
 - Arquivos: `legal/index.html`, `legal/privacy.html`, `legal/terms.html`
-- Suporte: `oblyapp.contact@gmail.com`
+- Suporte: `suporte@oblyapp.com.com`
 
 ## Publicar (recomendado: Vercel ou Netlify)
 
@@ -70,4 +70,4 @@ npm run lint
 
 If you are on Windows, local iOS compilation with Xcode is not available.
 The professional workflow is exactly this: build Dev Client once with EAS, then iterate locally with Metro + hot reload.
-"# olby-app" 
+"# olby-app"
