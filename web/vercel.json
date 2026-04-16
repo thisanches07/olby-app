@@ -6,6 +6,7 @@
     { "source": "/auth-action",    "destination": "/legal/auth-action.html" },
     { "source": "/reset-password", "destination": "/legal/reset-password.html" },
     { "source": "/verify-email",   "destination": "/legal/verify-email.html" },
+    { "source": "/delete-account", "destination": "/legal/delete-account.html" },
     { "source": "/styles.css",     "destination": "/legal/styles.css" }
   ],
   "headers": [
