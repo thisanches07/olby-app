@@ -1,7 +1,8 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useRef } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -16,6 +17,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ToastRenderer } from "@/components/obra/toast";
 import { CanceledAccessCard } from "@/components/subscription/canceled-access-card";
+import { NoSubscriptionSheet, type NoSubscriptionSheetRef } from "@/components/subscription/no-subscription-sheet";
+import { RoleQualificationSheet, type RoleQualificationSheetRef } from "@/components/subscription/role-qualification-sheet";
 import { useSubscription } from "@/contexts/subscription-context";
 import {
   formatPrice,
@@ -144,6 +147,8 @@ async function openSubscriptionManagement(refresh: () => Promise<void>) {
 
 export default function MyPlanScreen() {
   const { plan, isLoading, refresh } = useSubscription();
+  const roleQualificationSheetRef = useRef<RoleQualificationSheetRef>(null);
+  const noSubscriptionSheetRef = useRef<NoSubscriptionSheetRef>(null);
 
   const code = plan?.code ?? "FREE";
   const status = plan?.subscriptionStatus ?? null;
@@ -167,6 +172,7 @@ export default function MyPlanScreen() {
   const usagePercent = limit > 0 ? Math.min(ownedCount / limit, 1) : 0;
 
   return (
+    <BottomSheetModalProvider>
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="light" />
 
@@ -349,7 +355,16 @@ export default function MyPlanScreen() {
             styles.plansButton,
             hasEntitlement && code !== "FREE" && styles.plansButtonSecondary,
           ]}
-          onPress={() => router.push("/subscription/plans?source=my-plan")}
+          onPress={() => {
+            if (code === "FREE") {
+              roleQualificationSheetRef.current?.open(
+                () => router.push("/subscription/plans?source=my-plan"),
+                () => noSubscriptionSheetRef.current?.open(),
+              );
+            } else {
+              router.push("/subscription/plans?source=my-plan");
+            }
+          }}
           activeOpacity={0.85}
         >
           <MaterialIcons
@@ -368,7 +383,10 @@ export default function MyPlanScreen() {
         </TouchableOpacity>
       </ScrollView>
       <ToastRenderer topOffset={16} />
+      <RoleQualificationSheet ref={roleQualificationSheetRef} />
+      <NoSubscriptionSheet ref={noSubscriptionSheetRef} />
     </SafeAreaView>
+    </BottomSheetModalProvider>
   );
 }
 

@@ -4,13 +4,12 @@ import { FlashList } from "@shopify/flash-list";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Platform,
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Animated, {
@@ -28,6 +27,8 @@ import { HomeSearchBar } from "@/components/home/home-search-bar";
 import { ObraCard, StatusType } from "@/components/obra-card";
 import { ObraCardSkeleton } from "@/components/obra/obra-card-skeleton";
 import { CreateProjectModal } from "@/components/projeto/create-project-modal";
+import { NoSubscriptionSheet, type NoSubscriptionSheetRef } from "@/components/subscription/no-subscription-sheet";
+import { RoleQualificationSheet, type RoleQualificationSheetRef } from "@/components/subscription/role-qualification-sheet";
 import { UpgradeModal } from "@/components/subscription/upgrade-modal";
 import { FadeSlideIn } from "@/components/ui/fade-slide-in";
 import { PressableScale } from "@/components/ui/pressable-scale";
@@ -51,6 +52,8 @@ export default function MinhasObrasScreen() {
   const [filtroAtivo, setFiltroAtivo] = useState<StatusType | "todas">("todas");
   const [mode, setMode] = useState<"cliente" | "engenheiro">("cliente");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const roleQualificationSheetRef = useRef<RoleQualificationSheetRef>(null);
+  const noSubscriptionSheetRef = useRef<NoSubscriptionSheetRef>(null);
   type ModalMode =
     | null
     | "plan_error"
@@ -79,8 +82,6 @@ export default function MinhasObrasScreen() {
     ownedCount >= planLimit;
   const canCreate =
     !!plan && !isFreePlan && !isBasicAtLimit && plan.canCreateProject === true;
-  const isCreateBlocked =
-    !!plan && (isFreePlan || isBasicAtLimit || plan.canCreateProject === false);
 
   // Só busca da API na primeira vez que a tela entra em foco
   useFocusEffect(
@@ -123,15 +124,6 @@ export default function MinhasObrasScreen() {
     });
   }, [obras, busca, filtroAtivo, backendUserId, user?.displayName]);
 
-  const openPlansForBlockedCreation = useCallback(() => {
-    router.push({
-      pathname: "/subscription/plans",
-      params: {
-        reason: isFreePlan ? "free_required" : "project_limit_reached",
-      },
-    });
-  }, [isFreePlan]);
-
   const handleCreateProject = useCallback(
     (novaObra: ObraDetalhe) => {
       setShowCreateModal(false);
@@ -161,7 +153,10 @@ export default function MinhasObrasScreen() {
       setModalMode("plan_error");
       return;
     }
-    setModalMode("blocked_upgrade");
+    roleQualificationSheetRef.current?.open(
+      () => setModalMode("blocked_upgrade"),
+      () => noSubscriptionSheetRef.current?.open(),
+    );
   }, [isPlanKnown]);
 
   const handlePressCreate = useCallback(() => {
@@ -271,32 +266,6 @@ export default function MinhasObrasScreen() {
                 />
               </View>
 
-              {isCreateBlocked && (
-                <TouchableOpacity
-                  style={styles.limitBanner}
-                  activeOpacity={0.85}
-                  onPress={openPlansForBlockedCreation}
-                >
-                  <MaterialIcons
-                    name="lock-outline"
-                    size={16}
-                    color={colors.warning}
-                  />
-                  <View>
-                    <Text style={styles.limitBannerTitle}>
-                      {isFreePlan
-                        ? "Assinatura necessária"
-                        : "Limite do plano atingido"}
-                    </Text>
-                    <Text style={styles.limitBannerText}>
-                      {isFreePlan
-                        ? "Assine um plano para criar e acompanhar suas obras."
-                        : "Faça upgrade para criar novas obras."}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
               {isLoading && (
                 <>
                   <ObraCardSkeleton />
@@ -324,6 +293,9 @@ export default function MinhasObrasScreen() {
           onSave={handleCreateProject}
           onRequireUpgrade={handleRequireUpgrade}
         />
+
+        <RoleQualificationSheet ref={roleQualificationSheetRef} />
+        <NoSubscriptionSheet ref={noSubscriptionSheetRef} />
 
         <UpgradeModal
           visible={modalMode !== null}
