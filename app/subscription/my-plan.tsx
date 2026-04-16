@@ -356,7 +356,7 @@ export default function MyPlanScreen() {
             hasEntitlement && code !== "FREE" && styles.plansButtonSecondary,
           ]}
           onPress={() => {
-            if (code === "FREE") {
+            if (!hasEntitlement) {
               roleQualificationSheetRef.current?.open(
                 () => router.push("/subscription/plans?source=my-plan"),
                 () => noSubscriptionSheetRef.current?.open(),
