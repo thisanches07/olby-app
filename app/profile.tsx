@@ -1,5 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -1517,7 +1518,9 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.versionSpacer} />
-          <Text style={styles.versionText}>Obly App · v1.0.0</Text>
+          <Text style={styles.versionText}>
+            Obly App · v{Constants.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "—"}
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
