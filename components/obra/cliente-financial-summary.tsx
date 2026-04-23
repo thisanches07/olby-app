@@ -1,5 +1,6 @@
 import type { ObraDetalhe } from "@/data/obras";
 import { PRIMARY, formatBRL, formatCompact } from "@/utils/obra-utils";
+import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -27,36 +28,48 @@ export function ClienteFinancialSummary({
 
   return (
     <>
-      <Text style={styles.sectionTitle}>FINANCEIRO</Text>
+      <View style={styles.sectionTitleRow}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionTitle}>FINANCEIRO</Text>
+      </View>
       <View style={styles.card}>
 
         {/* ── Barra de progresso ─────────────────────── */}
         <View style={styles.barRow}>
           <View style={styles.track}>
-            <View
-              style={[
-                styles.fill,
-                {
-                  width: `${pct}%` as `${number}%`,
-                  backgroundColor: barColor,
-                },
-              ]}
+            <LinearGradient
+              colors={
+                pct >= 90
+                  ? ["#EF4444", "#DC2626"]
+                  : pct >= 70
+                    ? ["#F97316", "#EA580C"]
+                    : ["#3B82F6", "#2563EB"]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.fill, { width: `${pct}%` as `${number}%` }]}
             />
           </View>
-          <Text style={[styles.barPct, { color: barColor }]}>{pct}%</Text>
+          <Text style={styles.barPct}>{pct}%</Text>
         </View>
 
         {/* ── 3 métricas ─────────────────────────────── */}
         <View style={styles.metricsRow}>
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>Gasto</Text>
+            <View style={styles.metricLabelRow}>
+              <MaterialIcons name="trending-up" size={12} color={PRIMARY} />
+              <Text style={styles.metricLabel}>Gasto</Text>
+            </View>
             <Text style={[styles.metricValue, { color: PRIMARY }]}>
               {formatCompact(obra.totalInvestido)}
             </Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={[styles.metricItem, { alignItems: "center" }]}>
-            <Text style={styles.metricLabel}>Saldo</Text>
+            <View style={styles.metricLabelRow}>
+              <MaterialIcons name="account-balance-wallet" size={12} color={saldo >= 0 ? "#22C55E" : "#EF4444"} />
+              <Text style={styles.metricLabel}>Saldo</Text>
+            </View>
             <Text
               style={[
                 styles.metricValue,
@@ -68,7 +81,10 @@ export function ClienteFinancialSummary({
           </View>
           <View style={styles.metricDivider} />
           <View style={[styles.metricItem, { alignItems: "flex-end" }]}>
-            <Text style={styles.metricLabel}>Orçamento</Text>
+            <View style={[styles.metricLabelRow, { justifyContent: "flex-end" }]}>
+              <MaterialIcons name="pie-chart" size={12} color="#9CA3AF" />
+              <Text style={styles.metricLabel}>Orçamento</Text>
+            </View>
             <Text style={[styles.metricValue, { color: "#374151" }]}>
               {formatCompact(obra.orcamento)}
             </Text>
@@ -111,14 +127,25 @@ export function ClienteFinancialSummary({
 }
 
 const styles = StyleSheet.create({
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  sectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#2563EB",
+  },
   sectionTitle: {
     fontSize: 11,
     fontWeight: "700",
     color: "#9CA3AF",
     letterSpacing: 0.8,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 4,
   },
   card: {
     backgroundColor: "#FFFFFF",
@@ -142,17 +169,18 @@ const styles = StyleSheet.create({
   },
   track: {
     flex: 1,
-    height: 6,
+    height: 8,
     backgroundColor: "#F3F4F6",
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: "hidden",
   },
-  fill: { height: "100%", borderRadius: 3 },
+  fill: { height: "100%", borderRadius: 4 },
   barPct: {
     fontSize: 12,
     fontWeight: "700",
     minWidth: 36,
     textAlign: "right",
+    color: "#111827",
   },
 
   // ── 3 métricas ───────────────────────────────────────
@@ -167,15 +195,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     marginHorizontal: 12,
   },
+  metricLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 3,
+  },
   metricLabel: {
     fontSize: 11,
     fontWeight: "500",
     color: "#9CA3AF",
-    marginBottom: 3,
   },
   metricValue: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: "800",
+    letterSpacing: -0.3,
   },
 
   // ── Divider ──────────────────────────────────────────
@@ -190,7 +224,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 10,
   },
   teaserLeft: {
     flexDirection: "row",

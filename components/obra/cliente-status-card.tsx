@@ -78,46 +78,24 @@ export function ClienteStatusCard({ obra }: ClienteStatusCardProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionLabel}>ANDAMENTO DAS ETAPAS</Text>
+      <View style={styles.sectionLabelRow}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionLabel}>ANDAMENTO DAS ETAPAS</Text>
+      </View>
       <View style={styles.card}>
 
         {/* ── Cabeçalho ────────────────────────────────────── */}
-        <View style={styles.completionRow}>
-          <View>
-            <Text style={styles.completionNum}>
-              {concluidas}{" "}
-              <Text style={styles.completionNumLight}>de {totalTarefas}</Text>
-            </Text>
+        <View style={styles.completionHeader}>
+          <Text style={styles.completionNum}>
+            {concluidas}{" "}
+            <Text style={styles.completionNumLight}>de {totalTarefas}</Text>
+            {"  "}
             <Text style={styles.completionLabel}>etapas concluídas</Text>
+          </Text>
+          {/* Barra fina de progresso no cabeçalho */}
+          <View style={styles.headerProgressTrack}>
+            <View style={[styles.headerProgressFill, { width: `${pct}%` as `${number}%` }]} />
           </View>
-
-          {/* Dots (≤ DOTS_MAX) ou barra de progresso compacta */}
-          {totalTarefas <= DOTS_MAX ? (
-            <View style={styles.dotsRow}>
-              {obra.tarefas.map((t, i) => (
-                <View
-                  key={t.id}
-                  style={[
-                    styles.dot,
-                    t.concluida
-                      ? styles.dotDone
-                      : i === activeIdx
-                        ? styles.dotActive
-                        : styles.dotPending,
-                  ]}
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.miniProgress}>
-              <View style={styles.miniProgressTrack}>
-                <View
-                  style={[styles.miniProgressFill, { width: `${pct}%` as any }]}
-                />
-              </View>
-              <Text style={styles.miniProgressPct}>{pct}%</Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.divider} />
@@ -190,6 +168,7 @@ export function ClienteStatusCard({ obra }: ClienteStatusCardProps) {
                 style={[
                   styles.milestoneContent,
                   showConnectorAfter && { paddingBottom: 16 },
+                  isActive && styles.milestoneContentActive,
                 ]}
               >
                 <Text
@@ -290,13 +269,24 @@ export function ClienteStatusCard({ obra }: ClienteStatusCardProps) {
 const styles = StyleSheet.create({
   container: { paddingTop: 4 },
 
+  sectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  sectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#2563EB",
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: "#9CA3AF",
     letterSpacing: 0.8,
-    marginHorizontal: 16,
-    marginBottom: 8,
   },
 
   card: {
@@ -313,17 +303,16 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ─────────────────────────────────────────────
-  completionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  completionHeader: {
     marginBottom: 12,
   },
+  completionRow: {},
   completionNum: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
     color: "#111827",
-    marginBottom: 2,
+    letterSpacing: -0.5,
+    marginBottom: 8,
   },
   completionNumLight: {
     fontSize: 16,
@@ -335,43 +324,19 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontWeight: "400",
   },
-
-  // Dots
-  dotsRow: {
-    flexDirection: "row",
-    gap: 5,
-    alignItems: "center",
-    flexWrap: "wrap",
-    maxWidth: 160,
-    justifyContent: "flex-end",
-  },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  dotDone: { backgroundColor: "#22C55E" },
-  dotActive: { backgroundColor: PRIMARY },
-  dotPending: { backgroundColor: "#E5E7EB" },
-
-  // Mini progress (muitas etapas)
-  miniProgress: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  miniProgressTrack: {
-    width: 80,
-    height: 6,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 3,
+  headerProgressTrack: {
+    height: 4,
+    backgroundColor: "#EEF0F6",
+    borderRadius: 2,
     overflow: "hidden",
   },
-  miniProgressFill: {
-    height: 6,
+  headerProgressFill: {
+    height: "100%",
     backgroundColor: PRIMARY,
-    borderRadius: 3,
+    borderRadius: 2,
   },
-  miniProgressPct: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: PRIMARY,
-  },
+
+
 
   divider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 12 },
 
@@ -416,13 +381,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   timelineCol: {
-    width: 28,
+    width: 32,
     alignItems: "center",
   },
   circle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -440,11 +405,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   connector: {
-    width: 2,
+    width: 3,
     flex: 1,
     minHeight: 14,
     marginTop: 2,
-    borderRadius: 1,
+    borderRadius: 1.5,
   },
   connectorDone: { backgroundColor: "#22C55E" },
   connectorPending: { backgroundColor: "#E5E7EB" },
@@ -453,6 +418,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 10,
     paddingTop: 2,
+  },
+  milestoneContentActive: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 2,
   },
   mTitle: {
     fontSize: 14,
@@ -472,6 +444,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
   },
   activePulse: {
     width: 6,

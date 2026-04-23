@@ -1,6 +1,8 @@
+import { CircularProgress } from "@/components/obra/circular-progress";
 import type { ObraDetalhe } from "@/data/obras";
 import type { DiarySection } from "@/hooks/use-diary-state";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -16,39 +18,52 @@ export function ClientSummaryCard({ obra, sections }: ClientSummaryCardProps) {
   const lastEntry = sections[0]?.entries[0];
 
   return (
-    <View style={styles.clientSummary}>
-      <View style={styles.clientSummaryTop}>
-        <View style={{ flex: 1, marginRight: 12 }}>
-          <Text style={styles.clientSummaryLabel}>ACOMPANHAMENTO</Text>
-          <Text style={styles.clientSummaryEtapa} numberOfLines={1}>
+    <View style={styles.card}>
+      {/* Top row: info + ring */}
+      <View style={styles.topRow}>
+        <View style={styles.topLeft}>
+          <View style={styles.labelRow}>
+            <View style={styles.labelDot} />
+            <Text style={styles.label}>ACOMPANHAMENTO</Text>
+          </View>
+          <Text style={styles.etapa} numberOfLines={2}>
             {obra.etapaAtual}
           </Text>
         </View>
-        <View style={styles.clientProgressBubble}>
-          <Text style={styles.clientProgressPct}>{obra.progresso}%</Text>
-          <Text style={styles.clientProgressSub}>concluído</Text>
-        </View>
+
+        <CircularProgress
+          value={obra.progresso}
+          size={72}
+          strokeWidth={6}
+          color={PRIMARY}
+          trackColor="#E8ECFF"
+          label="CONCLUSÃO"
+        />
       </View>
-      <View style={styles.clientProgressTrack}>
-        <View
+
+      {/* Progress bar */}
+      <View style={styles.progressTrack}>
+        <LinearGradient
+          colors={["#3B82F6", "#2563EB"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={[
-            styles.clientProgressFill,
+            styles.progressFill,
             { width: `${obra.progresso}%` as `${number}%` },
           ]}
         />
       </View>
-      <View style={styles.clientSummaryFooter}>
+
+      {/* Footer */}
+      <View style={styles.footer}>
         <MaterialIcons name="history" size={13} color="#9CA3AF" />
-        <Text style={styles.clientSummaryMeta}>
-          {totalEntries} {totalEntries === 1 ? "registro" : "registros"} no
-          diário
+        <Text style={styles.meta}>
+          {totalEntries} {totalEntries === 1 ? "registro" : "registros"} no diário
         </Text>
         {lastEntry && (
           <>
-            <View style={styles.clientMetaDot} />
-            <Text style={styles.clientSummaryMeta}>
-              Última visita: {lastEntry.date}
-            </Text>
+            <View style={styles.metaDot} />
+            <Text style={styles.meta}>Última visita: {lastEntry.date}</Text>
           </>
         )}
       </View>
@@ -57,80 +72,83 @@ export function ClientSummaryCard({ obra, sections }: ClientSummaryCardProps) {
 }
 
 const styles = StyleSheet.create({
-  clientSummary: {
+  card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: "#F0F4FB",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 3,
   },
-  clientSummaryTop: {
+
+  // ── Top row ───────────────────────────────────────────
+  topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 14,
+    alignItems: "center",
+    marginBottom: 16,
   },
-  clientSummaryLabel: {
+  topLeft: {
+    flex: 1,
+    marginRight: 14,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 6,
+  },
+  labelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: PRIMARY,
+  },
+  label: {
     fontSize: 10,
     fontWeight: "700",
     color: "#9CA3AF",
     letterSpacing: 1,
-    marginBottom: 4,
   },
-  clientSummaryEtapa: {
-    fontSize: 17,
+  etapa: {
+    fontSize: 18,
     fontWeight: "800",
     color: "#111827",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    lineHeight: 24,
   },
-  clientProgressBubble: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#EFF6FF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#BFDBFE",
-  },
-  clientProgressPct: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: PRIMARY,
-  },
-  clientProgressSub: {
-    fontSize: 8,
-    fontWeight: "600",
-    color: PRIMARY,
-  },
-  clientProgressTrack: {
-    height: 6,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 3,
+
+  // ── Progress bar ──────────────────────────────────────
+  progressTrack: {
+    height: 7,
+    backgroundColor: "#EEF0F6",
+    borderRadius: 4,
     overflow: "hidden",
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  clientProgressFill: {
+  progressFill: {
     height: "100%",
-    backgroundColor: PRIMARY,
-    borderRadius: 3,
+    borderRadius: 4,
   },
-  clientSummaryFooter: {
+
+  // ── Footer ────────────────────────────────────────────
+  footer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  clientMetaDot: {
+  metaDot: {
     width: 3,
     height: 3,
     borderRadius: 1.5,
     backgroundColor: "#D1D5DB",
   },
-  clientSummaryMeta: {
+  meta: {
     fontSize: 12,
     color: "#9CA3AF",
     fontWeight: "500",

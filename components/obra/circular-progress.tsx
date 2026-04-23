@@ -188,12 +188,14 @@ export function CircularProgress({
       </View>
 
       {/* Label fora do círculo */}
-      <Text
-        style={[styles.labelText, { fontSize: labelFont }]}
-        allowFontScaling={false}
-      >
-        {label}
-      </Text>
+      {!!label && (
+        <Text
+          style={[styles.labelText, { fontSize: labelFont }]}
+          allowFontScaling={false}
+        >
+          {label}
+        </Text>
+      )}
 
       {!!subtitle && (
         <Text

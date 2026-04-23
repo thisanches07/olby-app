@@ -444,6 +444,10 @@ export default function DiarioScreen() {
             setEditingEntry(null);
           }}
           onSave={handleSaveEntry}
+          onDeleteExistingPhoto={async (photoId) => {
+            if (!editingEntry) return;
+            await deletePhoto(id ?? "", photoId, editingEntry.id);
+          }}
           isSaving={isSaving}
         />
       )}

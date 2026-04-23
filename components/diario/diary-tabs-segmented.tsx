@@ -61,19 +61,19 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: "row",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
+    backgroundColor: "#EEF2F9",
+    borderRadius: 14,
     padding: 4,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 11,
   },
   segmentBtnActive: {
     backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
+    shadowColor: "#2563EB",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -83,14 +83,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#9CA3AF",
+    letterSpacing: -0.1,
   },
   segmentTextActive: {
     color: PRIMARY,
-    fontWeight: "800",
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   bottomDivider: {
     height: 1,
-    backgroundColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "#EEF0F6",
     marginTop: 10,
   },
 });

@@ -63,6 +63,7 @@ interface EntryFormModalProps {
   onClose: () => void;
   /** Async: lança exceção em caso de falha. Fecha modal se bem-sucedido. */
   onSave: (data: EntryFormData) => Promise<void>;
+  onDeleteExistingPhoto?: (photoId: string) => Promise<void>;
   isSaving?: boolean;
 }
 
@@ -71,6 +72,7 @@ export function EntryFormModal({
   editingEntry,
   onClose,
   onSave,
+  onDeleteExistingPhoto,
   isSaving = false,
 }: EntryFormModalProps) {
   const { showToast } = useToast();
@@ -565,8 +567,10 @@ export function EntryFormModal({
             <View style={styles.field}>
               <Text style={styles.label}>Registros Fotográficos</Text>
               <GalleryPicker
+                key={editingEntry?.id ?? "new"}
                 existingPhotos={editingEntry?.photos ?? []}
                 onNewPhotosSelected={setNewPhotoAssets}
+                onDeleteExistingPhoto={onDeleteExistingPhoto}
               />
             </View>
           </ScrollView>

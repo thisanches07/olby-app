@@ -21,19 +21,24 @@ const PRIMARY = "#2563EB";
 const MAX_NEW_PHOTOS = 10;
 
 interface GalleryPickerProps {
-  /** Fotos já enviadas ao backend (apenas leitura no form). */
+  /** Fotos já enviadas ao backend. */
   existingPhotos?: PhotoItem[];
   /** Callback chamado quando a lista de novas fotos locais muda. */
   onNewPhotosSelected: (assets: LocalPhotoAsset[]) => void;
+  /** Callback para deletar uma foto já enviada ao backend. */
+  onDeleteExistingPhoto?: (photoId: string) => Promise<void>;
 }
 
 export function GalleryPicker({
   existingPhotos = [],
   onNewPhotosSelected,
+  onDeleteExistingPhoto,
 }: GalleryPickerProps) {
   const { showToast } = useToast();
   const [newAssets, setNewAssets] = useState<LocalPhotoAsset[]>([]);
   const [showCameraModal, setShowCameraModal] = useState(false);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [pendingDeletePhotoId, setPendingDeletePhotoId] = useState<string | null>(null);
   // Stores assets pending user confirmation when over the limit (fallback for Android API <34)
   const [pendingOverflow, setPendingOverflow] = useState<{
     assets: ImagePicker.ImagePickerAsset[];
@@ -104,7 +109,8 @@ export function GalleryPicker({
 
   const canAddMore = newAssets.length < MAX_NEW_PHOTOS;
   const spacesLeft = MAX_NEW_PHOTOS - newAssets.length;
-  const totalExisting = existingPhotos.length;
+  const visibleExisting = existingPhotos.filter((p) => !deletedIds.has(p.id));
+  const totalExisting = visibleExisting.length;
 
   const cameraLabel = canAddMore
     ? `Câmera · ${spacesLeft} vaga${spacesLeft === 1 ? "" : "s"}`
@@ -154,7 +160,7 @@ export function GalleryPicker({
         </PressableScale>
       </View>
 
-      {/* Fotos existentes (somente leitura) */}
+      {/* Fotos existentes */}
       {totalExisting > 0 && (
         <View style={styles.previewSection}>
           <Text style={styles.label}>
@@ -165,17 +171,26 @@ export function GalleryPicker({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.previewContent}
           >
-            {existingPhotos.map((photo) => (
+            {visibleExisting.map((photo) => (
               <View key={photo.id} style={styles.photoContainer}>
                 <Image
                   source={{ uri: photo.thumbUrl }}
                   style={styles.photoPreview}
                   contentFit="cover"
                 />
-                {/* Ícone de cadeado indicando foto já enviada */}
-                <View style={styles.lockedBadge}>
-                  <MaterialIcons name="check-circle" size={14} color="#22C55E" />
-                </View>
+                {onDeleteExistingPhoto ? (
+                  <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() => setPendingDeletePhotoId(photo.id)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="close" size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.lockedBadge}>
+                    <MaterialIcons name="check-circle" size={14} color="#22C55E" />
+                  </View>
+                )}
               </View>
             ))}
           </ScrollView>
@@ -218,6 +233,31 @@ export function GalleryPicker({
           </ScrollView>
         </View>
       )}
+
+      <ConfirmSheet
+        visible={!!pendingDeletePhotoId}
+        icon="delete-outline"
+        iconColor="#EF4444"
+        title="Deletar foto?"
+        message="Esta foto será removida permanentemente do registro."
+        confirmLabel="Deletar"
+        onConfirm={async () => {
+          if (!pendingDeletePhotoId) return;
+          setDeletedIds((prev) => new Set([...prev, pendingDeletePhotoId]));
+          try {
+            await onDeleteExistingPhoto?.(pendingDeletePhotoId);
+          } catch {
+            setDeletedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(pendingDeletePhotoId);
+              return next;
+            });
+            showToast({ title: "Erro", message: "Não foi possível deletar a foto.", tone: "error" });
+          }
+          setPendingDeletePhotoId(null);
+        }}
+        onClose={() => setPendingDeletePhotoId(null)}
+      />
 
       <ConfirmSheet
         visible={!!pendingOverflow}
@@ -299,7 +339,9 @@ const styles = StyleSheet.create({
   },
   previewContent: {
     gap: 12,
-    minHeight: 110,
+    minHeight: 118,
+    paddingTop: 8,
+    paddingRight: 8,
   },
   photoContainer: {
     position: "relative",

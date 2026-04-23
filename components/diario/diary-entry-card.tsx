@@ -34,71 +34,68 @@ export function DiaryEntryCard({
 }: DiaryEntryCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const durationLabel = formatDuration(entry.durationMinutes);
-
   const hasPhotos = entry.photos.length > 0;
+  const isLast = index === totalInSection - 1;
 
   return (
     <View style={styles.clientItem}>
-      {/* Indicador esquerdo */}
+      {/* Timeline indicator */}
       <View style={styles.clientIndicator}>
-        <View
-          style={[styles.clientDot, entry.isToday && styles.clientDotActive]}
-        />
-        {index < totalInSection - 1 && <View style={styles.clientLine} />}
+        <View style={[styles.clientDot, entry.isToday && styles.clientDotActive]} />
+        {!isLast && <View style={styles.clientLine} />}
       </View>
 
       {/* Card */}
       <View style={styles.clientCard}>
-        {/* Data + hora + duração + menu */}
+        {/* Metadata row */}
         <View style={styles.clientCardTop}>
           <View style={styles.clientCardTopLeft}>
-            <View
-              style={[
-                styles.clientDateBadge,
-                entry.isToday && styles.clientDateBadgeActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.clientDateText,
-                  entry.isToday && styles.clientDateTextActive,
-                ]}
-              >
+            {/* Day chip */}
+            <View style={[styles.clientDayChip, entry.isToday && styles.clientDayChipToday]}>
+              <Text style={[styles.clientDayText, entry.isToday && styles.clientDayTextToday]}>
                 {entry.date}
               </Text>
             </View>
 
+            {/* Separator dot */}
+            <View style={styles.metaSep} />
+
+            {/* Time */}
             <Text style={styles.clientTimeText}>{entry.time}</Text>
 
+            {/* Duration */}
             {!!durationLabel && (
-              <View style={styles.clientHorasBadge}>
-                <MaterialIcons
-                  name="schedule"
-                  size={11}
-                  color={entry.isToday ? PRIMARY : "#6B7280"}
-                />
-                <Text
-                  style={[
-                    styles.clientHorasText,
-                    entry.isToday && styles.clientHorasTextToday,
-                  ]}
-                >
-                  {durationLabel}
-                </Text>
-              </View>
+              <>
+                <View style={styles.metaSep} />
+                <View style={styles.clientDurationPill}>
+                  <MaterialIcons
+                    name="schedule"
+                    size={11}
+                    color={entry.isToday ? PRIMARY : "#9CA3AF"}
+                  />
+                  <Text
+                    style={[
+                      styles.clientDurationText,
+                      entry.isToday && styles.clientDurationTextToday,
+                    ]}
+                  >
+                    {durationLabel}
+                  </Text>
+                </View>
+              </>
             )}
           </View>
 
-          {/* Botão ... (visível quando há fotos e callback fornecido) */}
+          {/* More button */}
           {hasPhotos && onDownloadAll && (
             <>
               <TouchableOpacity
                 onPress={() => setMenuVisible(true)}
-                activeOpacity={0.6}
+                activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.moreBtn}
               >
-                <MaterialIcons name="more-horiz" size={18} color="#9CA3AF" />
+                <MaterialIcons name="more-horiz" size={16} color="#9CA3AF" />
               </TouchableOpacity>
               <ActionMenuSheet
                 visible={menuVisible}
@@ -115,17 +112,17 @@ export function DiaryEntryCard({
           )}
         </View>
 
-        {/* Título */}
+        {/* Title */}
         <Text style={styles.clientCardTitle} numberOfLines={2}>
           {entry.title}
         </Text>
 
-        {/* Fotos */}
+        {/* Photos */}
         {entry.photos.length === 1 ? (
           <TouchableOpacity
             style={styles.clientSinglePhotoWrap}
             onPress={() => onPhotoPress(entry.photos, 0)}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
           >
             <Image
               source={{ uri: entry.photos[0].thumbUrl }}
@@ -140,7 +137,7 @@ export function DiaryEntryCard({
                 key={photo.id}
                 style={styles.clientPhotoWrap}
                 onPress={() => onPhotoPress(entry.photos, pIdx)}
-                activeOpacity={0.85}
+                activeOpacity={0.9}
               >
                 <Image
                   source={{ uri: photo.thumbUrl }}
@@ -159,7 +156,7 @@ export function DiaryEntryCard({
           </View>
         ) : null}
 
-        {/* Descrição */}
+        {/* Description */}
         {entry.description ? (
           <ExpandableDescription description={entry.description} />
         ) : null}
@@ -171,116 +168,145 @@ export function DiaryEntryCard({
 const styles = StyleSheet.create({
   clientItem: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 14,
   },
+
+  // ── Timeline ───────────────────────────────────────────
   clientIndicator: {
-    width: 24,
+    width: 22,
     alignItems: "center",
-    paddingTop: 14,
+    paddingTop: 16,
   },
   clientDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: PRIMARY,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2.5,
+    borderColor: "#DBEAFE",
     backgroundColor: "#FFFFFF",
   },
   clientDotActive: {
     backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
     shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
     elevation: 3,
   },
   clientLine: {
     flex: 1,
-    width: 2,
-    backgroundColor: "#E5E7EB",
+    width: 1.5,
+    backgroundColor: "#EEF0F6",
     marginTop: 4,
   },
+
+  // ── Card ───────────────────────────────────────────────
   clientCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 14,
-    marginLeft: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 2,
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: "#F0F4FB",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
+
+  // ── Top metadata row ───────────────────────────────────
   clientCardTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   clientCardTopLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
+    gap: 6,
     flex: 1,
   },
-  moreBtn: {
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
+  metaSep: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "#D1D5DB",
   },
-  clientDateBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: "#F3F4F6",
+
+  // Day chip
+  clientDayChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 99,
+    backgroundColor: "#F1F4F9",
   },
-  clientDateBadgeActive: {
+  clientDayChipToday: {
     backgroundColor: PRIMARY,
   },
-  clientDateText: {
+  clientDayText: {
     fontSize: 11,
     fontWeight: "700",
     color: "#6B7280",
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
-  clientDateTextActive: {
+  clientDayTextToday: {
     color: "#FFFFFF",
   },
+
+  // Time
   clientTimeText: {
     fontSize: 12,
     color: "#9CA3AF",
     fontWeight: "500",
   },
-  clientHorasBadge: {
+
+  // Duration pill
+  clientDurationPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F8FAFF",
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: "#E8EDF5",
   },
-  clientHorasText: {
+  clientDurationText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#6B7280",
+    color: "#9CA3AF",
   },
-  clientHorasTextToday: {
+  clientDurationTextToday: {
     color: PRIMARY,
-    fontWeight: "800",
+    fontWeight: "700",
   },
+
+  // More button
+  moreBtn: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "#F3F4F6",
+  },
+
+  // ── Title ─────────────────────────────────────────────
   clientCardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
     color: "#111827",
-    lineHeight: 22,
-    letterSpacing: -0.2,
+    lineHeight: 21,
+    letterSpacing: -0.3,
     marginBottom: 10,
   },
+
+  // ── Photos ────────────────────────────────────────────
   clientSinglePhotoWrap: {
     marginBottom: 10,
     borderRadius: 12,
@@ -292,18 +318,18 @@ const styles = StyleSheet.create({
   },
   clientPhotoRow: {
     flexDirection: "row",
-    gap: 6,
+    gap: 8,
     marginBottom: 10,
   },
   clientPhotoWrap: {
     flex: 1,
-    height: 120,
-    borderRadius: 10,
+    height: 140,
+    borderRadius: 12,
     overflow: "hidden",
   },
   clientPhotoThumb: {
     width: "100%",
-    height: 120,
+    height: 140,
   },
   clientPhotoMoreOverlay: {
     position: "absolute",
@@ -311,13 +337,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.42)",
     alignItems: "center",
     justifyContent: "center",
   },
   clientPhotoMoreText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFFFFF",
+    letterSpacing: -0.5,
   },
 });

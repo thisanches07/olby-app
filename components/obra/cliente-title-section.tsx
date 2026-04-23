@@ -1,7 +1,9 @@
 import type { StatusType } from "@/components/obra-card";
+import { CircularProgress } from "@/components/obra/circular-progress";
 import type { ObraDetalhe } from "@/data/obras";
-import { PROGRESS_COLOR, STATUS_CONFIG } from "@/utils/obra-utils";
+import { PROGRESS_COLOR } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -10,10 +12,8 @@ interface ClienteTitleSectionProps {
 }
 
 export function ClienteTitleSection({ obra }: ClienteTitleSectionProps) {
-  const statusInfo = STATUS_CONFIG[obra.status as StatusType];
   const progressColor = PROGRESS_COLOR[obra.status as StatusType];
 
-  // Horas do profissional
   const horasContratadas = obra.horasContratadas ?? 0;
   const horasRealizadas = obra.horasRealizadas ?? 0;
   const horasPct =
@@ -23,196 +23,193 @@ export function ClienteTitleSection({ obra }: ClienteTitleSectionProps) {
   const horasColor =
     horasPct >= 90 ? "#DC2626" : horasPct >= 75 ? "#D97706" : "#059669";
   const hasContrato = horasContratadas > 0;
-  // Mostra coluna quando há contrato OU quando há horas registradas sem contrato
   const showHoras = hasContrato || horasRealizadas > 0;
 
+  const trackColor =
+    obra.status === "concluida"
+      ? "#DCFCE7"
+      : obra.status === "pausada"
+        ? "#FEF3C7"
+        : obra.status === "planejamento"
+          ? "#EDE9FE"
+          : "#E8ECFF";
+
   return (
-    <View style={styles.hero}>
-      {/* Status Badge */}
-      <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-        <View style={[styles.statusDot, { backgroundColor: statusInfo.dot }]} />
-        <Text style={[styles.statusText, { color: statusInfo.color }]}>
-          {statusInfo.label}
-        </Text>
-      </View>
-
-      {/* Local */}
-      {!!obra.endereco && <Text style={styles.localProjeto}>{obra.endereco}</Text>}
-
-      {/* Métricas rápidas */}
-      <View style={styles.metricsRow}>
-        {/* % concluído */}
-        <View style={styles.metricItem}>
-          <Text style={[styles.metricValue, { color: progressColor }]}>
-            {obra.progresso}%
-          </Text>
-          <Text style={styles.metricLabel}>concluído</Text>
+    <LinearGradient
+      colors={["#E4EDFF", "#EDF4FF", "#F5F9FF", "#FFFFFF"]}
+      locations={[0, 0.3, 0.65, 1]}
+      style={styles.hero}
+    >
+      {/* Endereço com ícone */}
+      {!!obra.endereco && (
+        <View style={styles.addressRow}>
+          <MaterialIcons name="place" size={13} color="#9CA3AF" />
+          <Text style={styles.addressText}>{obra.endereco}</Text>
         </View>
+      )}
 
-        <View style={styles.metricDivider} />
+      {/* Hero row: ring + métricas */}
+      <View style={styles.heroRow}>
+        {/* Ring — sem label, o % dentro é auto-explicativo */}
+        <CircularProgress
+          value={obra.progresso}
+          size={116}
+          strokeWidth={10}
+          color={progressColor}
+          trackColor={trackColor}
+          label=""
+        />
 
-        {/* Entrega prevista */}
-        <View style={styles.metricItem}>
-          <Text style={styles.metricValue} numberOfLines={1}>
-            {obra.dataPrevisaoEntrega ?? "—"}
-          </Text>
-          <Text style={styles.metricLabel}>previsão</Text>
-        </View>
+        {/* Métricas à direita */}
+        <View style={styles.metricsStack}>
+          {/* Previsão de entrega */}
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>PREVISÃO</Text>
+            <Text style={styles.metricValue} numberOfLines={1}>
+              {obra.dataPrevisaoEntrega ?? "—"}
+            </Text>
+          </View>
 
-        {/* Horas do profissional */}
-        {showHoras && (
-          <>
-            <View style={styles.metricDivider} />
-            <View style={styles.metricItem}>
+          <View style={styles.metricSep} />
+
+          {/* Horas */}
+          {showHoras ? (
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>
+                {hasContrato ? "HORAS PROF." : "HORAS REALIZADAS"}
+              </Text>
               {hasContrato ? (
                 <View style={styles.horasValueRow}>
-                  <Text style={[styles.horasNum, { color: horasColor }]}>
+                  <Text style={[styles.metricValue, { color: horasColor }]}>
                     {horasRealizadas}h
                   </Text>
                   <Text style={styles.horasSep}>/</Text>
                   <Text style={styles.horasTotal}>{horasContratadas}h</Text>
                 </View>
               ) : (
-                <Text
-                  style={[
-                    styles.horasNum,
-                    { color: horasColor, marginBottom: 2 },
-                  ]}
-                >
+                <Text style={[styles.metricValue, { color: horasColor }]}>
                   {horasRealizadas}h
                 </Text>
               )}
-              <Text style={styles.metricLabel}>horas prof.</Text>
             </View>
-          </>
-        )}
+          ) : (
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>HORAS</Text>
+              <Text style={styles.metricValue}>—</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      {/* Barra de progresso */}
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${obra.progresso}%` as `${number}%`,
-              backgroundColor: progressColor,
-            },
-          ]}
-        />
-      </View>
-
-      {/* Etapa atual — abaixo da barra, sem truncamento forçado */}
-      {obra.etapaAtual ? (
-        <View style={styles.etapaRow}>
-          <MaterialIcons name="play-circle-outline" size={13} color="#6B7280" />
-          <Text style={styles.etapaText} numberOfLines={1}>
+      {/* Etapa atual — pill chip */}
+      {!!obra.etapaAtual && (
+        <View style={styles.etapaChip}>
+          <MaterialIcons name="play-circle" size={13} color={progressColor} />
+          <Text style={styles.etapaChipText} numberOfLines={1}>
             {obra.etapaAtual}
           </Text>
         </View>
-      ) : null}
-    </View>
+      )}
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   hero: {
-    backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: "#EDF1F8",
   },
-  statusBadge: {
+
+  // ── Endereço ──────────────────────────────────────────
+  addressRow: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 6,
-    marginBottom: 10,
+    gap: 4,
+    marginBottom: 20,
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
-  localProjeto: {
+  addressText: {
     fontSize: 13,
     color: "#6B7280",
     fontWeight: "400",
+    flex: 1,
+  },
+
+  // ── Hero row ──────────────────────────────────────────
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 22,
     marginBottom: 16,
   },
-  metricsRow: {
-    flexDirection: "row",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginBottom: 14,
-    overflow: "hidden",
-  },
-  metricItem: {
+
+  // ── Métricas ─────────────────────────────────────────
+  metricsStack: {
     flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 6,
   },
-  metricValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 2,
-    textAlign: "center",
+  metricCard: {
+    paddingVertical: 11,
   },
   metricLabel: {
     fontSize: 10,
+    fontWeight: "600",
     color: "#9CA3AF",
-    fontWeight: "500",
-    textAlign: "center",
+    letterSpacing: 0.6,
+    marginBottom: 5,
   },
-  metricDivider: {
-    width: 1,
-    backgroundColor: "#E5E7EB",
-    marginVertical: 4,
+  metricValue: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: -0.6,
+  },
+  metricSep: {
+    height: 1,
+    backgroundColor: "#E8EDF5",
+    marginHorizontal: -4,
   },
 
   // ── Horas inline ─────────────────────────────────────
   horasValueRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 2,
-    marginBottom: 2,
-  },
-  horasNum: {
-    fontSize: 14,
-    fontWeight: "800",
+    gap: 3,
   },
   horasSep: {
-    fontSize: 11,
+    fontSize: 14,
     color: "#D1D5DB",
-    fontWeight: "400",
+    fontWeight: "300",
   },
   horasTotal: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "600",
     color: "#9CA3AF",
   },
 
-  // ── Barra + etapa ─────────────────────────────────────
-  progressTrack: {
-    height: 5,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 3,
-    overflow: "hidden",
-    marginBottom: 10,
-  },
-  progressFill: { height: "100%", borderRadius: 3 },
-  etapaRow: {
+  // ── Etapa pill ────────────────────────────────────────
+  etapaChip: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
     gap: 5,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: "#E8EDF5",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  etapaText: {
+  etapaChipText: {
     fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-    flex: 1,
+    color: "#374151",
+    fontWeight: "600",
+    maxWidth: 220,
   },
 });

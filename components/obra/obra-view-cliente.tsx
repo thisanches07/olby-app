@@ -149,17 +149,16 @@ export function ObraViewCliente({
             onPress={onViewDiary}
             activeOpacity={0.85}
           >
-            <MaterialIcons
-              name="assignment"
-              size={18}
-              color={colors.primary}
-            />
-            <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
-            <MaterialIcons
-              name="arrow-forward-ios"
-              size={13}
-              color={colors.primary}
-            />
+            <View style={styles.diarioIconCircle}>
+              <MaterialIcons name="assignment" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.diarioTextBlock}>
+              <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
+              <Text style={styles.diarioBtnSub}>Registro diário da obra</Text>
+            </View>
+            <View style={styles.diarioArrowCircle}>
+              <MaterialIcons name="arrow-forward-ios" size={12} color={colors.primary} />
+            </View>
           </TouchableOpacity>
 
           {obra.horasContratadas > 0 && <ClienteHorasCard obra={obra} />}
@@ -291,7 +290,7 @@ export function ObraViewCliente({
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: "#F5F5F5" },
+  scroll: { flex: 1, backgroundColor: "#F1F4F9" },
   edgeSwipeZone: {
     position: "absolute",
     left: 0,
@@ -303,28 +302,56 @@ const styles = StyleSheet.create({
 
   topBlock: {
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.dividerSoft,
-    paddingBottom: spacing[10],
   },
 
   diarioBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing[8],
-    backgroundColor: colors.tintBlue,
+    gap: spacing[12],
+    backgroundColor: colors.white,
     marginHorizontal: spacing[16],
     marginTop: spacing[14],
     marginBottom: spacing[4],
     paddingVertical: spacing[14],
     paddingHorizontal: spacing[16],
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  diarioIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.tintBlue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  diarioTextBlock: {
+    flex: 1,
   },
   diarioBtnText: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "700",
     color: colors.primary,
+    marginBottom: 2,
+  },
+  diarioBtnSub: {
+    fontSize: 12,
+    fontWeight: "400",
+    color: "#9CA3AF",
+  },
+  diarioArrowCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   emptyContainer: {

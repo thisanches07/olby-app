@@ -43,7 +43,10 @@ export function ClientTimelineSection({
 
       {sections.map((section) => (
         <View key={section.title}>
-          <Text style={styles.clientSectionLabel}>{section.title}</Text>
+          <View style={styles.sectionLabelRow}>
+            <Text style={styles.clientSectionLabel}>{section.title}</Text>
+            <View style={styles.sectionLine} />
+          </View>
 
           {section.entries.map((entry, eIdx) => (
             <DiaryEntryCard
@@ -76,18 +79,28 @@ export function ClientTimelineSection({
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F7F9FC",
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
+  },
+  sectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 14,
+    marginTop: 6,
   },
   clientSectionLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: "#9CA3AF",
     letterSpacing: 1,
-    marginBottom: 12,
-    marginTop: 4,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#EEF0F6",
   },
   clientEmpty: {
     alignItems: "center",

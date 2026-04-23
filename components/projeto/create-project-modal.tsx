@@ -21,15 +21,15 @@ import {
   TouchableOpacity,
   View,
   findNodeHandle,
+  useWindowDimensions,
 } from "react-native";
 
-import DraggableFlatList, {
-  ScaleDecorator,
-} from "react-native-draggable-flatlist";
+import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
 
 import { CREATE_PROJECT_TASK_LIMIT } from "@/constants/creation-limits";
 import { ObraDetalhe } from "@/data/obras";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
+import { TaskProposalModal } from "@/components/projeto/task-proposal-modal";
 import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
 
@@ -276,6 +276,7 @@ export function CreateProjectModal({
   onRequireUpgrade,
 }: CreateProjectModalProps) {
   const { showToast } = useToast();
+  const { height: windowHeight } = useWindowDimensions();
   const [formState, actions] = useCreateProjectForm();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -304,6 +305,8 @@ export function CreateProjectModal({
   // Toggles de acompanhamento — desabilitados por padrão
   const [trackActivities, setTrackActivities] = useState(false);
   const [trackFinancial, setTrackFinancial] = useState(false);
+
+  const [proposalModalVisible, setProposalModalVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -366,7 +369,7 @@ export function CreateProjectModal({
   const taskRef = useRef<TextInput | null>(null);
   const expenseRef = useRef<TextInput | null>(null);
 
-  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollRef = useRef<any>(null);
 
   const [focusedField, setFocusedField] = useState<
     "orcamento" | "horas" | "previsaoEntrega" | "expense" | null
@@ -638,6 +641,9 @@ export function CreateProjectModal({
   if (!visible) return null;
 
   const dynamicScrollPaddingBottom = 120 + keyboardHeight + 24;
+  const tasksListMaxHeight = trackFinancial
+    ? Math.max(260, Math.min(windowHeight * 0.38, 420))
+    : Math.max(320, Math.min(windowHeight * 0.52, 560));
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
@@ -680,6 +686,7 @@ export function CreateProjectModal({
             keyboardDismissMode={
               Platform.OS === "ios" ? "interactive" : "on-drag"
             }
+            nestedScrollEnabled
           >
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -979,6 +986,20 @@ export function CreateProjectModal({
                     </TouchableOpacity>
                   </View>
 
+                  {!createTaskLimitReached && (
+                    <TouchableOpacity
+                      style={styles.proposeBtn}
+                      onPress={() => setProposalModalVisible(true)}
+                      disabled={isSaving}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.proposeBtnIcon}>✨</Text>
+                      <Text style={styles.proposeBtnText}>
+                        Propor tarefas com base no projeto
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
                   {createTaskLimitReached && (
                     <View style={styles.taskLimitBanner}>
                       <MaterialIcons
@@ -994,7 +1015,9 @@ export function CreateProjectModal({
                   )}
 
                   {formState.tarefas.length > 0 && (
-                    <View style={styles.tasksList}>
+                    <View
+                      style={[styles.tasksList, { maxHeight: tasksListMaxHeight }]}
+                    >
                       <Text style={styles.tasksListTitle}>
                         {formState.tarefas.length} tarefa
                         {formState.tarefas.length !== 1 ? "s" : ""} adicionada
@@ -1011,8 +1034,12 @@ export function CreateProjectModal({
                         data={formState.tarefas}
                         keyExtractor={(item) => item.id}
                         onDragEnd={({ data }) => actions.reorderTarefas(data)}
-                        scrollEnabled={false}
+                        scrollEnabled
+                        nestedScrollEnabled
                         activationDistance={10}
+                        style={styles.tasksListScroll}
+                        contentContainerStyle={styles.tasksListContent}
+                        showsVerticalScrollIndicator={formState.tarefas.length > 5}
                         renderItem={({ item: tarefa, drag, isActive }) => (
                           <ScaleDecorator activeScale={1.02}>
                             <View
@@ -1240,6 +1267,14 @@ export function CreateProjectModal({
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      <TaskProposalModal
+        visible={proposalModalVisible}
+        onClose={() => setProposalModalVisible(false)}
+        onConfirm={(tasks) => actions.addTarefasEmBulk(tasks, CREATE_PROJECT_TASK_LIMIT)}
+        existingCount={formState.tarefas.length}
+        taskLimit={CREATE_PROJECT_TASK_LIMIT}
+      />
     </Modal>
   );
 }
@@ -1301,7 +1336,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
 
-  section: { marginBottom: 12 },
+  section: { marginBottom: 20 },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1481,6 +1516,28 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
 
+  proposeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "rgba(37,99,235,0.2)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  proposeBtnIcon: {
+    fontSize: 16,
+  },
+  proposeBtnText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2563EB",
+  },
+
   taskInputContainer: {
     flexDirection: "row",
     gap: 8,
@@ -1546,14 +1603,28 @@ const styles = StyleSheet.create({
 
   tasksList: {
     backgroundColor: "#F9FAFB",
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingTop: 12,
+    paddingHorizontal: 10,
+    paddingBottom: 14,
+    marginTop: 4,
+    marginBottom: 14,
+    overflow: "hidden",
+  },
+  tasksListScroll: {
+    flexGrow: 0,
+  },
+  tasksListContent: {
+    paddingBottom: 28,
   },
   tasksListTitle: {
     fontSize: 12,
     fontWeight: "600",
     color: "#6B7280",
     marginBottom: 2,
+    paddingHorizontal: 2,
   },
   tasksReorderHint: {
     fontSize: 11,

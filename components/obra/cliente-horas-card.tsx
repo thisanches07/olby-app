@@ -1,5 +1,6 @@
 import type { ObraDetalhe } from "@/data/obras";
 import { PRIMARY } from "@/utils/obra-utils";
+import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -39,7 +40,10 @@ export function ClienteHorasCard({ obra }: ClienteHorasCardProps) {
 
   return (
     <>
-      <Text style={styles.sectionLabel}>HORAS DO PROFISSIONAL</Text>
+      <View style={styles.sectionLabelRow}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionLabel}>HORAS DO PROFISSIONAL</Text>
+      </View>
       <View style={styles.card}>
         {/* ── Linha principal ────────────────────────────── */}
         <View style={styles.topRow}>
@@ -51,22 +55,22 @@ export function ClienteHorasCard({ obra }: ClienteHorasCardProps) {
               {isOverrun ? "horas excedidas" : "horas realizadas"}
             </Text>
           </View>
-          <View style={[styles.pctBadge, { backgroundColor: badgeBg }]}>
-            <Text style={[styles.pctNum, { color: badgeColor }]}>{pct}%</Text>
-            <Text style={styles.pctSub}>utilizado</Text>
-          </View>
+          <Text style={styles.pctLabel}>{pct}%</Text>
         </View>
 
         {/* ── Barra de progresso ───────────────────────── */}
         <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${pct}%` as `${number}%`,
-                backgroundColor: barColor,
-              },
-            ]}
+          <LinearGradient
+            colors={
+              pct >= 90
+                ? ["#EF4444", "#DC2626"]
+                : pct >= 75
+                  ? ["#F97316", "#D97706"]
+                  : ["#3B82F6", "#2563EB"]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressFill, { width: `${pct}%` as `${number}%` }]}
           />
         </View>
 
@@ -116,14 +120,25 @@ export function ClienteHorasCard({ obra }: ClienteHorasCardProps) {
 }
 
 const styles = StyleSheet.create({
+  sectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  sectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#2563EB",
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: "#9CA3AF",
     letterSpacing: 0.8,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 4,
   },
   card: {
     backgroundColor: "#FFFFFF",
@@ -147,11 +162,11 @@ const styles = StyleSheet.create({
   },
   topLeft: { flex: 1 },
   horasNum: {
-    fontSize: 36,
-    fontWeight: "800",
+    fontSize: 26,
+    fontWeight: "700",
     color: "#111827",
-    letterSpacing: -1,
-    lineHeight: 42,
+    letterSpacing: -0.8,
+    lineHeight: 32,
   },
   horasLabel: {
     fontSize: 12,
@@ -159,32 +174,22 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     marginTop: 2,
   },
-  pctBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: "center",
-    minWidth: 64,
-  },
-  pctNum: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  pctSub: {
-    fontSize: 10,
-    color: "#9CA3AF",
-    fontWeight: "500",
+  pctLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    color: "#111827",
   },
 
   // ── Progress ─────────────────────────────────────────
   progressTrack: {
-    height: 6,
+    height: 8,
     backgroundColor: "#E5E7EB",
-    borderRadius: 3,
+    borderRadius: 4,
     overflow: "hidden",
     marginBottom: 8,
   },
-  progressFill: { height: "100%", borderRadius: 3 },
+  progressFill: { height: "100%", borderRadius: 4 },
 
   // ── Detalhe ──────────────────────────────────────────
   detalheLine: {

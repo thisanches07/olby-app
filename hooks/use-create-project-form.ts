@@ -23,6 +23,7 @@ interface CreateProjectFormActions {
   setOrcamento: (orcamento: string) => void;
   setHorasContratadas: (horas: string) => void;
   addTarefa: (tarefa: Omit<Tarefa, "id" | "order" | "concluida">) => void;
+  addTarefasEmBulk: (tarefas: Omit<Tarefa, "id" | "order" | "concluida">[], limit: number) => void;
   removeTarefa: (id: string) => void;
   reorderTarefas: (tarefas: Tarefa[]) => void;
   addGasto: (gasto: Omit<Gasto, "id">) => void;
@@ -109,6 +110,27 @@ export function useCreateProjectForm(): [
     }));
   };
 
+  const addTarefasEmBulk = (
+    tarefas: Omit<Tarefa, "id" | "order" | "concluida">[],
+    limit: number,
+  ) => {
+    if (!tarefas.length) return;
+    setState((prev) => {
+      const available = limit - prev.tarefas.length;
+      if (available <= 0) return prev;
+      const toAdd = tarefas.slice(0, available);
+      const newTarefas = toAdd.map((t, i) => ({
+        id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
+        titulo: t.titulo,
+        descricao: t.descricao ?? "",
+        prioridade: t.prioridade,
+        concluida: false,
+        order: prev.tarefas.length + i,
+      }));
+      return { ...prev, tarefas: [...prev.tarefas, ...newTarefas] };
+    });
+  };
+
   const removeTarefa = (id: string) => {
     setState((prev) => ({
       ...prev,
@@ -191,6 +213,7 @@ export function useCreateProjectForm(): [
     setOrcamento,
     setHorasContratadas,
     addTarefa,
+    addTarefasEmBulk,
     removeTarefa,
     reorderTarefas,
     addGasto,

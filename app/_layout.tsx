@@ -10,7 +10,14 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
-import { AppState, View } from "react-native";
+import { AppState, LogBox, View } from "react-native";
+
+// DraggableFlatList inside the create-project modal's outer ScrollView triggers
+// this warning, but it's safe: the list has a fixed maxHeight and is bounded to
+// 100 items, so windowing is never needed.
+LogBox.ignoreLogs([
+  "VirtualizedLists should never be nested inside plain ScrollViews",
+]);
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
