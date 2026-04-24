@@ -13,13 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { ObraDetalhe } from "@/data/obras";
-import { colors } from "@/theme/colors";
-import { radius } from "@/theme/radius";
-import { spacing } from "@/theme/spacing";
-import type { ProjectAccessMember } from "@/utils/project-members";
-import type { ProjectApiRole } from "@/utils/project-role";
-
+import { ProjectDocumentsHub } from "@/components/documents/project-documents-hub";
 import { ClienteCTAButton } from "@/components/obra/cliente-cta-button";
 import { ClienteExpensesSummary } from "@/components/obra/cliente-expenses-summary";
 import { ClienteFinancialSummary } from "@/components/obra/cliente-financial-summary";
@@ -29,26 +23,45 @@ import { ClienteStatusCard } from "@/components/obra/cliente-status-card";
 import { ClienteTasksView } from "@/components/obra/cliente-tasks-view";
 import { ClienteTitleSection } from "@/components/obra/cliente-title-section";
 import { ObraHeader } from "@/components/obra/obra-header";
+import type { DocumentAttachment, ObraDetalhe } from "@/data/obras";
+import { colors } from "@/theme/colors";
+import { radius } from "@/theme/radius";
+import { spacing } from "@/theme/spacing";
+import type { ProjectAccessMember } from "@/utils/project-members";
+import type { ProjectApiRole } from "@/utils/project-role";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type ClienteTabId = "visao_geral" | "documentos" | "galeria" | "gastos" | "tarefas";
+type ClienteTabId =
+  | "visao_geral"
+  | "documentos"
+  | "galeria"
+  | "gastos"
+  | "tarefas";
 
 const BOTTOM_H = 84;
 
-// ─── Props ────────────────────────────────────────────────────────────────────
 interface ObraViewClienteProps {
   obra: ObraDetalhe;
+  expenseReceiptDocuments?: DocumentAttachment[];
   projectMembers?: ProjectAccessMember[];
+  onProjectDocumentsChanged?: (documents: Array<{
+    id: string;
+    expenseId: string | null;
+    status: string;
+    viewUrl?: string;
+  }>) => void;
+  onProjectDocumentRemoved?: (document: DocumentAttachment) => void;
   onViewDiary: () => void;
   projectRole: ProjectApiRole;
   onTabChange?: (isPrimary: boolean) => void;
   onRefresh?: () => Promise<void>;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export function ObraViewCliente({
   obra,
+  expenseReceiptDocuments = [],
   projectMembers = [],
+  onProjectDocumentsChanged,
+  onProjectDocumentRemoved,
   onViewDiary,
   projectRole,
   onTabChange,
@@ -69,10 +82,13 @@ export function ObraViewCliente({
     }
   }, [onRefresh]);
 
-  const changeTab = useCallback((tab: ClienteTabId) => {
-    setActiveTab(tab);
-    onTabChange?.(tab === "visao_geral");
-  }, [onTabChange]);
+  const changeTab = useCallback(
+    (tab: ClienteTabId) => {
+      setActiveTab(tab);
+      onTabChange?.(tab === "visao_geral");
+    },
+    [onTabChange],
+  );
 
   usePreventRemove(
     activeTab !== "visao_geral",
@@ -94,7 +110,6 @@ export function ObraViewCliente({
     [insets.bottom],
   );
 
-  // ── Edge swipe (left-to-right) on secondary tabs → go to visao_geral ───────
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const changeTabRef = useRef(changeTab);
@@ -115,7 +130,6 @@ export function ObraViewCliente({
 
   return (
     <>
-      {/* Header sempre visível independente da aba */}
       <ObraHeader
         title={obra.nome}
         projectId={obra.id}
@@ -153,11 +167,15 @@ export function ObraViewCliente({
               <MaterialIcons name="assignment" size={20} color={colors.primary} />
             </View>
             <View style={styles.diarioTextBlock}>
-              <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
-              <Text style={styles.diarioBtnSub}>Registro diário da obra</Text>
+              <Text style={styles.diarioBtnText}>Ver Diario de Obra</Text>
+              <Text style={styles.diarioBtnSub}>Registro diario da obra</Text>
             </View>
             <View style={styles.diarioArrowCircle}>
-              <MaterialIcons name="arrow-forward-ios" size={12} color={colors.primary} />
+              <MaterialIcons
+                name="arrow-forward-ios"
+                size={12}
+                color={colors.primary}
+              />
             </View>
           </TouchableOpacity>
 
@@ -249,28 +267,16 @@ export function ObraViewCliente({
       )}
 
       {activeTab === "documentos" && (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconWrap}>
-            <MaterialIcons
-              name="folder-open"
-              size={40}
-              color={colors.iconMuted}
-            />
-          </View>
-          <Text style={styles.emptyTitle}>Nenhum documento</Text>
-          <Text style={styles.emptyText}>
-            Os documentos do projeto aparecerão aqui assim que forem
-            disponibilizados.
-          </Text>
-        </View>
+        <ProjectDocumentsHub
+          projectId={obra.id}
+          projectRole={projectRole}
+          onDocumentsChanged={onProjectDocumentsChanged}
+          onDocumentRemoved={onProjectDocumentRemoved}
+          supplementalDocuments={expenseReceiptDocuments}
+        />
       )}
 
-      <View
-        style={[
-          styles.bottomArea,
-          { backgroundColor: colors.white },
-        ]}
-      >
+      <View style={[styles.bottomArea, { backgroundColor: colors.white }]}>
         <ClienteCTAButton
           onInicio={() => changeTab("visao_geral")}
           onGaleria={() => changeTab("galeria")}
@@ -281,7 +287,6 @@ export function ObraViewCliente({
         />
       </View>
 
-      {/* Edge swipe zone — captures left-to-right swipe on secondary tabs */}
       {activeTab !== "visao_geral" && (
         <View {...edgeSwipe.panHandlers} style={styles.edgeSwipeZone} />
       )}
@@ -299,11 +304,9 @@ const styles = StyleSheet.create({
     width: 30,
     zIndex: 999,
   },
-
   topBlock: {
     backgroundColor: colors.white,
   },
-
   diarioBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -353,36 +356,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing[40],
-    gap: spacing[10],
-  },
-  emptyIconWrap: {
-    width: spacing[80],
-    height: spacing[80],
-    borderRadius: radius["2xl"],
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing[4],
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.title,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.subtext,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
   bottomArea: {
     position: "absolute",
     left: 0,

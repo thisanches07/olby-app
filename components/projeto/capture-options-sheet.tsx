@@ -13,6 +13,10 @@ import {
 import { useToast } from "@/components/obra/toast";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import type { DocumentSource } from "@/data/obras";
+import { colors } from "@/theme/colors";
+import { radius } from "@/theme/radius";
+import { shadow } from "@/theme/shadows";
+import { spacing } from "@/theme/spacing";
 import type { LocalDocumentAsset } from "@/utils/document-upload";
 
 interface CaptureOptionsSheetProps {
@@ -65,7 +69,7 @@ export function CaptureOptionsSheet({
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ["images"],
       quality: 0.85,
     });
     if (result.canceled || !result.assets[0]) return;
@@ -160,30 +164,40 @@ export function CaptureOptionsSheet({
         >
           <View style={styles.sheet}>
             <View style={styles.handle} />
-            <Text style={styles.title}>Adicionar comprovante</Text>
 
-            <View style={styles.options}>
-              <Option
+            <View style={styles.header}>
+              <Text style={styles.title}>Adicionar comprovante</Text>
+              <Text style={styles.subtitle}>
+                Fotos, PDFs e digitalizações aceitas. Limite de 25 MB por arquivo.
+              </Text>
+            </View>
+
+            <View style={styles.sourcesWrap}>
+              <SourceButton
                 icon="camera-alt"
                 label="Câmera"
+                subtitle="Capturar agora"
                 color="#2563EB"
                 onPress={handleCamera}
               />
-              <Option
+              <SourceButton
                 icon="photo-library"
                 label="Galeria"
+                subtitle="Escolher mídia"
                 color="#7C3AED"
                 onPress={handleGallery}
               />
-              <Option
+              <SourceButton
                 icon="document-scanner"
                 label="Digitalizar"
+                subtitle="Escanear página"
                 color="#0891B2"
                 onPress={handleScan}
               />
-              <Option
+              <SourceButton
                 icon="description"
                 label="Arquivo/PDF"
+                subtitle="PDF ou imagem"
                 color="#D97706"
                 onPress={handleFilePicker}
               />
@@ -192,7 +206,7 @@ export function CaptureOptionsSheet({
             <TouchableOpacity
               style={styles.cancelBtn}
               onPress={onClose}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
             >
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
@@ -203,27 +217,30 @@ export function CaptureOptionsSheet({
   );
 }
 
-function Option({
+function SourceButton({
   icon,
   label,
+  subtitle,
   color,
   onPress,
 }: {
   icon: React.ComponentProps<typeof MaterialIcons>["name"];
   label: string;
+  subtitle: string;
   color: string;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity
-      style={styles.option}
+      style={styles.sourceCard}
       onPress={onPress}
-      activeOpacity={0.75}
+      activeOpacity={0.82}
     >
-      <View style={[styles.optionIcon, { backgroundColor: `${color}18` }]}>
-        <MaterialIcons name={icon} size={26} color={color} />
+      <View style={[styles.sourceIcon, { backgroundColor: `${color}14` }]}>
+        <MaterialIcons name={icon} size={22} color={color} />
       </View>
-      <Text style={styles.optionLabel}>{label}</Text>
+      <Text style={styles.sourceLabel}>{label}</Text>
+      <Text style={styles.sourceSubtitle}>{subtitle}</Text>
     </TouchableOpacity>
   );
 }
@@ -231,69 +248,93 @@ function Option({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 36 : 24,
+    backgroundColor: "#F8FAFC",
+    borderTopLeftRadius: radius["2xl"],
+    borderTopRightRadius: radius["2xl"],
+    paddingTop: spacing[12],
+    paddingHorizontal: spacing[20],
+    paddingBottom: Platform.OS === "ios" ? spacing[36] : spacing[24],
   },
   handle: {
-    width: 36,
+    width: 40,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: "#D1D5DB",
+    borderRadius: radius.pill,
+    backgroundColor: "#CBD5E1",
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: spacing[18],
+  },
+  header: {
+    marginBottom: spacing[20],
   },
   title: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-    textAlign: "center",
-    marginBottom: 20,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: spacing[6],
     fontFamily: "Inter-Bold",
   },
-  options: {
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.textMuted,
+    fontFamily: "Inter-Regular",
+  },
+  sourcesWrap: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 24,
+    flexWrap: "wrap",
+    gap: spacing[12],
+    marginBottom: spacing[20],
   },
-  option: {
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
+  sourceCard: {
+    width: "47%",
+    minHeight: 116,
+    borderRadius: radius.xl,
+    backgroundColor: "#FFFFFF",
+    padding: spacing[16],
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    ...shadow(1),
   },
-  optionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  sourceIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: spacing[12],
   },
-  optionLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#374151",
-    textAlign: "center",
+  sourceLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: spacing[4],
     fontFamily: "Inter-SemiBold",
   },
+  sourceSubtitle: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+    fontFamily: "Inter-Regular",
+  },
   cancelBtn: {
-    borderRadius: 14,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-    paddingVertical: 14,
+    minHeight: spacing[48],
+    borderRadius: radius.lg,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    color: "#374151",
-    fontFamily: "Inter-Bold",
+    color: colors.text,
+    fontFamily: "Inter-SemiBold",
   },
 });

@@ -4,9 +4,11 @@ import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import type { DocumentSource } from "@/data/obras";
 import { Gasto, Tarefa } from "@/data/obras";
+import { ApiError } from "@/services/api";
 import { documentsService } from "@/services/documents.service";
 import { expensesService } from "@/services/expenses.service";
 import {
+  validateDocumentAssetSize,
   uploadDocumentToExpense,
   type LocalDocumentAsset,
 } from "@/utils/document-upload";
@@ -131,6 +133,47 @@ function limitExpenseValueDigits(raw: string) {
   return raw.replace(/\D/g, "").slice(0, MAX_EXPENSE_VALUE_DIGITS);
 }
 
+function sanitizeExpenseFileStem(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+function extensionFromAsset(
+  fileName: string,
+  mimeType: string,
+): string {
+  const match = fileName.match(/\.([a-zA-Z0-9]+)$/);
+  if (match?.[1]) return match[1].toLowerCase();
+
+  const mimeMap: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "application/pdf": "pdf",
+    "image/heic": "heic",
+  };
+
+  return mimeMap[mimeType] ?? "bin";
+}
+
+function renameAssetForExpense(
+  asset: LocalDocumentAsset,
+  expenseDescription: string,
+): LocalDocumentAsset {
+  const stem = sanitizeExpenseFileStem(expenseDescription) || "gasto";
+  const extension = extensionFromAsset(asset.fileName, asset.mimeType);
+
+  return {
+    ...asset,
+    fileName: `${stem}.${extension}`,
+  };
+}
+
 const PRIORITY_CONFIG: Record<
   string,
   { label: string; color: string; bg: string }
@@ -145,6 +188,10 @@ interface ExpenseFormModalProps {
   expense?: Gasto;
   tarefas: Tarefa[];
   projectId: string;
+  onReceiptStateChange?: (
+    expenseId: string,
+    receipt: { receiptDocumentId: string | null; documentCount?: number },
+  ) => void;
   onSave: (
     expense: Omit<Gasto, "id">,
     pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
@@ -158,6 +205,7 @@ export function ExpenseFormModal({
   expense,
   tarefas,
   projectId,
+  onReceiptStateChange,
   onSave,
   onDelete,
   onClose,
@@ -263,6 +311,26 @@ export function ExpenseFormModal({
     };
   }, [visible, expense?.id, expense?.receiptDocumentId, projectId]);
 
+  useEffect(() => {
+    if (!visible) return;
+    if (!expense) return;
+    if (pendingDocAsset) return;
+
+    if (expense.receiptDocumentId) {
+      setPendingReceiptId(expense.receiptDocumentId);
+      setPendingReceiptName("Comprovante anexado");
+      return;
+    }
+
+    setPendingReceiptId(null);
+    setPendingReceiptName(null);
+  }, [
+    visible,
+    expense,
+    expense?.receiptDocumentId,
+    pendingDocAsset,
+  ]);
+
   const handleDateChange = (t: string) => {
     setDateTouched(true);
     setDateText(maskBRDate(t));
@@ -308,36 +376,61 @@ export function ExpenseFormModal({
     asset: LocalDocumentAsset,
     source: DocumentSource,
   ) => {
+    const normalizedAsset = renameAssetForExpense(
+      asset,
+      descricao.trim() || expense?.descricao || "gasto",
+    );
+
     if (!expense) {
-      // Creation mode: stage locally, upload happens after expense is created.
-      setPendingDocAsset({ asset, source });
+      try {
+        await validateDocumentAssetSize(normalizedAsset, "RECEIPT");
+        // Creation mode: stage locally, upload happens after expense is created.
+        setPendingDocAsset({ asset: normalizedAsset, source });
+      } catch (err) {
+        showToast({
+          title: "Erro no envio",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Falha ao validar comprovante",
+          tone: "error",
+        });
+      }
       return;
     }
 
     // Edit mode: presign → upload → confirm → immediate PATCH.
     setUploadingReceipt(true);
     try {
+      await validateDocumentAssetSize(normalizedAsset, "RECEIPT");
+
       console.warn("DEBUG receiptDocument upload (edit mode)", {
-        fileName: asset.fileName,
-        mimeType: asset.mimeType,
-        fileSize: asset.fileSize,
+        fileName: normalizedAsset.fileName,
+        mimeType: normalizedAsset.mimeType,
+        fileSize: normalizedAsset.fileSize,
         source,
         kind: "RECEIPT",
       });
 
-      const doc = await uploadDocumentToExpense(asset, {
+      const doc = await uploadDocumentToExpense(normalizedAsset, {
         projectId,
         kind: "RECEIPT",
         source,
       });
       await expensesService.update(expense.id, { receiptDocumentId: doc.id });
       setPendingReceiptId(doc.id);
-      setPendingReceiptName(asset.fileName);
+      setPendingReceiptName(normalizedAsset.fileName);
+      onReceiptStateChange?.(expense.id, {
+        receiptDocumentId: doc.id,
+        documentCount: 1,
+      });
     } catch (err) {
-      console.error("Erro ao fazer upload de comprovante:", err);
       showToast({
         title: "Erro",
-        message: "Falha ao enviar comprovante",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Falha ao enviar comprovante",
         tone: "error",
       });
     } finally {
@@ -350,11 +443,21 @@ export function ExpenseFormModal({
     setDeletingReceipt(true);
     try {
       // 1. Delete the document from storage/backend
-      await documentsService.remove(projectId, pendingReceiptId);
+      try {
+        await documentsService.remove(projectId, pendingReceiptId);
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 404) {
+          throw err;
+        }
+      }
       // 2. Unlink from expense
       await expensesService.update(expense.id, { receiptDocumentId: null });
       setPendingReceiptId(null);
       setPendingReceiptName(null);
+      onReceiptStateChange?.(expense.id, {
+        receiptDocumentId: null,
+        documentCount: 0,
+      });
     } catch (err) {
       console.error("Erro ao remover comprovante:", err);
       showToast({
@@ -423,17 +526,24 @@ export function ExpenseFormModal({
         tarefaId,
         receiptDocumentId: pendingReceiptId,
       },
-      pendingDocAsset ?? undefined,
+      pendingDocAsset
+        ? {
+            ...pendingDocAsset,
+            asset: renameAssetForExpense(pendingDocAsset.asset, trimmedDescricao),
+          }
+        : undefined,
     );
 
     onClose();
   };
 
   const handleCancel = () => {
+    if (uploadingReceipt) return;
     onClose();
   };
 
   const handleDelete = () => {
+    if (uploadingReceipt) return;
     if (!expense?.id || !onDelete) return;
     setDeleteConfirmVisible(true);
   };
@@ -448,6 +558,7 @@ export function ExpenseFormModal({
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={handleCancel}
+            disabled={uploadingReceipt}
             activeOpacity={0.7}
           >
             <MaterialIcons name="close" size={22} color="#6B7280" />
@@ -467,6 +578,15 @@ export function ExpenseFormModal({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {uploadingReceipt && (
+            <View style={styles.uploadNotice}>
+              <ActivityIndicator size="small" color={PRIMARY} />
+              <Text style={styles.uploadNoticeText}>
+                Enviando comprovante. Aguarde para fechar ou excluir este gasto.
+              </Text>
+            </View>
+          )}
+
           {/* ── Descrição ── */}
           <View style={styles.field}>
             <Text style={styles.label}>
@@ -700,6 +820,7 @@ export function ExpenseFormModal({
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
+                    if (uploadingReceipt) return;
                     if (!expense) {
                       // Creation mode: doc not created yet, just clear.
                       setPendingDocAsset(null);
@@ -708,7 +829,7 @@ export function ExpenseFormModal({
                       setDeleteReceiptConfirmVisible(true);
                     }
                   }}
-                  disabled={deletingReceipt}
+                  disabled={deletingReceipt || uploadingReceipt}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   {deletingReceipt ? (
@@ -749,8 +870,9 @@ export function ExpenseFormModal({
         <View style={styles.footer}>
           {showDelete && (
             <TouchableOpacity
-              style={styles.deleteBtn}
+              style={[styles.deleteBtn, uploadingReceipt && styles.actionDisabled]}
               onPress={handleDelete}
+              disabled={uploadingReceipt}
               activeOpacity={0.85}
             >
               <MaterialIcons name="delete-outline" size={18} color="#EF4444" />
@@ -759,8 +881,13 @@ export function ExpenseFormModal({
           )}
 
           <TouchableOpacity
-            style={[styles.cancelBtn, showDelete && styles.cancelBtnCompact]}
+            style={[
+              styles.cancelBtn,
+              showDelete && styles.cancelBtnCompact,
+              uploadingReceipt && styles.actionDisabled,
+            ]}
             onPress={handleCancel}
+            disabled={uploadingReceipt}
             activeOpacity={0.7}
           >
             <Text style={styles.cancelText}>Cancelar</Text>
@@ -813,7 +940,7 @@ export function ExpenseFormModal({
       />
 
       <CaptureOptionsSheet
-        visible={showCaptureOptions}
+        visible={showCaptureOptions && !uploadingReceipt}
         onAssetSelected={(asset, source) => {
           setShowCaptureOptions(false);
           handleReceiptSelected(asset, source);
@@ -859,6 +986,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
+  },
+  uploadNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  uploadNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+    color: PRIMARY,
   },
 
   field: { marginBottom: 20 },
@@ -1080,6 +1226,9 @@ const styles = StyleSheet.create({
   cancelBtnCompact: {
     // quando tem delete, mantém o cancel mais "secundário"
     backgroundColor: "#F3F4F6",
+  },
+  actionDisabled: {
+    opacity: 0.55,
   },
   cancelText: { fontSize: 14, fontWeight: "700", color: "#6B7280" },
 

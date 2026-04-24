@@ -32,12 +32,17 @@ export interface Gasto {
 }
 
 export type DocumentKind =
+  | "PLANT"
+  | "PERMIT"
   | "RECEIPT"
   | "INVOICE"
   | "CONTRACT"
   | "REPORT"
+  | "DELIVERY"
   | "PHOTO"
   | "OTHER";
+
+export type DocumentVisibility = "INTERNAL" | "CLIENT";
 
 export type DocumentSource = "CAMERA" | "SCAN" | "GALLERY" | "FILE_PICKER";
 
@@ -46,13 +51,21 @@ export type DocumentStatus = "PENDING_UPLOAD" | "READY" | "FAILED";
 export interface DocumentAttachment {
   id: string;
   projectId: string;
-  expenseId: string;
+  expenseId: string | null;
   kind: DocumentKind;
+  title?: string | null;
+  visibility?: DocumentVisibility;
+  isPinned?: boolean;
+  linkedTaskId?: string | null;
+  linkedDiaryEntryId?: string | null;
   source: DocumentSource;
   status: DocumentStatus;
   originalFileName: string;
   contentType: string;
   sizeBytes: number;
+  pageCount?: number | null;
+  thumbnailUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
 }
 

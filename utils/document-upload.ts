@@ -1,7 +1,17 @@
 import * as FileSystem from "expo-file-system/legacy";
 
 import { documentsService } from "@/services/documents.service";
-import type { DocumentAttachment, DocumentKind, DocumentSource } from "@/data/obras";
+import type {
+  DocumentAttachment,
+  DocumentKind,
+  DocumentSource,
+} from "@/data/obras";
+
+export const DEFAULT_DOCUMENT_MAX_SIZE_BYTES = 25 * 1024 * 1024;
+export const PLANT_DOCUMENT_MAX_SIZE_BYTES = 50 * 1024 * 1024;
+export const PROJECT_DOCUMENT_LIMIT = 150;
+export const PROJECT_PLANT_LIMIT = 20;
+export const PROJECT_DOCUMENT_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024 * 1024;
 
 /** Asset local de documento selecionado pelo usuário. */
 export interface LocalDocumentAsset {
@@ -16,17 +26,65 @@ export interface UploadDocumentOptions {
   kind: DocumentKind;
   source: DocumentSource;
   expenseId?: string;
+  title?: string;
+  isCancelled?: () => boolean;
+}
+
+export class UploadCancelledError extends Error {
+  constructor() {
+    super("Upload cancelado pelo usuário.");
+    this.name = "UploadCancelledError";
+  }
+}
+
+function formatSizeLimit(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
+}
+
+export function getDocumentMaxSizeBytes(kind: DocumentKind): number {
+  return kind === "PLANT"
+    ? PLANT_DOCUMENT_MAX_SIZE_BYTES
+    : DEFAULT_DOCUMENT_MAX_SIZE_BYTES;
+}
+
+export function getDocumentSizeLimitLabel(kind: DocumentKind): string {
+  return formatSizeLimit(getDocumentMaxSizeBytes(kind));
+}
+
+export async function validateDocumentAssetSize(
+  asset: LocalDocumentAsset,
+  kind: DocumentKind,
+): Promise<number> {
+  const sizeBytes = asset.fileSize ?? (await getFileSize(asset.uri));
+  const limitBytes = getDocumentMaxSizeBytes(kind);
+
+  if (sizeBytes > limitBytes) {
+    const message =
+      kind === "PLANT"
+        ? "Plantas aceitam arquivos de até 50 MB. Compacte o arquivo e tente novamente."
+        : "Documentos aceitam arquivos de até 25 MB. Compacte o arquivo e tente novamente.";
+    throw new Error(message);
+  }
+
+  return sizeBytes;
 }
 
 /**
  * Fluxo completo: presign → PUT binário → confirm.
  * Retorna o DocumentAttachment confirmado pelo backend.
  */
-export async function uploadDocumentToExpense(
+export async function uploadProjectDocument(
   asset: LocalDocumentAsset,
   options: UploadDocumentOptions,
 ): Promise<DocumentAttachment> {
-  const sizeBytes = asset.fileSize ?? (await getFileSize(asset.uri));
+  const sizeBytes = await validateDocumentAssetSize(asset, options.kind);
+
+  if (sizeBytes === 0) {
+    throw new Error(
+      "Não foi possível determinar o tamanho do arquivo. Tente novamente.",
+    );
+  }
 
   const { documentId, uploadUrl } = await documentsService.presign(
     options.projectId,
@@ -36,13 +94,25 @@ export async function uploadDocumentToExpense(
       sizeBytes,
       kind: options.kind,
       source: options.source,
+      ...(options.title ? { title: options.title } : {}),
       ...(options.expenseId ? { expenseId: options.expenseId } : {}),
     },
   );
 
   await putBinaryFile(uploadUrl, asset.uri, asset.mimeType);
 
+  if (options.isCancelled?.()) {
+    throw new UploadCancelledError();
+  }
+
   return await documentsService.confirm(options.projectId, documentId);
+}
+
+export async function uploadDocumentToExpense(
+  asset: LocalDocumentAsset,
+  options: UploadDocumentOptions,
+): Promise<DocumentAttachment> {
+  return uploadProjectDocument(asset, options);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -5,7 +5,13 @@ import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
-import type { DocumentSource, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
+import type {
+  DocumentAttachment,
+  DocumentSource,
+  Gasto,
+  ObraDetalhe,
+  Tarefa,
+} from "@/data/obras";
 import { useAuth } from "@/hooks/use-auth";
 import {
   dailyLogEntriesService,
@@ -192,6 +198,7 @@ function buildObraDetalhe(
 
 export interface UseObraDataReturn {
   obra: ObraDetalhe | null;
+  expenseReceiptDocuments: DocumentAttachment[];
   loading: boolean;
   error: string | null;
   loadingExpenseIds: Set<string>;
@@ -209,9 +216,25 @@ export interface UseObraDataReturn {
     pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
   ) => Promise<void>;
   updateExpense: (id: string, updates: Partial<Gasto>) => Promise<void>;
+  setExpenseReceiptState: (
+    id: string,
+    receipt: {
+      receiptDocumentId: string | null;
+      receiptUrl?: string | null;
+      documentCount?: number;
+    },
+  ) => void;
+  syncExpenseReceiptsFromDocuments: (
+    documents: Array<{
+      id: string;
+      expenseId: string | null;
+      status: string;
+      viewUrl?: string;
+    }>,
+  ) => void;
   deleteExpense: (id: string) => Promise<void>;
   deleteAllExpenses: () => Promise<void>;
-  updateBudget: (newBudget: number, newHoras: number) => Promise<void>;
+  updateBudget: (newBudget: number | null, newHoras: number) => Promise<void>;
   updateTrackFinancial: (enabled: boolean) => Promise<void>;
 }
 
@@ -239,7 +262,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
     [],
   );
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (_reason: "initial" | "refresh" | "reload" = "initial") => {
     try {
       setLoading(true);
       setError(null);
@@ -270,13 +293,46 @@ export function useObraData(projectId: string): UseObraDataReturn {
   }, [projectId, user?.uid]);
 
   useEffect(() => {
-    loadData();
+    loadData("initial");
   }, [loadData, user?.uid]);
+
+  const refreshData = useCallback(async () => {
+    await loadData("refresh");
+  }, [loadData]);
 
   const obra = useMemo<ObraDetalhe | null>(() => {
     if (!project) return null;
     return buildObraDetalhe(project, tasks, expenses, diaryEntries);
   }, [project, tasks, expenses, diaryEntries]);
+
+  const expenseReceiptDocuments = useMemo<DocumentAttachment[]>(() => {
+    return expenses.flatMap((expense) => {
+      if (!expense.receiptDocument) return [];
+
+      return [
+        {
+          id: expense.receiptDocument.id,
+          projectId: expense.projectId,
+          expenseId: expense.id,
+          kind: expense.receiptDocument.kind as DocumentAttachment["kind"],
+          title: expense.description,
+          visibility: undefined,
+          isPinned: false,
+          linkedTaskId: expense.taskId,
+          linkedDiaryEntryId: null,
+          source: expense.receiptDocument.source as DocumentAttachment["source"],
+          status: expense.receiptDocument.status,
+          originalFileName: expense.receiptDocument.originalFileName,
+          contentType: expense.receiptDocument.contentType,
+          sizeBytes: expense.receiptDocument.sizeBytes,
+          pageCount: null,
+          thumbnailUrl: null,
+          metadata: null,
+          createdAt: expense.receiptDocument.createdAt,
+        },
+      ];
+    });
+  }, [expenses]);
 
   const addTask = useCallback(
     async (taskData: Omit<Tarefa, "id">) => {
@@ -318,7 +374,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
       try {
         await tasksService.delete(id);
       } catch (e) {
-        await loadData();
+        await loadData("reload");
         throw e;
       }
     },
@@ -364,6 +420,8 @@ export function useObraData(projectId: string): UseObraDataReturn {
         const trimmedDescription = expenseData.descricao
           .trim()
           .slice(0, MAX_EXPENSE_DESCRIPTION);
+        let confirmedReceiptId: string | null = null;
+        let confirmedReceiptUrl: string | null = null;
 
         const created = await expensesService.create({
           projectId,
@@ -396,10 +454,12 @@ export function useObraData(projectId: string): UseObraDataReturn {
               pendingDoc.asset.uri,
               pendingDoc.asset.mimeType,
             );
-            await documentsService.confirm(
+            const confirmedDocument = await documentsService.confirm(
               projectId,
               created.receiptDocument.id,
             );
+            confirmedReceiptId = confirmedDocument.id;
+            confirmedReceiptUrl = null;
           } catch {
             // Expense was created; document stays PENDING_UPLOAD.
             // The caller is responsible for showing a user-facing error.
@@ -408,7 +468,29 @@ export function useObraData(projectId: string): UseObraDataReturn {
         }
 
         // Only add to list after everything is complete (creation, upload, confirmation)
-        setExpenses((prev) => [created, ...prev]);
+        setExpenses((prev) => [
+          {
+            ...created,
+            receiptDocumentId:
+              confirmedReceiptId ??
+              created.receiptDocumentId ??
+              created.receiptDocument?.id ??
+              null,
+            receiptUrl:
+              confirmedReceiptUrl ??
+              created.receiptUrl ??
+              null,
+            receiptDocument:
+              confirmedReceiptId && created.receiptDocument
+                ? {
+                    ...created.receiptDocument,
+                    id: confirmedReceiptId,
+                    status: "READY",
+                  }
+                : created.receiptDocument,
+          },
+          ...prev,
+        ]);
       } finally {
         setCreatingExpenseId(null);
       }
@@ -454,11 +536,128 @@ export function useObraData(projectId: string): UseObraDataReturn {
       try {
         await expensesService.delete(id);
       } catch (e) {
-        await loadData();
+        await loadData("reload");
         throw e;
       }
     },
     [loadData],
+  );
+
+  const setExpenseReceiptState = useCallback(
+    (
+      id: string,
+      receipt: {
+        receiptDocumentId: string | null;
+        receiptUrl?: string | null;
+        documentCount?: number;
+      },
+    ) => {
+      setExpenses((prev) => {
+        let changed = false;
+
+        const next = prev.map((expense) => {
+          if (expense.id !== id) return expense;
+
+          const nextReceiptDocumentId = receipt.receiptDocumentId;
+          const nextDocumentCount =
+            receipt.documentCount ?? expense.documentCount ?? 0;
+          const nextReceiptDocument = nextReceiptDocumentId
+            ? expense.receiptDocument
+            : null;
+          const nextReceiptUrl =
+            receipt.receiptUrl !== undefined
+              ? receipt.receiptUrl
+              : nextReceiptDocumentId
+                ? expense.receiptUrl
+                : null;
+
+          if (
+            expense.receiptDocumentId === nextReceiptDocumentId &&
+            (expense.documentCount ?? 0) === nextDocumentCount &&
+            expense.receiptDocument === nextReceiptDocument &&
+            (expense.receiptUrl ?? null) === (nextReceiptUrl ?? null)
+          ) {
+            return expense;
+          }
+
+          changed = true;
+          return {
+            ...expense,
+            receiptDocumentId: nextReceiptDocumentId,
+            documentCount: nextDocumentCount,
+            receiptDocument: nextReceiptDocument,
+            receiptUrl: nextReceiptUrl,
+          };
+        });
+
+        return changed ? next : prev;
+      });
+    },
+    [],
+  );
+
+  const syncExpenseReceiptsFromDocuments = useCallback(
+    (
+      documents: Array<{
+        id: string;
+        expenseId: string | null;
+        status: string;
+        viewUrl?: string;
+      }>,
+    ) => {
+      const byExpenseId = new Map<
+        string,
+        { id: string; status: string; viewUrl?: string }
+      >();
+
+      for (const document of documents) {
+        if (!document.expenseId) continue;
+        const current = byExpenseId.get(document.expenseId);
+
+        if (!current) {
+          byExpenseId.set(document.expenseId, document);
+          continue;
+        }
+
+        if (current.status !== "READY" && document.status === "READY") {
+          byExpenseId.set(document.expenseId, document);
+        }
+      }
+
+      setExpenses((prev) => {
+        let changed = false;
+
+        const next = prev.map((expense) => {
+          const linked = byExpenseId.get(expense.id);
+          if (!linked) {
+            return expense;
+          }
+
+          const nextDocumentCount = documents.filter(
+            (document) => document.expenseId === expense.id,
+          ).length;
+
+          if (
+            expense.receiptDocumentId === linked.id &&
+            (expense.documentCount ?? 0) === nextDocumentCount &&
+            (expense.receiptUrl ?? null) === (linked.viewUrl ?? expense.receiptUrl ?? null)
+          ) {
+            return expense;
+          }
+
+          changed = true;
+          return {
+            ...expense,
+            receiptDocumentId: linked.id,
+            documentCount: nextDocumentCount,
+            receiptUrl: linked.viewUrl ?? expense.receiptUrl,
+          };
+        });
+
+        return changed ? next : prev;
+      });
+    },
+    [],
   );
 
   const deleteAllTasks = useCallback(async () => {
@@ -542,12 +741,13 @@ export function useObraData(projectId: string): UseObraDataReturn {
 
   return {
     obra,
+    expenseReceiptDocuments,
     loading,
     error,
     loadingExpenseIds,
     isExpenseLoading,
     creatingExpenseId,
-    refresh: loadData,
+    refresh: refreshData,
     addTask,
     updateTask,
     deleteTask,
@@ -556,6 +756,8 @@ export function useObraData(projectId: string): UseObraDataReturn {
     reorderTasks,
     addExpense,
     updateExpense,
+    setExpenseReceiptState,
+    syncExpenseReceiptsFromDocuments,
     deleteExpense,
     deleteAllExpenses,
     updateBudget,

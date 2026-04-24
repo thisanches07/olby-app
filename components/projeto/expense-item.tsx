@@ -79,6 +79,8 @@ export function ExpenseItem({
     () => tarefas?.find((t) => t.id === expense.tarefaId),
     [tarefas, expense.tarefaId],
   );
+  const hasDocuments =
+    Boolean(expense.receiptDocumentId) || (expense.documentCount ?? 0) > 0;
 
   const canTap = (!readOnly && !!onEdit) || !!onPress;
 
@@ -147,10 +149,10 @@ export function ExpenseItem({
               />
               <Text style={styles.categoryLabel}>{categoryConfig.label}</Text>
             </View>
-            {expense.receiptDocumentId ? (
+            {hasDocuments ? (
               <TouchableOpacity
                 onPress={() =>
-                  onReceiptPress
+                  expense.receiptDocumentId && onReceiptPress
                     ? onReceiptPress(expense)
                     : onDocumentsPress?.(expense)
                 }

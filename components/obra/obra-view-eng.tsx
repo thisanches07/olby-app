@@ -15,15 +15,16 @@ import {
 import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
+import type { DocumentAttachment, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
 import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import type { ProjectAccessMember } from "@/utils/project-members";
-import type { ProjectApiRole } from "@/utils/project-role";
+import { canManageMembers, type ProjectApiRole } from "@/utils/project-role";
 
 import { BottomTabs, type TabDefinition } from "@/components/obra/bottom-tabs";
+import { ProjectDocumentsHub } from "@/components/documents/project-documents-hub";
 import { EngCTARow } from "@/components/obra/eng-cta-row";
 import { EngExpensesList } from "@/components/obra/eng-expenses-list";
 import { EngFinancialCompactCard } from "@/components/obra/eng-financial-compact-card";
@@ -34,12 +35,18 @@ import { EngTasksList } from "@/components/obra/eng-tasks-list";
 import { ObraHeader } from "@/components/obra/obra-header";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
-type EngTabId = "projetos" | "tarefas" | "gastos" | "financeiro";
+type EngTabId =
+  | "projetos"
+  | "tarefas"
+  | "gastos"
+  | "documentos"
+  | "financeiro";
 
 const ENG_TABS: TabDefinition[] = [
   { id: "projetos", label: "PROJETO", icon: "folder" },
   { id: "tarefas", label: "TAREFAS", icon: "check-circle-outline" },
   { id: "gastos", label: "GASTOS", icon: "receipt" },
+  { id: "documentos", label: "DOCUMENTOS", icon: "folder-open" },
   // { id: "financeiro", label: "FINANCEIRO", icon: "insights" },
 ];
 
@@ -127,7 +134,15 @@ function formatDatePtBrShort(d: Date) {
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface ObraViewEngProps {
   obra: ObraDetalhe;
+  expenseReceiptDocuments?: DocumentAttachment[];
   projectMembers?: ProjectAccessMember[];
+  onProjectDocumentsChanged?: (documents: Array<{
+    id: string;
+    expenseId: string | null;
+    status: string;
+    viewUrl?: string;
+  }>) => void;
+  onProjectDocumentRemoved?: (document: DocumentAttachment) => void;
   onAddTask: () => void;
   onEditTask: (task: Tarefa) => void;
   onDeleteTask: (taskId: string) => void;
@@ -152,6 +167,7 @@ interface ObraViewEngProps {
   onTabChange?: (isPrimary: boolean) => void;
   onRefresh?: () => Promise<void>;
   docCounts?: Record<string, number>;
+  projectDocumentsRefreshSignal?: number;
   onDocumentsPress?: (expense: Gasto) => void;
   isExpenseLoading?: (expenseId: string) => boolean;
   creatingExpenseId?: string | null;
@@ -160,7 +176,10 @@ interface ObraViewEngProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 export function ObraViewEng({
   obra,
+  expenseReceiptDocuments = [],
   projectMembers = [],
+  onProjectDocumentsChanged,
+  onProjectDocumentRemoved,
   onAddTask,
   onEditTask,
   onDeleteTask,
@@ -185,6 +204,7 @@ export function ObraViewEng({
   onTabChange,
   onRefresh,
   docCounts = {},
+  projectDocumentsRefreshSignal = 0,
   onDocumentsPress,
   isExpenseLoading,
   creatingExpenseId,
@@ -193,6 +213,7 @@ export function ObraViewEng({
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<EngTabId>("projetos");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [documentComposerSignal, setDocumentComposerSignal] = useState(0);
 
   const gastosMerged = useMemo(
     () =>
@@ -257,6 +278,7 @@ export function ObraViewEng({
   ).current;
 
   const isReadOnly = obra.status === "concluida" || obra.status === "pausada";
+  const canManageDocuments = !isReadOnly && canManageMembers(projectRole);
   const showCompletionBanner =
     obra.progresso >= 100 &&
     obra.status !== "concluida" &&
@@ -269,7 +291,8 @@ export function ObraViewEng({
   // CTA "+" só aparece no gastos quando o acompanhamento está ativo
   const showCTA =
     (activeTab === "tarefas" && !isReadOnly) ||
-    (activeTab === "gastos" && !isReadOnly && obra.trackFinancial);
+    (activeTab === "gastos" && !isReadOnly && obra.trackFinancial) ||
+    (activeTab === "documentos" && canManageDocuments);
   const activeLimitMessage =
     activeTab === "tarefas" && taskLimitReached
       ? `Limite de ${PROJECT_ITEM_LIMIT} tarefas atingido`
@@ -327,8 +350,29 @@ export function ObraViewEng({
         </View>
       )}
 
+      <View style={[styles.scroll, activeTab !== "documentos" && { display: "none" }]}>
+        <ProjectDocumentsHub
+          projectId={obra.id}
+          projectRole={projectRole}
+          onDocumentsChanged={onProjectDocumentsChanged}
+          onDocumentRemoved={onProjectDocumentRemoved}
+          supplementalDocuments={expenseReceiptDocuments}
+          openComposerSignal={documentComposerSignal}
+          isActive={activeTab === "documentos"}
+          refreshSignal={projectDocumentsRefreshSignal}
+          showInlineAddButton={false}
+          showEmptyStateAction={false}
+          bottomContentPadding={scrollPadBottom}
+        />
+      </View>
+
       <ScrollView
-        style={[styles.scroll, activeTab === "tarefas" && { display: "none" }]}
+        style={[
+          styles.scroll,
+          (activeTab === "tarefas" || activeTab === "documentos") && {
+            display: "none",
+          },
+        ]}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: scrollPadBottom },
@@ -488,6 +532,11 @@ export function ObraViewEng({
             activeTab={activeTab}
             onAddTask={taskLimitReached ? undefined : onAddTask}
             onAddExpense={expenseLimitReached ? undefined : onAddExpense}
+            onAddDocument={
+              canManageDocuments
+                ? () => setDocumentComposerSignal((prev) => prev + 1)
+                : undefined
+            }
             onDefault={onViewDiary}
             disabledMessage={activeLimitMessage}
           />

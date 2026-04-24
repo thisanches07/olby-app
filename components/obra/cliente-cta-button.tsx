@@ -26,6 +26,12 @@ const ACTIONS = [
     color: "#0891B2",
   },
   {
+    key: "documentos" as const,
+    icon: "folder-open" as const,
+    label: "Docs",
+    color: "#2563EB",
+  },
+  {
     key: "gastos" as const,
     icon: "receipt-long" as const,
     label: "Gastos",

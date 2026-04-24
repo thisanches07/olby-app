@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 
 import type { DocumentAttachment, DocumentKind, DocumentSource } from "@/data/obras";
+import { ApiError } from "@/services/api";
 import { documentsService } from "@/services/documents.service";
 import { useToast } from "@/components/obra/toast";
 import {
   uploadDocumentToExpense,
+  validateDocumentAssetSize,
   type LocalDocumentAsset,
 } from "@/utils/document-upload";
 
@@ -65,6 +67,8 @@ export function useExpenseDocuments({
     ) => {
       setUploading(true);
       try {
+        await validateDocumentAssetSize(asset, kind);
+
         const doc = await uploadDocumentToExpense(asset, {
           projectId,
           expenseId,
@@ -80,7 +84,6 @@ export function useExpenseDocuments({
         const message =
           err instanceof Error ? err.message : "Falha no envio do documento";
         showToast({ title: "Erro no envio", message, tone: "error" });
-        throw err;
       } finally {
         setUploading(false);
       }
@@ -97,7 +100,19 @@ export function useExpenseDocuments({
 
       try {
         await documentsService.remove(projectId, documentId);
-      } catch {
+        showToast({
+          title: "Documento removido",
+          tone: "success",
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          showToast({
+            title: "Documento removido",
+            tone: "success",
+          });
+          return;
+        }
+
         setDocuments(previous);
         notifyCount(previous);
         showToast({ title: "Erro", message: "Erro ao remover documento", tone: "error" });

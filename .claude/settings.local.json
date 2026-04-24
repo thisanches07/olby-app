@@ -31,7 +31,8 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(grep -rn \"trackFinancial\" \"c:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\obra-app\\\\components\\\\obra\\\\\" --include=\"*.tsx\")",
       "Bash(find ./components/obra -name \"*.tsx\" -exec grep -l \"trackFinancial\" {} \\\\;)",
-      "Bash(grep -E \"\\\\.\\(tsx?|js\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx?|js\\)$\")",
+      "Bash(grep -v \"//\")"
     ]
   }
 }

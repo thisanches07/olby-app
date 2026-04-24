@@ -123,6 +123,8 @@ export default function ObraDetalheScreen() {
   // Document sheet state
   const [docSheetExpense, setDocSheetExpense] = useState<Gasto | null>(null);
   const [docCounts, setDocCounts] = useState<Record<string, number>>({});
+  const [projectDocumentsRefreshSignal, setProjectDocumentsRefreshSignal] =
+    useState(0);
 
   const handleDocumentsPress = useCallback((expense: Gasto) => {
     setDocSheetExpense(expense);
@@ -140,6 +142,7 @@ export default function ObraDetalheScreen() {
 
   const {
     obra,
+    expenseReceiptDocuments,
     loading,
     error,
     refresh,
@@ -151,6 +154,8 @@ export default function ObraDetalheScreen() {
     reorderTasks,
     addExpense,
     updateExpense,
+    setExpenseReceiptState,
+    syncExpenseReceiptsFromDocuments,
     deleteExpense,
     deleteAllExpenses,
     updateBudget,
@@ -158,6 +163,95 @@ export default function ObraDetalheScreen() {
     isExpenseLoading,
     creatingExpenseId,
   } = useObraData(id!);
+
+  const handleExpenseDocumentsSync = useCallback(
+    (
+      expenseId: string,
+      documents: Array<{ id: string; status: string; viewUrl?: string }>,
+    ) => {
+      const primaryReadyDocument =
+        documents.find((document) => document.status === "READY") ??
+        documents[0] ??
+        null;
+
+      setExpenseReceiptState(expenseId, {
+        receiptDocumentId: primaryReadyDocument?.id ?? null,
+        receiptUrl: primaryReadyDocument?.viewUrl ?? null,
+        documentCount: documents.length,
+      });
+      setProjectDocumentsRefreshSignal((prev) => prev + 1);
+    },
+    [setExpenseReceiptState],
+  );
+
+  const handleExpenseReceiptStateChange = useCallback(
+    (
+      expenseId: string,
+      receipt: { receiptDocumentId: string | null; documentCount?: number },
+    ) => {
+      setExpenseReceiptState(expenseId, {
+        receiptDocumentId: receipt.receiptDocumentId,
+        documentCount: receipt.documentCount,
+      });
+
+      if (typeof receipt.documentCount === "number") {
+        setDocCounts((prev) => ({
+          ...prev,
+          [expenseId]: receipt.documentCount ?? 0,
+        }));
+      }
+      setProjectDocumentsRefreshSignal((prev) => prev + 1);
+    },
+    [setExpenseReceiptState],
+  );
+
+  const handleProjectDocumentsChanged = useCallback(
+    (
+      documents: Array<{
+        id: string;
+        expenseId: string | null;
+        status: string;
+        viewUrl?: string;
+      }>,
+    ) => {
+      syncExpenseReceiptsFromDocuments(documents);
+    },
+    [syncExpenseReceiptsFromDocuments],
+  );
+
+  const handleProjectDocumentRemoved = useCallback(
+    (document: { id: string; expenseId: string | null }) => {
+      if (!document.expenseId) return;
+
+      const currentExpense = obraView?.gastos?.find(
+        (expense: Gasto) => expense.id === document.expenseId,
+      );
+      const currentCount =
+        docCounts[document.expenseId] ??
+        currentExpense?.documentCount ??
+        1;
+      const nextCount = Math.max(currentCount - 1, 0);
+
+      setExpenseReceiptState(document.expenseId, {
+        receiptDocumentId:
+          currentExpense?.receiptDocumentId === document.id
+            ? null
+            : currentExpense?.receiptDocumentId ?? null,
+        receiptUrl:
+          currentExpense?.receiptDocumentId === document.id
+            ? null
+            : currentExpense?.receiptUrl ?? null,
+        documentCount: nextCount,
+      });
+
+      setDocCounts((prev) => ({
+        ...prev,
+        [document.expenseId!]: nextCount,
+      }));
+      setProjectDocumentsRefreshSignal((prev) => prev + 1);
+    },
+    [docCounts, obraView?.gastos, setExpenseReceiptState],
+  );
 
   const [obraOverride, setObraOverride] = useState<any | null>(null);
   const [isConcluding, setIsConcluding] = useState(false);
@@ -178,14 +272,45 @@ export default function ObraDetalheScreen() {
     setObraOverride(null);
   }, [obra?.id, id]);
 
+  const obraView = (obraOverride ?? obra) as any;
+
+  useEffect(() => {
+    if (!obraView?.gastos?.length) {
+      if (docSheetExpense) setDocSheetExpense(null);
+      if (editingExpense) setEditingExpense(undefined);
+      return;
+    }
+
+    if (docSheetExpense) {
+      const nextExpense = obraView.gastos.find(
+        (expense: Gasto) => expense.id === docSheetExpense.id,
+      );
+      if (!nextExpense) {
+        setDocSheetExpense(null);
+      } else if (nextExpense !== docSheetExpense) {
+        setDocSheetExpense(nextExpense);
+      }
+    }
+
+    if (editingExpense) {
+      const nextExpense = obraView.gastos.find(
+        (expense: Gasto) => expense.id === editingExpense.id,
+      );
+      if (!nextExpense) {
+        setEditingExpense(undefined);
+        setShowExpenseModal(false);
+      } else if (nextExpense !== editingExpense) {
+        setEditingExpense(nextExpense);
+      }
+    }
+  }, [docSheetExpense, editingExpense, obraView?.gastos]);
+
   // Sincroniza qualquer mudança do detalhe (tarefas, gastos, settings)
   // de volta ao contexto global — a lista reflete sem precisar de GET
   useEffect(() => {
     if (!obra) return;
     updateObra(obra.id, obra);
   }, [obra, updateObra]);
-
-  const obraView = (obraOverride ?? obra) as any;
   const cachedObra = useMemo(
     () => obras.find((item) => item.id === id),
     [id, obras],
@@ -500,7 +625,10 @@ export default function ObraDetalheScreen() {
       {isCliente && (
         <ObraViewCliente
           obra={obraView}
+          expenseReceiptDocuments={expenseReceiptDocuments}
           projectMembers={projectMembers}
+          onProjectDocumentsChanged={handleProjectDocumentsChanged}
+          onProjectDocumentRemoved={handleProjectDocumentRemoved}
           onViewDiary={handleViewDiary}
           projectRole={projectRole}
           onTabChange={(isPrimary) => setIsOnPrimaryTab(isPrimary)}
@@ -511,7 +639,10 @@ export default function ObraDetalheScreen() {
       {isEng && (
         <ObraViewEng
           obra={obraView}
+          expenseReceiptDocuments={expenseReceiptDocuments}
           projectMembers={projectMembers}
+          onProjectDocumentsChanged={handleProjectDocumentsChanged}
+          onProjectDocumentRemoved={handleProjectDocumentRemoved}
           projectRole={projectRole}
           onTabChange={(isPrimary) => setIsOnPrimaryTab(isPrimary)}
           onRefresh={refresh}
@@ -536,6 +667,7 @@ export default function ObraDetalheScreen() {
           onEnableFinancial={handleEnableFinancial}
           onDisableFinancial={handleDisableFinancial}
           docCounts={docCounts}
+          projectDocumentsRefreshSignal={projectDocumentsRefreshSignal}
           onDocumentsPress={handleDocumentsPress}
           isExpenseLoading={isExpenseLoading}
           creatingExpenseId={creatingExpenseId}
@@ -574,6 +706,7 @@ export default function ObraDetalheScreen() {
         expense={editingExpense}
         tarefas={obraView.tarefas}
         projectId={obraView.id}
+        onReceiptStateChange={handleExpenseReceiptStateChange}
         onSave={handleSaveExpense}
         onDelete={handleDeleteExpense}
         onClose={() => {
@@ -589,6 +722,7 @@ export default function ObraDetalheScreen() {
         projectRole={projectRole}
         onClose={() => setDocSheetExpense(null)}
         onDocumentCountChange={handleDocumentCountChange}
+        onDocumentsSync={handleExpenseDocumentsSync}
       />
 
       <BudgetAdjustmentModal

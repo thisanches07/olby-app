@@ -20,7 +20,7 @@ import type { LocalDocumentAsset } from "@/utils/document-upload";
 import { CaptureOptionsSheet } from "./capture-options-sheet";
 import { DocumentViewerModal } from "./document-viewer-modal";
 
-const KIND_LABELS: Record<DocumentKind, string> = {
+const KIND_LABELS: Partial<Record<DocumentKind, string>> = {
   RECEIPT: "Comprovante",
   INVOICE: "Nota Fiscal",
   CONTRACT: "Contrato",
@@ -29,7 +29,7 @@ const KIND_LABELS: Record<DocumentKind, string> = {
   OTHER: "Outro",
 };
 
-const KIND_COLORS: Record<DocumentKind, string> = {
+const KIND_COLORS: Partial<Record<DocumentKind, string>> = {
   RECEIPT: "#10B981",
   INVOICE: "#2563EB",
   CONTRACT: "#7C3AED",
@@ -51,6 +51,7 @@ interface ExpenseDocumentSheetProps {
   projectRole: ObraDetalhe["myRole"];
   onClose: () => void;
   onDocumentCountChange: (expenseId: string, count: number) => void;
+  onDocumentsSync?: (expenseId: string, documents: DocumentAttachment[]) => void;
 }
 
 export function ExpenseDocumentSheet({
@@ -60,6 +61,7 @@ export function ExpenseDocumentSheet({
   projectRole,
   onClose,
   onDocumentCountChange,
+  onDocumentsSync,
 }: ExpenseDocumentSheetProps) {
   const canManage = projectRole === "OWNER" || projectRole === "PRO";
 
@@ -85,6 +87,11 @@ export function ExpenseDocumentSheet({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, expense?.id]);
+
+  useEffect(() => {
+    if (!expense?.id) return;
+    onDocumentsSync?.(expense.id, documents);
+  }, [documents, expense?.id, onDocumentsSync]);
 
   const handleAssetSelected = async (
     asset: LocalDocumentAsset,

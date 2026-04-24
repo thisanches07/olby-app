@@ -60,9 +60,9 @@ export function DocumentViewerModal({
 
     setLoading(true);
     documentsService
-      .getById(projectId, document.id)
-      .then((doc) => {
-        const url = doc.viewUrl ?? null;
+      .getAccess(projectId, document.id)
+      .then((access) => {
+        const url = access.viewUrl ?? null;
         if (!url) {
           showToast({
             title: "Erro",
@@ -85,7 +85,7 @@ export function DocumentViewerModal({
         onClose();
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, document?.id]);
+  }, [visible, document?.id, document?.status, projectId, onClose, showToast]);
 
   const handleOpen = () => {
     if (viewUrl) WebBrowser.openBrowserAsync(viewUrl);
