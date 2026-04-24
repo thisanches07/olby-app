@@ -266,15 +266,16 @@ export function ObraViewCliente({
         </ScrollView>
       )}
 
-      {activeTab === "documentos" && (
+      <View style={[styles.scroll, activeTab !== "documentos" && { display: "none" }]}>
         <ProjectDocumentsHub
           projectId={obra.id}
           projectRole={projectRole}
           onDocumentsChanged={onProjectDocumentsChanged}
           onDocumentRemoved={onProjectDocumentRemoved}
           supplementalDocuments={expenseReceiptDocuments}
+          isActive={activeTab === "documentos"}
         />
-      )}
+      </View>
 
       <View style={[styles.bottomArea, { backgroundColor: colors.white }]}>
         <ClienteCTAButton

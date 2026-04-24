@@ -32,6 +32,19 @@ export interface DocumentAccessDto {
   thumbnailUrl?: string | null;
 }
 
+export interface DocumentsPageInfoDto {
+  limit: number;
+  returnedCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+  offset: number | null;
+}
+
+export interface ListDocumentsResponseDto {
+  items: DocumentAttachment[];
+  pageInfo: DocumentsPageInfoDto;
+}
+
 export interface ListProjectDocumentsParams {
   expenseId?: string;
   kind?: DocumentKind;
@@ -63,6 +76,14 @@ function buildQuery(params?: ListProjectDocumentsParams): string {
   return query ? `?${query}` : "";
 }
 
+function extractDocumentItems(
+  response: DocumentAttachment[] | ListDocumentsResponseDto,
+): DocumentAttachment[] {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  return [];
+}
+
 export const documentsService = {
   presign: (projectId: string, dto: PresignDocumentDto) =>
     api.post<PresignDocumentResponseDto>(
@@ -76,10 +97,12 @@ export const documentsService = {
       {},
     ),
 
-  list: (projectId: string, params?: ListProjectDocumentsParams) =>
-    api.get<DocumentAttachment[]>(
+  list: async (projectId: string, params?: ListProjectDocumentsParams) => {
+    const response = await api.get<DocumentAttachment[] | ListDocumentsResponseDto>(
       `/projects/${encodeURIComponent(projectId)}/documents${buildQuery(params)}`,
-    ),
+    );
+    return extractDocumentItems(response);
+  },
 
   listByExpense: (projectId: string, expenseId: string) =>
     documentsService.list(projectId, { expenseId }),

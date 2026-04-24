@@ -1,7 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   RefreshControl,
@@ -94,6 +93,7 @@ export function ProjectDocumentsHub({
 
   const uploadingRef = useRef(uploading);
   uploadingRef.current = uploading;
+  const hasLoadedOnceRef = useRef(false);
 
   const [activeFilter, setActiveFilter] = useState<HubFilter>("ALL");
   const [query, setQuery] = useState("");
@@ -109,6 +109,8 @@ export function ProjectDocumentsHub({
 
   useEffect(() => {
     if (!isActive) return;
+    if (hasLoadedOnceRef.current) return;
+    hasLoadedOnceRef.current = true;
     void fetchDocuments("initial");
   }, [fetchDocuments, isActive]);
 
@@ -196,14 +198,6 @@ export function ProjectDocumentsHub({
       ],
     );
   };
-
-  if (loading && mergedDocuments.length === 0) {
-    return (
-      <View style={styles.loadingWrap}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -398,7 +392,9 @@ export function ProjectDocumentsHub({
           </Text>
         </View>
 
-        {filteredDocuments.length === 0 ? (
+        {loading && mergedDocuments.length === 0 ? (
+          <DocumentsLoadingState />
+        ) : filteredDocuments.length === 0 ? (
           <HomeEmptyState
             title={
                 mergedDocuments.length === 0
@@ -460,6 +456,22 @@ export function ProjectDocumentsHub({
         projectId={projectId}
         onClose={() => setViewingDocument(null)}
       />
+    </View>
+  );
+}
+
+function DocumentsLoadingState() {
+  return (
+    <View style={styles.loadingList}>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <View key={index} style={styles.loadingRow}>
+          <View style={styles.loadingIcon} />
+          <View style={styles.loadingContent}>
+            <View style={[styles.loadingLine, styles.loadingTitleLine]} />
+            <View style={[styles.loadingLine, styles.loadingMetaLine]} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -527,12 +539,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing[16],
     paddingBottom: spacing[24],
-  },
-  loadingWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F4F7FB",
   },
   heroCard: {
     borderRadius: radius["2xl"],
@@ -753,5 +759,41 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing[10],
+  },
+  loadingList: {
+    gap: spacing[10],
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[12],
+    backgroundColor: "#FFFFFF",
+    borderRadius: radius.xl,
+    padding: spacing[14],
+    borderWidth: 1,
+    borderColor: "rgba(226,232,240,0.9)",
+    ...shadow(1),
+  },
+  loadingIcon: {
+    width: spacing[48],
+    height: spacing[48],
+    borderRadius: radius.lg,
+    backgroundColor: "#E2E8F0",
+  },
+  loadingContent: {
+    flex: 1,
+    gap: spacing[8],
+  },
+  loadingLine: {
+    height: 12,
+    borderRadius: radius.pill,
+    backgroundColor: "#E2E8F0",
+  },
+  loadingTitleLine: {
+    width: "70%",
+    height: 14,
+  },
+  loadingMetaLine: {
+    width: "44%",
   },
 });
