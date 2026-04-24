@@ -50,6 +50,7 @@ export default function DiarioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { role: sessionRole } = useAppSession();
   const { obras } = useProjects();
+  const [activeTab, setActiveTab] = useState<DiaryTab>("timeline");
 
   const { showToast } = useToast();
   const fallbackMode: "cliente" | "engenheiro" =
@@ -114,17 +115,19 @@ export default function DiarioScreen() {
   const {
     sections,
     isLoading,
+    isLoadingMore,
+    hasMore,
     isSaving,
     error,
     refresh,
+    loadMore,
     createEntry,
     updateEntry,
     deleteEntry,
     deletePhoto,
-  } = useDiaryData(id ?? "");
+  } = useDiaryData(id ?? "", { loadFullData: activeTab === "photos" });
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<DiaryTab>("timeline");
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
   const [lightboxPhotos, setLightboxPhotos] = useState<PhotoItem[]>([]);
@@ -149,6 +152,27 @@ export default function DiarioScreen() {
       setIsRefreshing(false);
     }
   }, [refresh]);
+
+  const resolveEntryPhotos = useCallback(
+    async (entryId: string): Promise<PhotoItem[]> => {
+      const entry = sections
+        .flatMap((section) => section.entries)
+        .find((item) => item.id === entryId);
+
+      if (!entry) return [];
+      if (entry.photoCount <= entry.photos.length) return entry.photos;
+
+      const fullPhotos = await dailyLogPhotosService.listByEntry(id ?? "", entryId);
+      return fullPhotos
+        .filter((photo) => photo.status === "READY" && photo.thumbUrl)
+        .map((photo) => ({
+          id: photo.id,
+          thumbUrl: photo.thumbUrl!,
+          status: "READY" as const,
+        }));
+    },
+    [id, sections],
+  );
 
   useEffect(() => {
     if (!isEng || isReadOnly) {
@@ -233,14 +257,24 @@ export default function DiarioScreen() {
   };
 
   // ── Handler de foto ────────────────────────────────────────────────────────
-  const handlePhotoPress = (photos: PhotoItem[], index: number) => {
+  const handlePhotoPress = async (photos: PhotoItem[], index: number) => {
     const entry = sections
       .flatMap((s) => s.entries)
       .find(
         (e) => photos.length > 0 && e.photos.some((p) => p.id === photos[0].id),
       );
-    setLightboxPhotos(photos);
-    setLightboxIndex(index);
+
+    const resolvedPhotos = entry ? await resolveEntryPhotos(entry.id) : photos;
+    const selectedPhotoId = photos[index]?.id;
+    const resolvedIndex = selectedPhotoId
+      ? Math.max(
+          resolvedPhotos.findIndex((photo) => photo.id === selectedPhotoId),
+          0,
+        )
+      : index;
+
+    setLightboxPhotos(resolvedPhotos);
+    setLightboxIndex(resolvedIndex);
     setLightboxEntryId(entry?.id);
     setShowLightbox(true);
   };
@@ -250,14 +284,16 @@ export default function DiarioScreen() {
       .flatMap((s) => s.entries)
       .find((e) => e.id === entryId);
 
-    if (!entry || entry.photos.length === 0) {
+    const photos = entry ? await resolveEntryPhotos(entryId) : [];
+
+    if (!entry || photos.length === 0) {
       showToast({ title: "Sem fotos neste registro", tone: "info" });
       return;
     }
 
     try {
       const urlResults = await Promise.allSettled(
-        entry.photos.map((p) =>
+        photos.map((p) =>
           dailyLogPhotosService.getOriginalUrl(p.id).then((r) => r.url),
         ),
       );
@@ -311,7 +347,7 @@ export default function DiarioScreen() {
   const showEngineerActions = isEng && activeTab === "timeline";
 
   // ── Estados de loading / error ─────────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading && sections.length === 0) {
     return <DiaryLoadingScreen variant={mode} />;
   }
 
@@ -387,6 +423,9 @@ export default function DiarioScreen() {
             onDownloadEntry={handleDownloadEntryPhotos}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
+            onLoadMore={loadMore}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
           />
         ) : (
           <EngineerTimelineSection
@@ -399,6 +438,9 @@ export default function DiarioScreen() {
             canEdit={!isReadOnly}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
+            onLoadMore={loadMore}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
           />
         )
       ) : activeTab === "photos" ? (

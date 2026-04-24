@@ -34,7 +34,7 @@ export function DiaryEntryCard({
 }: DiaryEntryCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const durationLabel = formatDuration(entry.durationMinutes);
-  const hasPhotos = entry.photos.length > 0;
+  const hasPhotos = entry.photoCount > 0;
   const isLast = index === totalInSection - 1;
 
   return (
@@ -101,7 +101,7 @@ export function DiaryEntryCard({
                 visible={menuVisible}
                 actions={[
                   {
-                    label: `Baixar fotos (${entry.photos.length})`,
+                    label: `Baixar fotos (${entry.photoCount})`,
                     icon: "file-download",
                     onPress: () => onDownloadAll(entry.id),
                   },
@@ -144,10 +144,10 @@ export function DiaryEntryCard({
                   style={styles.clientPhotoThumb}
                   contentFit="cover"
                 />
-                {pIdx === 1 && entry.photos.length > 2 && (
+                {pIdx === 1 && entry.photoCount > 2 && (
                   <View style={styles.clientPhotoMoreOverlay}>
                     <Text style={styles.clientPhotoMoreText}>
-                      +{entry.photos.length - 2}
+                      +{entry.photoCount - 2}
                     </Text>
                   </View>
                 )}

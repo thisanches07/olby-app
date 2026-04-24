@@ -13,6 +13,21 @@ export interface DailyLogPhotoDto {
   createdAt: string;
 }
 
+export interface DailyLogProjectPhotoDto {
+  id: string;
+  entryId: string;
+  projectId: string;
+  date: string;
+  createdAt: string;
+  thumbUrl: string;
+  thumbContentType: string;
+  thumbSizeBytes: string;
+}
+
+export interface ListDailyLogProjectPhotosResponseDto {
+  items: DailyLogProjectPhotoDto[];
+}
+
 export interface PresignDto {
   projectId: string;
   entryId: string;
@@ -47,6 +62,14 @@ export const dailyLogPhotosService = {
     api.get<DailyLogPhotoDto[]>(
       `/daily-log-photos/by-entry?projectId=${encodeURIComponent(projectId)}&entryId=${encodeURIComponent(entryId)}`,
     ),
+
+  listByProject: async (projectId: string, limit = 5) => {
+    const cappedLimit = Math.min(Math.max(limit, 1), 5);
+    const response = await api.get<ListDailyLogProjectPhotosResponseDto>(
+      `/daily-log-photos/by-project?projectId=${encodeURIComponent(projectId)}&limit=${cappedLimit}`,
+    );
+    return Array.isArray(response?.items) ? response.items : [];
+  },
 
   getOriginalUrl: (photoId: string) =>
     api.get<{ url: string; expiresInSeconds: number }>(

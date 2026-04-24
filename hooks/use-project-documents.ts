@@ -16,12 +16,19 @@ interface UseProjectDocumentsOptions {
   projectId: string;
 }
 
+interface FetchProjectDocumentsOptions {
+  name?: string;
+}
+
 export function useProjectDocuments({
   projectId,
 }: UseProjectDocumentsOptions) {
   const [documents, setDocuments] = useState<DocumentAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingFileName, setUploadingFileName] = useState<string | undefined>();
   const cancelledRef = useRef(false);
@@ -32,15 +39,27 @@ export function useProjectDocuments({
   }, []);
 
   const fetchDocuments = useCallback(
-    async (mode: "initial" | "refresh" = "initial") => {
+    async (
+      mode: "initial" | "refresh" | "search" = "initial",
+      options?: FetchProjectDocumentsOptions,
+    ) => {
       if (!projectId) return;
 
       if (mode === "initial") setLoading(true);
       if (mode === "refresh") setRefreshing(true);
+      if (mode === "search") {
+        setLoading(true);
+        setDocuments([]);
+      }
 
       try {
-        const data = await documentsService.list(projectId);
-        setDocuments(Array.isArray(data) ? data : []);
+        const response = await documentsService.listPage(projectId, {
+          limit: 20,
+          name: options?.name?.trim() || undefined,
+        });
+        setDocuments(Array.isArray(response.items) ? response.items : []);
+        setHasMore(response.pageInfo?.hasMore ?? false);
+        setNextCursor(response.pageInfo?.nextCursor ?? null);
       } catch {
         showToast({
           title: "Erro",
@@ -54,6 +73,30 @@ export function useProjectDocuments({
     },
     [projectId, showToast],
   );
+
+  const loadMoreDocuments = useCallback(async (options?: FetchProjectDocumentsOptions) => {
+    if (!projectId || !nextCursor || !hasMore || loadingMore) return;
+
+    setLoadingMore(true);
+    try {
+      const response = await documentsService.listPage(projectId, {
+        limit: 20,
+        name: options?.name?.trim() || undefined,
+        cursor: nextCursor,
+      });
+      setDocuments((prev) => mergeDocuments(prev, response.items ?? []));
+      setHasMore(response.pageInfo?.hasMore ?? false);
+      setNextCursor(response.pageInfo?.nextCursor ?? null);
+    } catch {
+      showToast({
+        title: "Erro",
+        message: "Nao foi possivel carregar mais documentos.",
+        tone: "error",
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, nextCursor, projectId, showToast]);
 
   const uploadDocument = useCallback(
     async (
@@ -78,7 +121,7 @@ export function useProjectDocuments({
           isCancelled: () => cancelledRef.current,
         });
 
-        setDocuments((prev) => [document, ...prev]);
+        setDocuments((prev) => mergeDocuments([document], prev));
 
         showToast({
           title: "Documento enviado",
@@ -157,10 +200,28 @@ export function useProjectDocuments({
     loading,
     refreshing,
     uploading,
+    loadingMore,
+    hasMore,
     uploadingFileName,
     cancelUpload,
     fetchDocuments,
+    loadMoreDocuments,
     uploadDocument,
     removeDocument,
   };
+}
+
+function mergeDocuments(
+  previous: DocumentAttachment[],
+  incoming: DocumentAttachment[],
+): DocumentAttachment[] {
+  const byId = new Map<string, DocumentAttachment>();
+
+  for (const document of [...previous, ...incoming]) {
+    if (!byId.has(document.id)) {
+      byId.set(document.id, document);
+    }
+  }
+
+  return Array.from(byId.values());
 }

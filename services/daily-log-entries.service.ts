@@ -19,8 +19,8 @@ export interface PhotoToUpload {
 export interface DailyLogEntryResponseDto {
   id: string;
   projectId: string;
-  date: string;               // "YYYY-MM-DD"
-  arrivedAt: string | null;   // ISO 8601 timestamptz
+  date: string; // "YYYY-MM-DD"
+  arrivedAt: string | null; // ISO 8601 timestamptz
   durationMinutes: number;
   title: string;
   notes: string | null;
@@ -33,9 +33,9 @@ export interface DailyLogEntryResponseDto {
 
 export interface CreateDailyLogEntryDto {
   projectId: string;
-  date: string;               // "YYYY-MM-DD"
-  arrivedAt?: string | null;  // ISO 8601 timestamptz
-  durationMinutes: number;    // required, min 30, multiple of 30
+  date: string; // "YYYY-MM-DD"
+  arrivedAt?: string | null; // ISO 8601 timestamptz
+  durationMinutes: number; // required, min 30, multiple of 30
   title: string;
   notes?: string | null;
   photos?: CreatePhotoDto[];
@@ -49,12 +49,54 @@ export interface UpdateDailyLogEntryDto {
   notes?: string | null;
 }
 
+export interface DailyLogEntryFeedPhotoPreviewDto {
+  id: string;
+  thumbUrl: string;
+  thumbContentType: string;
+  thumbSizeBytes: string;
+  createdAt: string;
+}
+
+export interface DailyLogEntryFeedItemDto {
+  id: string;
+  projectId: string;
+  date: string;
+  arrivedAt: string | null;
+  createdAt: string;
+  title: string | null;
+  notes: string | null;
+  durationMinutes: number | null;
+  photoCount: number;
+  photosPreview: DailyLogEntryFeedPhotoPreviewDto[];
+}
+
+export interface DailyLogEntriesFeedPageInfoDto {
+  limit: number;
+  returnedCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export interface ListDailyLogEntriesFeedResponseDto {
+  items: DailyLogEntryFeedItemDto[];
+  pageInfo: DailyLogEntriesFeedPageInfoDto;
+}
+
 export const dailyLogEntriesService = {
   listByProject: (projectId: string, dateFrom?: string, dateTo?: string) => {
     let path = `/daily-log-entries?projectId=${encodeURIComponent(projectId)}`;
     if (dateFrom) path += `&dateFrom=${encodeURIComponent(dateFrom)}`;
     if (dateTo) path += `&dateTo=${encodeURIComponent(dateTo)}`;
     return api.get<DailyLogEntryResponseDto[]>(path);
+  },
+
+  listFeedByProject: (projectId: string, cursor?: string, limit = 10) => {
+    let path = `/v1/daily-log-entries/feed?projectId=${encodeURIComponent(projectId)}&limit=${Math.min(
+      Math.max(limit, 1),
+      10,
+    )}`;
+    if (cursor) path += `&cursor=${encodeURIComponent(cursor)}`;
+    return api.get<ListDailyLogEntriesFeedResponseDto>(path);
   },
 
   create: (dto: CreateDailyLogEntryDto) =>

@@ -22,6 +22,7 @@ export interface DiaryEntry {
   description: string;
   /** Duração em minutos (ex.: 90 = 1h30). null se não informado. */
   durationMinutes: number | null;
+  photoCount: number;
   photos: PhotoItem[];
   isToday: boolean;
 }

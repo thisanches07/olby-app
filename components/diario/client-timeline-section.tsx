@@ -2,7 +2,14 @@ import type { ObraDetalhe } from "@/data/obras";
 import type { DiarySection, PhotoItem } from "@/hooks/use-diary-state";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { ClientSummaryCard } from "./client-summary-card";
 import { DiaryEntryCard } from "./diary-entry-card";
 
@@ -13,6 +20,9 @@ interface ClientTimelineSectionProps {
   onDownloadEntry?: (entryId: string) => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export function ClientTimelineSection({
@@ -22,6 +32,9 @@ export function ClientTimelineSection({
   onDownloadEntry,
   onRefresh,
   isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: ClientTimelineSectionProps) {
   return (
     <ScrollView
@@ -38,6 +51,17 @@ export function ClientTimelineSection({
           />
         ) : undefined
       }
+      onScroll={({ nativeEvent }) => {
+        if (!hasMore || isLoadingMore || !onLoadMore) return;
+        const distanceFromBottom =
+          nativeEvent.contentSize.height -
+          nativeEvent.layoutMeasurement.height -
+          nativeEvent.contentOffset.y;
+        if (distanceFromBottom < 280) {
+          onLoadMore();
+        }
+      }}
+      scrollEventThrottle={16}
     >
       <ClientSummaryCard obra={obra} sections={sections as any} />
 
@@ -72,6 +96,12 @@ export function ClientTimelineSection({
       )}
 
       <View style={{ height: 16 }} />
+      {isLoadingMore ? (
+        <View style={styles.loadMoreWrap}>
+          <ActivityIndicator size="small" color="#2563EB" />
+          <Text style={styles.loadMoreText}>Carregando mais registros...</Text>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -116,5 +146,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#D1D5DB",
     textAlign: "center",
+  },
+  loadMoreWrap: {
+    paddingTop: 4,
+    paddingBottom: 20,
+    alignItems: "center",
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
   },
 });

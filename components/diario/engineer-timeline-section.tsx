@@ -7,6 +7,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -37,6 +38,9 @@ interface EngineerTimelineSectionProps {
   canEdit?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export function EngineerTimelineSection({
@@ -49,6 +53,9 @@ export function EngineerTimelineSection({
   canEdit = true,
   onRefresh,
   isRefreshing = false,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: EngineerTimelineSectionProps) {
   const { showToast } = useToast();
   const [pendingDeletePhoto, setPendingDeletePhoto] = useState<{
@@ -122,6 +129,17 @@ export function EngineerTimelineSection({
           />
         ) : undefined
       }
+      onScroll={({ nativeEvent }) => {
+        if (!hasMore || isLoadingMore || !onLoadMore) return;
+        const distanceFromBottom =
+          nativeEvent.contentSize.height -
+          nativeEvent.layoutMeasurement.height -
+          nativeEvent.contentOffset.y;
+        if (distanceFromBottom < 280) {
+          onLoadMore();
+        }
+      }}
+      scrollEventThrottle={16}
     >
       {sections.length === 0 ? (
         <View style={styles.emptyWrap}>
@@ -187,7 +205,7 @@ export function EngineerTimelineSection({
                       entryId={entry.id}
                       onEdit={onEditEntry}
                       onDelete={onDeleteEntry}
-                      hasPhotos={entry.photos.length > 0}
+                      hasPhotos={entry.photoCount > 0}
                       onDownloadAll={handleDownloadAllPhotos}
                     />
                   ) : null}
@@ -217,7 +235,7 @@ export function EngineerTimelineSection({
                           contentFit="cover"
                         />
                         {/* Badge "+N" na primeira foto */}
-                        {photoIdx === 0 && entry.photos.length > 1 && (
+                        {photoIdx === 0 && entry.photoCount > 1 && (
                           <View style={styles.photoBadge}>
                             <MaterialIcons
                               name="photo-library"
@@ -225,7 +243,7 @@ export function EngineerTimelineSection({
                               color="#FFFFFF"
                             />
                             <Text style={styles.photoBadgeText}>
-                              +{entry.photos.length - 1}
+                              +{entry.photoCount - 1}
                             </Text>
                           </View>
                         )}
@@ -284,6 +302,12 @@ export function EngineerTimelineSection({
       ))}
 
       <View style={{ height: 16 }} />
+      {isLoadingMore ? (
+        <View style={styles.loadMoreWrap}>
+          <ActivityIndicator size="small" color="#2563EB" />
+          <Text style={styles.loadMoreText}>Carregando mais registros...</Text>
+        </View>
+      ) : null}
     </ScrollView>
 
     <ConfirmSheet
@@ -357,6 +381,17 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#F3F4F6",
     marginVertical: 20,
+  },
+  loadMoreWrap: {
+    paddingTop: 4,
+    paddingBottom: 20,
+    alignItems: "center",
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   entryHeader: {
     flexDirection: "row",

@@ -50,9 +50,10 @@ export interface ListProjectDocumentsParams {
   kind?: DocumentKind;
   visibility?: DocumentVisibility;
   pinned?: boolean;
-  search?: string;
+  name?: string;
   status?: DocumentAttachment["status"];
   limit?: number;
+  cursor?: string;
 }
 
 function buildQuery(params?: ListProjectDocumentsParams): string {
@@ -66,11 +67,12 @@ function buildQuery(params?: ListProjectDocumentsParams): string {
   if (typeof params.pinned === "boolean") {
     searchParams.set("pinned", String(params.pinned));
   }
-  if (params.search) searchParams.set("search", params.search);
+  if (params.name) searchParams.set("name", params.name);
   if (params.status) searchParams.set("status", params.status);
   if (typeof params.limit === "number") {
     searchParams.set("limit", String(params.limit));
   }
+  if (params.cursor) searchParams.set("cursor", params.cursor);
 
   const query = searchParams.toString();
   return query ? `?${query}` : "";
@@ -97,11 +99,39 @@ export const documentsService = {
       {},
     ),
 
-  list: async (projectId: string, params?: ListProjectDocumentsParams) => {
-    const response = await api.get<DocumentAttachment[] | ListDocumentsResponseDto>(
+  listPage: async (projectId: string, params?: ListProjectDocumentsParams) => {
+    const response = await api.get<
+      DocumentAttachment[] | ListDocumentsResponseDto
+    >(
       `/projects/${encodeURIComponent(projectId)}/documents${buildQuery(params)}`,
     );
-    return extractDocumentItems(response);
+    if (Array.isArray(response)) {
+      return {
+        items: response,
+        pageInfo: {
+          limit: params?.limit ?? response.length,
+          returnedCount: response.length,
+          hasMore: false,
+          nextCursor: null,
+          offset: null,
+        } satisfies DocumentsPageInfoDto,
+      };
+    }
+    return {
+      items: extractDocumentItems(response),
+      pageInfo: response?.pageInfo ?? {
+        limit: params?.limit ?? 20,
+        returnedCount: extractDocumentItems(response).length,
+        hasMore: false,
+        nextCursor: null,
+        offset: null,
+      },
+    };
+  },
+
+  list: async (projectId: string, params?: ListProjectDocumentsParams) => {
+    const response = await documentsService.listPage(projectId, params);
+    return response.items;
   },
 
   listByExpense: (projectId: string, expenseId: string) =>

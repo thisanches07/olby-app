@@ -1,6 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   RefreshControl,
@@ -30,7 +31,6 @@ import {
   DOCUMENT_KIND_COLORS,
   DOCUMENT_KIND_LABELS,
   formatDocumentBytes,
-  matchesDocumentSearch,
 } from "@/utils/documents";
 import { canManageMembers, type ProjectApiRole } from "@/utils/project-role";
 import { DocumentUploadBanner } from "./document-upload-banner";
@@ -83,10 +83,13 @@ export function ProjectDocumentsHub({
     documents,
     loading,
     refreshing,
+    loadingMore,
+    hasMore,
     uploading,
     uploadingFileName,
     cancelUpload,
     fetchDocuments,
+    loadMoreDocuments,
     uploadDocument,
     removeDocument,
   } = useProjectDocuments({ projectId });
@@ -94,9 +97,11 @@ export function ProjectDocumentsHub({
   const uploadingRef = useRef(uploading);
   uploadingRef.current = uploading;
   const hasLoadedOnceRef = useRef(false);
+  const lastRequestKeyRef = useRef<string | null>(null);
 
   const [activeFilter, setActiveFilter] = useState<HubFilter>("ALL");
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [showUploadSheet, setShowUploadSheet] = useState(false);
   const [viewingDocument, setViewingDocument] =
     useState<DocumentAttachment | null>(null);
@@ -108,16 +113,44 @@ export function ProjectDocumentsHub({
   );
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [query]);
+
+  useEffect(() => {
     if (!isActive) return;
     if (hasLoadedOnceRef.current) return;
     hasLoadedOnceRef.current = true;
-    void fetchDocuments("initial");
-  }, [fetchDocuments, isActive]);
+    lastRequestKeyRef.current = `${projectId}:${debouncedQuery}`;
+    void fetchDocuments("initial", {
+      name:
+        debouncedQuery.length >= 3
+          ? debouncedQuery
+          : undefined,
+    });
+  }, [debouncedQuery, fetchDocuments, isActive, projectId]);
 
   useEffect(() => {
     if (!isActive || refreshSignal === 0) return;
-    void fetchDocuments("refresh");
-  }, [fetchDocuments, isActive, refreshSignal]);
+    void fetchDocuments("refresh", { name: debouncedQuery });
+  }, [debouncedQuery, fetchDocuments, isActive, refreshSignal]);
+
+  useEffect(() => {
+    if (!isActive || !hasLoadedOnceRef.current) return;
+    if (debouncedQuery.length > 0 && debouncedQuery.length < 3) return;
+    const requestKey = `${projectId}:${debouncedQuery}`;
+    if (lastRequestKeyRef.current === requestKey) return;
+    lastRequestKeyRef.current = requestKey;
+    void fetchDocuments("search", {
+      name:
+        debouncedQuery.length >= 3
+          ? debouncedQuery
+          : undefined,
+    });
+  }, [debouncedQuery, fetchDocuments, isActive, projectId]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -140,11 +173,9 @@ export function ProjectDocumentsHub({
   const filteredDocuments = useMemo(
     () =>
       mergedDocuments.filter((document) => {
-        const filterMatch =
-          activeFilter === "ALL" || document.kind === activeFilter;
-        return filterMatch && matchesDocumentSearch(document, query);
+        return activeFilter === "ALL" || document.kind === activeFilter;
       }),
-    [activeFilter, mergedDocuments, query],
+    [activeFilter, mergedDocuments],
   );
 
   const totalBytes = useMemo(
@@ -217,6 +248,22 @@ export function ProjectDocumentsHub({
         }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onScroll={({ nativeEvent }) => {
+          if (!hasMore || loadingMore) return;
+          const distanceFromBottom =
+            nativeEvent.contentSize.height -
+            nativeEvent.layoutMeasurement.height -
+            nativeEvent.contentOffset.y;
+          if (distanceFromBottom < 280) {
+            void loadMoreDocuments({
+              name:
+                debouncedQuery.length >= 3
+                  ? debouncedQuery
+                  : undefined,
+            });
+          }
+        }}
+        scrollEventThrottle={16}
       >
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
@@ -338,6 +385,7 @@ export function ProjectDocumentsHub({
             placeholder="Buscar por nome ou categoria"
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
+            maxLength={30}
           />
         </View>
 
@@ -442,6 +490,13 @@ export function ProjectDocumentsHub({
             ))}
           </View>
         )}
+
+        {loadingMore ? (
+          <View style={styles.loadMoreWrap}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loadMoreText}>Carregando mais documentos...</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <ProjectDocumentUploadSheet
@@ -795,5 +850,17 @@ const styles = StyleSheet.create({
   },
   loadingMetaLine: {
     width: "44%",
+  },
+  loadMoreWrap: {
+    paddingTop: spacing[12],
+    paddingBottom: spacing[8],
+    alignItems: "center",
+    gap: spacing[8],
+  },
+  loadMoreText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textMuted,
+    fontFamily: "Inter-Regular",
   },
 });

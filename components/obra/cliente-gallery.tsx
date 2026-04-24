@@ -2,7 +2,11 @@ import { ImageLightboxModal } from "@/components/diario/image-lightbox-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PhotoItem } from "@/hooks/use-diary-state";
 import { dailyLogEntriesService } from "@/services/daily-log-entries.service";
-import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
+import {
+  dailyLogPhotosService,
+  type DailyLogPhotoDto,
+  type DailyLogProjectPhotoDto,
+} from "@/services/daily-log-photos.service";
 import { PRIMARY } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
@@ -56,7 +60,11 @@ function CompactGallerySkeleton() {
   );
 }
 
-function FullGallerySkeleton({ showDiaryButton }: { showDiaryButton: boolean }) {
+function FullGallerySkeleton({
+  showDiaryButton,
+}: {
+  showDiaryButton: boolean;
+}) {
   return (
     <View style={styles.fullContainer}>
       <View style={styles.fullHeader}>
@@ -82,7 +90,12 @@ function FullGallerySkeleton({ showDiaryButton }: { showDiaryButton: boolean }) 
       {showDiaryButton && (
         <View style={styles.diaryButton}>
           <Skeleton width={18} height={18} borderRadius={5} />
-          <Skeleton width="62%" height={14} borderRadius={7} style={styles.flex1} />
+          <Skeleton
+            width="62%"
+            height={14}
+            borderRadius={7}
+            style={styles.flex1}
+          />
           <Skeleton width={18} height={18} borderRadius={9} />
         </View>
       )}
@@ -101,8 +114,18 @@ function toISODate(d: Date): string {
 }
 
 const MONTHS_SHORT = [
-  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
 ];
 
 function formatDateLabel(isoDate: string): string {
@@ -139,7 +162,48 @@ export function ClienteGallery({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
 
-  const loadPhotos = useCallback(async () => {
+  const mapProjectPhotoToGallery = useCallback(
+    (photo: DailyLogProjectPhotoDto): GalleryPhoto => ({
+      photoItem: {
+        id: photo.id,
+        thumbUrl: photo.thumbUrl,
+        status: "READY",
+      },
+      dateLabel: formatDateLabel(photo.date),
+      entryId: photo.entryId,
+    }),
+    [],
+  );
+
+  const mapEntryPhotoToGallery = useCallback(
+    (entryDate: string, photo: DailyLogPhotoDto): GalleryPhoto => ({
+      photoItem: {
+        id: photo.id,
+        thumbUrl: photo.thumbUrl!,
+        status: "READY",
+      },
+      dateLabel: formatDateLabel(entryDate),
+      entryId: photo.entryId,
+    }),
+    [],
+  );
+
+  const loadCompactPhotos = useCallback(async () => {
+    try {
+      setLoading(true);
+      const recentPhotos = await dailyLogPhotosService.listByProject(
+        projectId,
+        5,
+      );
+      setPhotos(recentPhotos.map(mapProjectPhotoToGallery));
+    } catch {
+      // silently handle
+    } finally {
+      setLoading(false);
+    }
+  }, [mapProjectPhotoToGallery, projectId]);
+
+  const loadFullPhotos = useCallback(async () => {
     try {
       setLoading(true);
       const entries = await dailyLogEntriesService.listByProject(projectId);
@@ -152,15 +216,7 @@ export function ClienteGallery({
           );
           return entryPhotos
             .filter((p) => p.status === "READY" && p.thumbUrl)
-            .map((p): GalleryPhoto => ({
-              photoItem: {
-                id: p.id,
-                thumbUrl: p.thumbUrl!,
-                status: "READY",
-              },
-              dateLabel: formatDateLabel(entry.date),
-              entryId: entry.id,
-            }));
+            .map((p) => mapEntryPhotoToGallery(entry.date, p));
         }),
       );
 
@@ -173,11 +229,15 @@ export function ClienteGallery({
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [mapEntryPhotoToGallery, projectId]);
 
   useEffect(() => {
-    loadPhotos();
-  }, [loadPhotos]);
+    if (fullView) {
+      void loadFullPhotos();
+      return;
+    }
+    void loadCompactPhotos();
+  }, [fullView, loadCompactPhotos, loadFullPhotos]);
 
   const openPhoto = (idx: number) => {
     setSelectedIndex(idx);
@@ -272,7 +332,6 @@ export function ClienteGallery({
       <View style={styles.galeriaHeader}>
         <View style={styles.galeriaHeaderLeft}>
           <Text style={styles.sectionTitle}>GALERIA RECENTE</Text>
-          <Text style={styles.photoCountSmall}>{photos.length} fotos</Text>
         </View>
         <TouchableOpacity onPress={onViewAll} style={styles.verTudoBtn}>
           <Text style={styles.verTudo}>Ver tudo</Text>

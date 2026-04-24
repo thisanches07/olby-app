@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   dailyLogEntriesService,
-  DailyLogEntryResponseDto,
+  type DailyLogEntryFeedItemDto,
+  type DailyLogEntryResponseDto,
 } from "@/services/daily-log-entries.service";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
 import {
@@ -17,15 +18,15 @@ import {
   type LocalPhotoAsset,
 } from "@/utils/photo-upload";
 
-import { DiaryEntry, DiarySection, PhotoItem } from "./use-diary-state";
+import type { DiaryEntry, DiarySection, PhotoItem } from "./use-diary-state";
+
 const MAX_DIARY_DESCRIPTION = 160;
 
-// ── Tipo interno: entry do backend + fotos já mapeadas ────────────────────────
 interface EntryWithPhotos extends DailyLogEntryResponseDto {
+  photoCount: number;
   photos: PhotoItem[];
 }
 
-// ── Helpers de data ───────────────────────────────────────────────────────────
 function toISODate(d: Date): string {
   return [
     d.getFullYear(),
@@ -39,7 +40,7 @@ function parseISODate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
-const PT_WEEK_DAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const PT_WEEK_DAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"];
 const PT_MONTHS = [
   "JAN",
   "FEV",
@@ -64,19 +65,14 @@ function formatEntryDate(dateISO: string, todayISO: string): string {
   return `${String(date.getDate()).padStart(2, "0")} ${PT_MONTHS[date.getMonth()]}`;
 }
 
-/**
- * Extrai "HH:MM" diretamente do string ISO 8601 sem conversão de timezone.
- * Ex: "2026-03-01T08:30:00-03:00" → "08:30"
- */
 function parseArrivedAtToTime(arrivedAt: string | null): string {
   if (!arrivedAt) return "";
   const m = arrivedAt.match(/T(\d{2}:\d{2})/);
   return m ? m[1] : "";
 }
 
-/** Constrói um ISO 8601 timestamptz a partir de "YYYY-MM-DD" + "HH:MM". */
 function buildArrivedAt(dateISO: string, timeHHMM: string): string {
-  const off = new Date().getTimezoneOffset(); // minutos; positivo = atrás do UTC
+  const off = new Date().getTimezoneOffset();
   const sign = off <= 0 ? "+" : "-";
   const abs = Math.abs(off);
   const hh = String(Math.floor(abs / 60)).padStart(2, "0");
@@ -84,7 +80,6 @@ function buildArrivedAt(dateISO: string, timeHHMM: string): string {
   return `${dateISO}T${timeHHMM}:00${sign}${hh}:${mm}`;
 }
 
-/** "DD/MM/AAAA" ou "HOJE" → ISO "YYYY-MM-DD" */
 export function parseBrDateToISO(br: string): string {
   if (br.toUpperCase() === "HOJE") return toISODate(new Date());
   const parts = br.split("/");
@@ -95,7 +90,6 @@ export function parseBrDateToISO(br: string): string {
   return br;
 }
 
-/** ISO "YYYY-MM-DD" → "DD/MM/AAAA" */
 export function parseISODateToBR(iso: string): string {
   const parts = iso.split("-");
   if (parts.length === 3) {
@@ -105,14 +99,11 @@ export function parseISODateToBR(iso: string): string {
   return iso;
 }
 
-// ── Agrupamento em seções ─────────────────────────────────────────────────────
 function groupIntoSections(
   entries: EntryWithPhotos[],
   todayISO: string,
 ): DiarySection[] {
   const today = parseISODate(todayISO);
-
-  // Início desta semana (segunda-feira)
   const dow = today.getDay();
   const daysFromMon = dow === 0 ? 6 : dow - 1;
   const startThisWeek = new Date(today);
@@ -123,7 +114,7 @@ function groupIntoSections(
 
   const startLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
 
-  const ORDERED = ["ESTA SEMANA", "SEMANA PASSADA", "MÊS PASSADO"];
+  const ORDERED = ["ESTA SEMANA", "SEMANA PASSADA", "MES PASSADO"];
   const buckets: Record<string, EntryWithPhotos[]> = {};
 
   for (const entry of entries) {
@@ -136,7 +127,7 @@ function groupIntoSections(
     } else if (d >= startLastWeek) {
       label = "SEMANA PASSADA";
     } else if (d >= startLastMonth) {
-      label = "MÊS PASSADO";
+      label = "MES PASSADO";
     } else {
       label = `${PT_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
     }
@@ -150,8 +141,8 @@ function groupIntoSections(
     .sort((a, b) => {
       const [am, ay] = a.split(" ");
       const [bm, by] = b.split(" ");
-      const aDate = new Date(parseInt(ay), PT_MONTHS.indexOf(am), 1);
-      const bDate = new Date(parseInt(by), PT_MONTHS.indexOf(bm), 1);
+      const aDate = new Date(parseInt(ay, 10), PT_MONTHS.indexOf(am), 1);
+      const bDate = new Date(parseInt(by, 10), PT_MONTHS.indexOf(bm), 1);
       return bDate.getTime() - aDate.getTime();
     });
 
@@ -172,6 +163,7 @@ function toUIEntry(e: EntryWithPhotos, todayISO: string): DiaryEntry {
     title: e.title ?? "",
     description: e.notes ?? "",
     durationMinutes: e.durationMinutes ?? null,
+    photoCount: e.photoCount ?? e.photos.length,
     photos: e.photos,
     isToday: (e.date ?? "") === todayISO,
   };
@@ -189,39 +181,72 @@ function mapPhotos(
     }));
 }
 
-/** Ordena entries: data desc, arrivedAt desc, createdAt desc */
+function mapFeedItemToEntry(feedItem: DailyLogEntryFeedItemDto): EntryWithPhotos {
+  return {
+    id: feedItem.id,
+    projectId: feedItem.projectId,
+    date: feedItem.date,
+    arrivedAt: feedItem.arrivedAt,
+    durationMinutes: feedItem.durationMinutes ?? 0,
+    title: feedItem.title ?? "",
+    notes: feedItem.notes ?? null,
+    createdByUserId: "",
+    createdAt: feedItem.createdAt,
+    updatedAt: feedItem.createdAt,
+    photoCount: feedItem.photoCount,
+    photos: (feedItem.photosPreview ?? []).map((photo) => ({
+      id: photo.id,
+      thumbUrl: photo.thumbUrl,
+      status: "READY" as const,
+    })),
+  };
+}
+
 function sortEntries(arr: EntryWithPhotos[]): EntryWithPhotos[] {
   return [...arr].sort((a, b) => {
-    const dc = (b.date ?? "").localeCompare(a.date ?? "");
-    if (dc !== 0) return dc;
+    const dateCompare = (b.date ?? "").localeCompare(a.date ?? "");
+    if (dateCompare !== 0) return dateCompare;
     return (b.arrivedAt ?? b.createdAt ?? "").localeCompare(
       a.arrivedAt ?? a.createdAt ?? "",
     );
   });
 }
 
-// ── Tipo do form ──────────────────────────────────────────────────────────────
+function mergeEntriesById(
+  previous: EntryWithPhotos[],
+  incoming: EntryWithPhotos[],
+): EntryWithPhotos[] {
+  const byId = new Map<string, EntryWithPhotos>();
+
+  for (const entry of previous) {
+    byId.set(entry.id, entry);
+  }
+
+  for (const entry of incoming) {
+    byId.set(entry.id, entry);
+  }
+
+  return Array.from(byId.values());
+}
+
 export interface EntryFormData {
-  /** "DD/MM/AAAA" ou "HOJE" */
   date: string;
-  /** "HH:MM" — mapeia para arrivedAt no backend */
   time: string;
   title: string;
-  /** Mapeia para `notes` no backend. */
   description: string;
-  /** Duração em minutos. Obrigatório na criação (mínimo 30). */
   durationMinutes: number | null;
-  /** Fotos locais novas a fazer upload. */
   newPhotoAssets: LocalPhotoAsset[];
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
 export interface UseDiaryDataReturn {
   sections: DiarySection[];
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
   isSaving: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
   createEntry: (projectId: string, data: EntryFormData) => Promise<void>;
   updateEntry: (
     projectId: string,
@@ -236,56 +261,170 @@ export interface UseDiaryDataReturn {
   ) => Promise<void>;
 }
 
-export function useDiaryData(projectId: string): UseDiaryDataReturn {
+interface UseDiaryDataOptions {
+  loadFullData?: boolean;
+}
+
+export function useDiaryData(
+  projectId: string,
+  options: UseDiaryDataOptions = {},
+): UseDiaryDataReturn {
+  const { loadFullData = false } = options;
   const { showToast } = useToast();
   const [rawEntries, setRawEntries] = useState<EntryWithPhotos[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isFullDataLoaded, setIsFullDataLoaded] = useState(false);
 
   const todayISO = toISODate(new Date());
 
   const sections = useMemo(
     () => groupIntoSections(rawEntries, todayISO),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawEntries],
+    [rawEntries, todayISO],
   );
 
-  // ── Carrega entries + fotos ────────────────────────────────────────────────
-  const loadEntries = useCallback(async () => {
+  const loadFeedPage = useCallback(
+    async (cursor?: string | null) => {
+      if (!projectId) return null;
+
+      const response = await dailyLogEntriesService.listFeedByProject(
+        projectId,
+        cursor ?? undefined,
+        10,
+      );
+
+      return {
+        entries: (response.items ?? []).map(mapFeedItemToEntry),
+        nextCursor: response.pageInfo?.nextCursor ?? null,
+        hasMore: response.pageInfo?.hasMore ?? false,
+      };
+    },
+    [projectId],
+  );
+
+  const loadAllEntries = useCallback(async () => {
     if (!projectId) return;
     setIsLoading(true);
     setError(null);
     try {
       const entries = await dailyLogEntriesService.listByProject(projectId);
 
-      // Carrega fotos de todos os entries em paralelo
       const photosResults = await Promise.all(
-        entries.map((e) =>
-          dailyLogPhotosService.listByEntry(projectId, e.id).catch(() => []),
+        entries.map((entry) =>
+          dailyLogPhotosService.listByEntry(projectId, entry.id).catch(() => []),
         ),
       );
 
-      const enriched: EntryWithPhotos[] = entries.map((e, i) => ({
-        ...e,
-        photos: mapPhotos(photosResults[i] ?? []),
-      }));
+      const enriched: EntryWithPhotos[] = entries.map((entry, index) => {
+        const photos = mapPhotos(photosResults[index] ?? []);
+        return {
+          ...entry,
+          photoCount: photos.length,
+          photos,
+        };
+      });
 
       setRawEntries(sortEntries(enriched));
+      setNextCursor(null);
+      setHasMore(false);
+      setIsFullDataLoaded(true);
     } catch {
-      setError("Não foi possível carregar os registros.");
+      setError("Nao foi possivel carregar os registros.");
     } finally {
       setIsLoading(false);
     }
   }, [projectId]);
 
+  const loadInitialFeed = useCallback(async () => {
+    if (!projectId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await loadFeedPage();
+      setRawEntries(sortEntries(response?.entries ?? []));
+      setNextCursor(response?.nextCursor ?? null);
+      setHasMore(response?.hasMore ?? false);
+      setIsFullDataLoaded(false);
+    } catch {
+      setError("Nao foi possivel carregar os registros.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadFeedPage, projectId]);
+
   useEffect(() => {
-    if (projectId) loadEntries();
-  }, [projectId, loadEntries]);
+    setRawEntries([]);
+    setError(null);
+    setNextCursor(null);
+    setHasMore(false);
+    setIsFullDataLoaded(false);
+  }, [projectId]);
 
-  const refresh = useCallback(() => loadEntries(), [loadEntries]);
+  useEffect(() => {
+    if (!projectId) return;
+    if (loadFullData) {
+      if (!isFullDataLoaded) {
+        void loadAllEntries();
+      }
+      return;
+    }
 
-  // ── createEntry ────────────────────────────────────────────────────────────
+    if (rawEntries.length === 0) {
+      void loadInitialFeed();
+    }
+  }, [
+    isFullDataLoaded,
+    loadAllEntries,
+    loadFullData,
+    loadInitialFeed,
+    projectId,
+    rawEntries.length,
+  ]);
+
+  const refresh = useCallback(async () => {
+    if (loadFullData || isFullDataLoaded) {
+      await loadAllEntries();
+      return;
+    }
+    await loadInitialFeed();
+  }, [isFullDataLoaded, loadAllEntries, loadFullData, loadInitialFeed]);
+
+  const loadMore = useCallback(async () => {
+    if (!projectId || !nextCursor || !hasMore || isLoadingMore || isFullDataLoaded) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    try {
+      const response = await loadFeedPage(nextCursor);
+      setRawEntries((prev) =>
+        sortEntries(mergeEntriesById(prev, response?.entries ?? [])),
+      );
+      setNextCursor(response?.nextCursor ?? null);
+      setHasMore(response?.hasMore ?? false);
+    } catch {
+      showToast({
+        title: "Erro ao carregar mais",
+        message: "Nao foi possivel carregar mais registros do diario.",
+        tone: "error",
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    hasMore,
+    isFullDataLoaded,
+    isLoadingMore,
+    loadFeedPage,
+    nextCursor,
+    projectId,
+    showToast,
+  ]);
+
   const createEntry = useCallback(
     async (pid: string, data: EntryFormData) => {
       if (rawEntries.length >= PROJECT_ITEM_LIMIT) {
@@ -295,14 +434,11 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
       setIsSaving(true);
       try {
         const dateISO = parseBrDateToISO(data.date);
-
-        // 1. Prepara fotos (gera thumbs e mede tamanhos) antes do POST
         const prepared =
           data.newPhotoAssets.length > 0
             ? await Promise.all(data.newPhotoAssets.map(preparePhotoForUpload))
             : [];
 
-        // 2. POST entry — inclui metadados das fotos no body
         const normalizedDescription =
           data.description.trim().slice(0, MAX_DIARY_DESCRIPTION) || undefined;
         const entry = await dailyLogEntriesService.create({
@@ -314,16 +450,15 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
           notes: normalizedDescription,
           photos:
             prepared.length > 0
-              ? prepared.map((p) => ({
-                  contentType: p.contentType,
-                  sizeBytes: p.sizeBytes,
-                  thumbContentType: p.thumbContentType,
-                  thumbSizeBytes: p.thumbSizeBytes,
+              ? prepared.map((photo) => ({
+                  contentType: photo.contentType,
+                  sizeBytes: photo.sizeBytes,
+                  thumbContentType: photo.thumbContentType,
+                  thumbSizeBytes: photo.thumbSizeBytes,
                 }))
               : undefined,
         });
 
-        // 3. Faz PUT para as URLs pré-assinadas retornadas pelo backend
         if (prepared.length > 0 && entry.photosToUpload?.length) {
           const { failed } = await uploadPreparedPhotos(
             prepared,
@@ -333,28 +468,27 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
           if (failed > 0) {
             showToast({
               title: "Aviso",
-              message: `${failed} foto(s) não puderam ser enviadas. O registro foi salvo.`,
+              message: `${failed} foto(s) nao puderam ser enviadas. O registro foi salvo.`,
               tone: "info",
             });
           }
         }
 
-        // 4. Recarrega fotos confirmadas do entry
         const rawPhotos = await dailyLogPhotosService
           .listByEntry(pid, entry.id)
           .catch(() => []);
         const photos = mapPhotos(rawPhotos);
 
-        setRawEntries((prev) => sortEntries([{ ...entry, photos }, ...prev]));
+        setRawEntries((prev) =>
+          sortEntries([{ ...entry, photoCount: photos.length, photos }, ...prev]),
+        );
       } finally {
         setIsSaving(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showToast, rawEntries.length],
+    [rawEntries.length, showToast],
   );
 
-  // ── updateEntry ────────────────────────────────────────────────────────────
   const updateEntry = useCallback(
     async (pid: string, entryId: string, data: EntryFormData) => {
       setIsSaving(true);
@@ -370,22 +504,22 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
           durationMinutes: data.durationMinutes ?? undefined,
         });
 
-        // Fotos novas: usa fluxo de presign avulso
         if (data.newPhotoAssets.length > 0) {
           const results = await Promise.allSettled(
-            data.newPhotoAssets.map((a) => uploadPhotoToEntry(a, pid, entryId)),
+            data.newPhotoAssets.map((asset) =>
+              uploadPhotoToEntry(asset, pid, entryId),
+            ),
           );
-          const failed = results.filter((r) => r.status === "rejected").length;
+          const failed = results.filter((result) => result.status === "rejected").length;
           if (failed > 0) {
             showToast({
               title: "Aviso",
-              message: `${failed} foto(s) não puderam ser enviadas. O registro foi salvo.`,
+              message: `${failed} foto(s) nao puderam ser enviadas. O registro foi salvo.`,
               tone: "info",
             });
           }
         }
 
-        // Recarrega lista completa de fotos do entry
         const allPhotos = await dailyLogPhotosService
           .listByEntry(pid, entryId)
           .catch(() => []);
@@ -393,38 +527,42 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
 
         setRawEntries((prev) =>
           sortEntries(
-            prev.map((e) => (e.id === entryId ? { ...updated, photos } : e)),
+            prev.map((entry) =>
+              entry.id === entryId
+                ? { ...updated, photoCount: photos.length, photos }
+                : entry,
+            ),
           ),
         );
       } finally {
         setIsSaving(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [showToast],
   );
 
-  // ── deleteEntry ────────────────────────────────────────────────────────────
   const deleteEntry = useCallback(async (_pid: string, entryId: string) => {
     setIsSaving(true);
     try {
       await dailyLogEntriesService.remove(entryId);
-      setRawEntries((prev) => prev.filter((e) => e.id !== entryId));
+      setRawEntries((prev) => prev.filter((entry) => entry.id !== entryId));
     } finally {
       setIsSaving(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── deletePhoto ────────────────────────────────────────────────────────────
   const deletePhoto = useCallback(
     async (pid: string, photoId: string, entryId: string) => {
       await dailyLogPhotosService.remove(pid, photoId);
       setRawEntries((prev) =>
-        prev.map((e) =>
-          e.id === entryId
-            ? { ...e, photos: e.photos.filter((p) => p.id !== photoId) }
-            : e,
+        prev.map((entry) =>
+          entry.id === entryId
+            ? {
+                ...entry,
+                photoCount: Math.max(entry.photoCount - 1, 0),
+                photos: entry.photos.filter((photo) => photo.id !== photoId),
+              }
+            : entry,
         ),
       );
     },
@@ -434,9 +572,12 @@ export function useDiaryData(projectId: string): UseDiaryDataReturn {
   return {
     sections,
     isLoading,
+    isLoadingMore,
+    hasMore,
     isSaving,
     error,
     refresh,
+    loadMore,
     createEntry,
     updateEntry,
     deleteEntry,
