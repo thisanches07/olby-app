@@ -6,7 +6,6 @@ import React, { useEffect, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const PRIMARY = "#2563EB";
 const TASK_TITLE_MAX = 30;

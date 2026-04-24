@@ -9,13 +9,13 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useRef, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const MAX_PHOTOS = 10;
 const THUMB_WIDTH = 70;

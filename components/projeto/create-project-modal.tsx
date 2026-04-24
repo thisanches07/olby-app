@@ -10,10 +10,10 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +23,7 @@ import {
   findNodeHandle,
   useWindowDimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
 
@@ -447,6 +448,30 @@ export function CreateProjectModal({
     setTaskInput("");
     setTaskPriority("MEDIA");
     taskRef.current?.focus();
+  };
+
+  const handleClearTasks = () => {
+    if (formState.tarefas.length === 0 || isSaving) return;
+
+    Alert.alert(
+      "Limpar tarefas?",
+      "Isso vai remover todas as tarefas adicionadas nesta lista.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Limpar",
+          style: "destructive",
+          onPress: () => {
+            actions.clearTarefas();
+            showToast({
+              title: "Lista limpa",
+              message: "Todas as tarefas foram removidas.",
+              tone: "neutral",
+            });
+          },
+        },
+      ],
+    );
   };
 
   const handleSave = async () => {
@@ -1018,12 +1043,24 @@ export function CreateProjectModal({
                     <View
                       style={[styles.tasksList, { maxHeight: tasksListMaxHeight }]}
                     >
-                      <Text style={styles.tasksListTitle}>
-                        {formState.tarefas.length} tarefa
-                        {formState.tarefas.length !== 1 ? "s" : ""} adicionada
-                        {formState.tarefas.length !== 1 ? "s" : ""}
-                        {` (${formState.tarefas.length}/${CREATE_PROJECT_TASK_LIMIT})`}
-                      </Text>
+                      <View style={styles.tasksListHeader}>
+                        <Text style={styles.tasksListTitle}>
+                          {formState.tarefas.length} tarefa
+                          {formState.tarefas.length !== 1 ? "s" : ""} adicionada
+                          {formState.tarefas.length !== 1 ? "s" : ""}
+                          {` (${formState.tarefas.length}/${CREATE_PROJECT_TASK_LIMIT})`}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.clearTasksButton}
+                          onPress={handleClearTasks}
+                          disabled={isSaving}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.clearTasksButtonText}>
+                            Limpar tudo
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                       {formState.tarefas.length >= 2 && (
                         <Text style={styles.tasksReorderHint}>
                           Segure ≡ para reordenar
@@ -1619,12 +1656,33 @@ const styles = StyleSheet.create({
   tasksListContent: {
     paddingBottom: 28,
   },
+  tasksListHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 2,
+    paddingHorizontal: 2,
+  },
   tasksListTitle: {
+    flex: 1,
     fontSize: 12,
     fontWeight: "600",
     color: "#6B7280",
-    marginBottom: 2,
-    paddingHorizontal: 2,
+  },
+  clearTasksButton: {
+    minHeight: 28,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(17, 24, 39, 0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(17, 24, 39, 0.06)",
+  },
+  clearTasksButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
   },
   tasksReorderHint: {
     fontSize: 11,

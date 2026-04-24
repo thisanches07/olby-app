@@ -13,7 +13,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +21,7 @@ import {
   View,
   findNodeHandle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { GalleryPicker } from "./gallery-picker";
 
 const PRIMARY = "#2563EB";

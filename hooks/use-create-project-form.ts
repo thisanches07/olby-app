@@ -25,6 +25,7 @@ interface CreateProjectFormActions {
   addTarefa: (tarefa: Omit<Tarefa, "id" | "order" | "concluida">) => void;
   addTarefasEmBulk: (tarefas: Omit<Tarefa, "id" | "order" | "concluida">[], limit: number) => void;
   removeTarefa: (id: string) => void;
+  clearTarefas: () => void;
   reorderTarefas: (tarefas: Tarefa[]) => void;
   addGasto: (gasto: Omit<Gasto, "id">) => void;
   removeGasto: (id: string) => void;
@@ -138,6 +139,13 @@ export function useCreateProjectForm(): [
     }));
   };
 
+  const clearTarefas = () => {
+    setState((prev) => ({
+      ...prev,
+      tarefas: [],
+    }));
+  };
+
   const reorderTarefas = (tarefas: Tarefa[]) => {
     setState((prev) => ({
       ...prev,
@@ -215,6 +223,7 @@ export function useCreateProjectForm(): [
     addTarefa,
     addTarefasEmBulk,
     removeTarefa,
+    clearTarefas,
     reorderTarefas,
     addGasto,
     removeGasto,

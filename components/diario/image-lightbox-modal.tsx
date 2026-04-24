@@ -5,13 +5,13 @@ import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Dimensions,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { PhotoItem } from "@/hooks/use-diary-state";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";

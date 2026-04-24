@@ -1,11 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const PRIMARY = "#2563EB";
 

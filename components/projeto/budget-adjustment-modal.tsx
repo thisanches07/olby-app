@@ -7,7 +7,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import {
   View,
   findNodeHandle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const PRIMARY = "#2563EB";
 const MAX_BUDGET_VALUE_DIGITS = 9;
