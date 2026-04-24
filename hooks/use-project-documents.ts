@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useToast } from "@/components/obra/toast";
 import type { DocumentAttachment } from "@/data/obras";
@@ -20,6 +20,8 @@ interface FetchProjectDocumentsOptions {
   name?: string;
 }
 
+const STALE_PENDING_UPLOAD_MS = 30_000;
+
 export function useProjectDocuments({
   projectId,
 }: UseProjectDocumentsOptions) {
@@ -32,10 +34,18 @@ export function useProjectDocuments({
   const [uploading, setUploading] = useState(false);
   const [uploadingFileName, setUploadingFileName] = useState<string | undefined>();
   const cancelledRef = useRef(false);
+  const cancelActiveUploadRef = useRef<(() => Promise<void>) | null>(null);
+  const uploadCompletionRef = useRef<Promise<void> | null>(null);
+  const resolveUploadCompletionRef = useRef<(() => void) | null>(null);
+  const reconcilingPendingIdsRef = useRef<Set<string>>(new Set());
   const { showToast } = useToast();
 
-  const cancelUpload = useCallback(() => {
+  const cancelUpload = useCallback(async () => {
     cancelledRef.current = true;
+    const cancelActiveUpload = cancelActiveUploadRef.current;
+    cancelActiveUploadRef.current = null;
+    await cancelActiveUpload?.();
+    await uploadCompletionRef.current;
   }, []);
 
   const fetchDocuments = useCallback(
@@ -74,6 +84,109 @@ export function useProjectDocuments({
     [projectId, showToast],
   );
 
+  const reconcilePendingDocuments = useCallback(
+    async (items: DocumentAttachment[]) => {
+      if (uploading) return false;
+
+      const now = Date.now();
+      const stalePendingDocuments = items.filter((document) => {
+        if (document.status !== "PENDING_UPLOAD") return false;
+        if (reconcilingPendingIdsRef.current.has(document.id)) return false;
+
+        const createdAtMs = Date.parse(document.createdAt);
+        if (Number.isNaN(createdAtMs)) return false;
+
+        return now - createdAtMs >= STALE_PENDING_UPLOAD_MS;
+      });
+
+      if (stalePendingDocuments.length === 0) return false;
+
+      stalePendingDocuments.forEach((document) => {
+        reconcilingPendingIdsRef.current.add(document.id);
+      });
+
+      try {
+        await Promise.allSettled(
+          stalePendingDocuments.map((document) =>
+            documentsService.confirm(projectId, document.id),
+          ),
+        );
+        return true;
+      } finally {
+        stalePendingDocuments.forEach((document) => {
+          reconcilingPendingIdsRef.current.delete(document.id);
+        });
+      }
+    },
+    [projectId, uploading],
+  );
+
+  const fetchDocumentsWithRecovery = useCallback(
+    async (
+      mode: "initial" | "refresh" | "search" = "initial",
+      options?: FetchProjectDocumentsOptions,
+    ) => {
+      await fetchDocuments(mode, options);
+
+      try {
+        const response = await documentsService.listPage(projectId, {
+          limit: 20,
+          name: options?.name?.trim() || undefined,
+        });
+        const items = Array.isArray(response.items) ? response.items : [];
+        setDocuments(items);
+        setHasMore(response.pageInfo?.hasMore ?? false);
+        setNextCursor(response.pageInfo?.nextCursor ?? null);
+
+        const recoveredAnyPending = await reconcilePendingDocuments(items);
+        if (recoveredAnyPending) {
+          await fetchDocuments("refresh", options);
+        }
+      } catch {
+        // ignore recovery failures; normal list result already rendered
+      }
+    },
+    [fetchDocuments, projectId, reconcilePendingDocuments],
+  );
+
+  useEffect(() => {
+    if (uploading || documents.length === 0) return;
+
+    const now = Date.now();
+    const pendingDocuments = documents.filter(
+      (document) => document.status === "PENDING_UPLOAD",
+    );
+
+    if (pendingDocuments.length === 0) return;
+
+    const stalePendingDocuments = pendingDocuments.filter((document) => {
+      const createdAtMs = Date.parse(document.createdAt);
+      return !Number.isNaN(createdAtMs) && now - createdAtMs >= STALE_PENDING_UPLOAD_MS;
+    });
+
+    if (stalePendingDocuments.length > 0) {
+      void fetchDocumentsWithRecovery("refresh");
+      return;
+    }
+
+    const nextRetryInMs = pendingDocuments.reduce((smallestDelay, document) => {
+      const createdAtMs = Date.parse(document.createdAt);
+      if (Number.isNaN(createdAtMs)) return smallestDelay;
+
+      const delay = Math.max(
+        STALE_PENDING_UPLOAD_MS - (now - createdAtMs),
+        1_000,
+      );
+      return Math.min(smallestDelay, delay);
+    }, STALE_PENDING_UPLOAD_MS);
+
+    const timeoutId = setTimeout(() => {
+      void fetchDocumentsWithRecovery("refresh");
+    }, nextRetryInMs);
+
+    return () => clearTimeout(timeoutId);
+  }, [documents, fetchDocumentsWithRecovery, uploading]);
+
   const loadMoreDocuments = useCallback(async (options?: FetchProjectDocumentsOptions) => {
     if (!projectId || !nextCursor || !hasMore || loadingMore) return;
 
@@ -110,6 +223,9 @@ export function useProjectDocuments({
       cancelledRef.current = false;
       setUploading(true);
       setUploadingFileName(asset.fileName);
+      uploadCompletionRef.current = new Promise<void>((resolve) => {
+        resolveUploadCompletionRef.current = resolve;
+      });
       try {
         await validateDocumentAssetSize(asset, options.kind);
 
@@ -119,6 +235,9 @@ export function useProjectDocuments({
           source: options.source,
           title: options.title,
           isCancelled: () => cancelledRef.current,
+          onCancelUploadRequestReady: (cancelUploadRequest) => {
+            cancelActiveUploadRef.current = cancelUploadRequest;
+          },
         });
 
         setDocuments((prev) => mergeDocuments([document], prev));
@@ -131,6 +250,7 @@ export function useProjectDocuments({
       } catch (error) {
         if (error instanceof UploadCancelledError) {
           showToast({ title: "Upload cancelado", tone: "info" });
+          void fetchDocumentsWithRecovery("refresh");
           return;
         }
         const message =
@@ -143,11 +263,15 @@ export function useProjectDocuments({
           tone: "error",
         });
       } finally {
+        cancelActiveUploadRef.current = null;
+        resolveUploadCompletionRef.current?.();
+        resolveUploadCompletionRef.current = null;
+        uploadCompletionRef.current = null;
         setUploading(false);
         setUploadingFileName(undefined);
       }
     },
-    [projectId, showToast],
+    [fetchDocumentsWithRecovery, projectId, showToast],
   );
 
   const removeDocument = useCallback(
@@ -204,7 +328,7 @@ export function useProjectDocuments({
     hasMore,
     uploadingFileName,
     cancelUpload,
-    fetchDocuments,
+    fetchDocuments: fetchDocumentsWithRecovery,
     loadMoreDocuments,
     uploadDocument,
     removeDocument,

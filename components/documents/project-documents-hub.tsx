@@ -55,6 +55,10 @@ interface ProjectDocumentsHubProps {
   projectRole: ProjectApiRole;
   onDocumentsChanged?: (documents: DocumentAttachment[]) => void;
   onDocumentRemoved?: (document: DocumentAttachment) => void;
+  onUploadStateChange?: (state: {
+    uploading: boolean;
+    cancel: () => Promise<void>;
+  }) => void;
   supplementalDocuments?: DocumentAttachment[];
   openComposerSignal?: number;
   isActive?: boolean;
@@ -69,6 +73,7 @@ export function ProjectDocumentsHub({
   projectRole,
   onDocumentsChanged,
   onDocumentRemoved,
+  onUploadStateChange,
   supplementalDocuments = [],
   openComposerSignal = 0,
   isActive = true,
@@ -156,6 +161,10 @@ export function ProjectDocumentsHub({
     if (!isActive) return;
     onDocumentsChanged?.(mergedDocuments);
   }, [mergedDocuments, isActive, onDocumentsChanged]);
+
+  useEffect(() => {
+    onUploadStateChange?.({ uploading, cancel: cancelUpload });
+  }, [uploading, cancelUpload, onUploadStateChange]);
 
   useEffect(() => {
     if (!canManage || openComposerSignal === 0) return;
@@ -427,7 +436,7 @@ export function ProjectDocumentsHub({
         <DocumentUploadBanner
           visible={uploading}
           fileName={uploadingFileName}
-          onCancel={cancelUpload}
+          onCancel={() => void cancelUpload()}
         />
 
         <View style={styles.sectionHeader}>

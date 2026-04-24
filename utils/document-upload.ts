@@ -28,6 +28,7 @@ export interface UploadDocumentOptions {
   expenseId?: string;
   title?: string;
   isCancelled?: () => boolean;
+  onCancelUploadRequestReady?: (cancelUpload: () => Promise<void>) => void;
 }
 
 export class UploadCancelledError extends Error {
@@ -99,9 +100,26 @@ export async function uploadProjectDocument(
     },
   );
 
-  await putBinaryFile(uploadUrl, asset.uri, asset.mimeType);
+  if (options.isCancelled?.()) {
+    await documentsService.remove(options.projectId, documentId).catch(() => {});
+    throw new UploadCancelledError();
+  }
+
+  try {
+    await putBinaryFile(uploadUrl, asset.uri, asset.mimeType, {
+      isCancelled: options.isCancelled,
+      onCancelUploadRequestReady: options.onCancelUploadRequestReady,
+    });
+  } catch (error) {
+    if (error instanceof UploadCancelledError || options.isCancelled?.()) {
+      await documentsService.remove(options.projectId, documentId).catch(() => {});
+      throw new UploadCancelledError();
+    }
+    throw error;
+  }
 
   if (options.isCancelled?.()) {
+    await documentsService.remove(options.projectId, documentId).catch(() => {});
     throw new UploadCancelledError();
   }
 
@@ -131,14 +149,44 @@ export async function putBinaryFile(
   url: string,
   fileUri: string,
   contentType: string,
+  options?: {
+    isCancelled?: () => boolean;
+    onCancelUploadRequestReady?: (cancelUpload: () => Promise<void>) => void;
+  },
 ): Promise<void> {
-  const result = await FileSystem.uploadAsync(url, fileUri, {
+  const uploadTask = FileSystem.createUploadTask(url, fileUri, {
     httpMethod: "PUT",
     uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     headers: { "Content-Type": contentType },
   });
 
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Upload falhou com status ${result.status}`);
+  options?.onCancelUploadRequestReady?.(async () => {
+    await uploadTask.cancelAsync();
+  });
+
+  if (options?.isCancelled?.()) {
+    await uploadTask.cancelAsync().catch(() => {});
+    throw new UploadCancelledError();
+  }
+
+  try {
+    const result = await uploadTask.uploadAsync();
+
+    if (options?.isCancelled?.()) {
+      throw new UploadCancelledError();
+    }
+
+    if (!result) {
+      throw new UploadCancelledError();
+    }
+
+    if (result.status < 200 || result.status >= 300) {
+      throw new Error(`Upload falhou com status ${result.status}`);
+    }
+  } catch (error) {
+    if (options?.isCancelled?.()) {
+      throw new UploadCancelledError();
+    }
+    throw error;
   }
 }

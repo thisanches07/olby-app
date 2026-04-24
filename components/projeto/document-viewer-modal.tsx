@@ -1,10 +1,10 @@
+import { AppModal as Modal } from "@/components/ui/app-modal";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system/legacy";
+import { Image } from "expo-image";
 import * as MediaLibrary from "expo-media-library";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
-import { AppModal as Modal } from "@/components/ui/app-modal";
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,9 +17,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useToast } from "@/components/obra/toast";
 import type { DocumentAttachment } from "@/data/obras";
 import { documentsService } from "@/services/documents.service";
-import { useToast } from "@/components/obra/toast";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -95,7 +95,10 @@ export function DocumentViewerModal({
     if (downloading || !viewUrl || !document) return;
     setDownloading(true);
     try {
-      const safeFilename = document.originalFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const safeFilename = document.originalFileName.replace(
+        /[^a-zA-Z0-9._-]/g,
+        "_",
+      );
       const localUri = `${FileSystem.cacheDirectory}${safeFilename}`;
       const { uri } = await FileSystem.downloadAsync(viewUrl, localUri);
 
@@ -111,7 +114,11 @@ export function DocumentViewerModal({
         }
         await MediaLibrary.saveToLibraryAsync(uri);
         setDownloadDone(true);
-        showToast({ title: "Salvo!", message: "Imagem salva na galeria", tone: "success" });
+        showToast({
+          title: "Salvo!",
+          message: "Imagem salva na galeria",
+          tone: "success",
+        });
         setTimeout(() => setDownloadDone(false), 2500);
       } else {
         if (Platform.OS === "ios") {
@@ -157,7 +164,12 @@ export function DocumentViewerModal({
   );
 
   return (
-    <Modal visible={visible} animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <SafeAreaView style={styles.container}>
         {/* ── Header ──────────────────────────────────────────────────── */}
         <View style={styles.header}>
@@ -185,7 +197,7 @@ export function DocumentViewerModal({
               <MaterialIcons name="hourglass-empty" size={48} color="#9CA3AF" />
               <Text style={styles.statusText}>
                 {document?.status === "FAILED"
-                  ? "Falha no processamento do documento"
+                  ? "Falha no processamento do documento. Delete-o e tente novamente"
                   : "Documento ainda sendo processado..."}
               </Text>
             </View>
@@ -201,14 +213,20 @@ export function DocumentViewerModal({
             /* ── PDF / other file preview card ────────────────────── */
             <View style={styles.pdfCard}>
               <View style={styles.pdfIconWrap}>
-                <MaterialIcons name="picture-as-pdf" size={56} color="#EF4444" />
+                <MaterialIcons
+                  name="picture-as-pdf"
+                  size={56}
+                  color="#EF4444"
+                />
               </View>
 
               <Text style={styles.pdfFilename} numberOfLines={2}>
                 {document?.originalFileName ?? "documento.pdf"}
               </Text>
               {document?.sizeBytes ? (
-                <Text style={styles.pdfSize}>{formatBytes(document.sizeBytes)}</Text>
+                <Text style={styles.pdfSize}>
+                  {formatBytes(document.sizeBytes)}
+                </Text>
               ) : null}
 
               <View style={styles.pdfActions}>
@@ -223,7 +241,10 @@ export function DocumentViewerModal({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.downloadBtn, downloading && styles.downloadBtnLoading]}
+                  style={[
+                    styles.downloadBtn,
+                    downloading && styles.downloadBtnLoading,
+                  ]}
                   onPress={handleDownload}
                   disabled={downloading || !viewUrl}
                   activeOpacity={0.8}
@@ -232,12 +253,20 @@ export function DocumentViewerModal({
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : downloadDone ? (
                     <>
-                      <MaterialIcons name="check-circle" size={18} color="#FFFFFF" />
+                      <MaterialIcons
+                        name="check-circle"
+                        size={18}
+                        color="#FFFFFF"
+                      />
                       <Text style={styles.downloadBtnText}>Salvo!</Text>
                     </>
                   ) : (
                     <>
-                      <MaterialIcons name="file-download" size={18} color="#FFFFFF" />
+                      <MaterialIcons
+                        name="file-download"
+                        size={18}
+                        color="#FFFFFF"
+                      />
                       <Text style={styles.downloadBtnText}>Baixar</Text>
                     </>
                   )}

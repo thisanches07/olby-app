@@ -1,8 +1,9 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { usePreventRemove } from "@react-navigation/native";
-import { useNavigation } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   PanResponder,
   RefreshControl,
@@ -214,6 +215,22 @@ export function ObraViewEng({
   const [activeTab, setActiveTab] = useState<EngTabId>("projetos");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [documentComposerSignal, setDocumentComposerSignal] = useState(0);
+  const [isDocumentUploading, setIsDocumentUploading] = useState(false);
+  const cancelDocumentUploadRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleUploadStateChange = useCallback(
+    ({
+      uploading,
+      cancel,
+    }: {
+      uploading: boolean;
+      cancel: () => Promise<void>;
+    }) => {
+      setIsDocumentUploading(uploading);
+      cancelDocumentUploadRef.current = uploading ? cancel : null;
+    },
+    [],
+  );
 
   const gastosMerged = useMemo(
     () =>
@@ -242,6 +259,28 @@ export function ObraViewEng({
     [onTabChange],
   );
 
+  const performLeaveNavigation = useCallback(
+    (action: { type?: string } | undefined) => {
+      if (action?.type === "GO_BACK" && !navigation.canGoBack()) {
+        router.replace("/");
+        return;
+      }
+
+      if (action) {
+        navigation.dispatch(action as never);
+        return;
+      }
+
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return;
+      }
+
+      router.replace("/");
+    },
+    [navigation],
+  );
+
   // ── Tab-aware back: secondary tabs → projetos; projetos → home ────────────
   const handleBack = useCallback(() => {
     if (activeTab !== "projetos") {
@@ -252,10 +291,33 @@ export function ObraViewEng({
   }, [activeTab, navigation, changeTab]);
 
   usePreventRemove(
-    activeTab !== "projetos",
-    useCallback(() => {
-      changeTab("projetos");
-    }, [changeTab]),
+    activeTab !== "projetos" || isDocumentUploading,
+    useCallback(
+      ({ data }) => {
+        if (isDocumentUploading) {
+          Alert.alert(
+            "Upload em andamento",
+            "Um documento está sendo enviado. Se sair agora, o envio será cancelado e o arquivo não ficará disponível.",
+            [
+              { text: "Aguardar", style: "cancel" },
+              {
+                text: "Cancelar upload e sair",
+                style: "destructive",
+                onPress: () => {
+                  void (async () => {
+                    await cancelDocumentUploadRef.current?.();
+                    performLeaveNavigation(data.action);
+                  })();
+                },
+              },
+            ],
+          );
+          return;
+        }
+        changeTab("projetos");
+      },
+      [isDocumentUploading, changeTab, navigation, performLeaveNavigation],
+    ),
   );
 
   // ── Edge swipe (left-to-right) on secondary tabs → go to projetos ─────────
@@ -356,6 +418,7 @@ export function ObraViewEng({
           projectRole={projectRole}
           onDocumentsChanged={onProjectDocumentsChanged}
           onDocumentRemoved={onProjectDocumentRemoved}
+          onUploadStateChange={handleUploadStateChange}
           supplementalDocuments={expenseReceiptDocuments}
           openComposerSignal={documentComposerSignal}
           isActive={activeTab === "documentos"}
