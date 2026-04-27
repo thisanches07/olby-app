@@ -70,6 +70,7 @@ export function ObraViewCliente({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<ClienteTabId>("visao_geral");
+  const [headerBottom, setHeaderBottom] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
@@ -130,13 +131,15 @@ export function ObraViewCliente({
 
   return (
     <>
-      <ObraHeader
-        title={obra.nome}
-        projectId={obra.id}
-        projectRole={projectRole}
-        members={projectMembers}
-        onBack={handleBack}
-      />
+      <View onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.height)}>
+        <ObraHeader
+          title={obra.nome}
+          projectId={obra.id}
+          projectRole={projectRole}
+          members={projectMembers}
+          onBack={handleBack}
+        />
+      </View>
 
       {activeTab === "visao_geral" && (
         <ScrollView
@@ -289,7 +292,10 @@ export function ObraViewCliente({
       </View>
 
       {activeTab !== "visao_geral" && (
-        <View {...edgeSwipe.panHandlers} style={styles.edgeSwipeZone} />
+        <View
+          {...edgeSwipe.panHandlers}
+          style={[styles.edgeSwipeZone, { top: headerBottom }]}
+        />
       )}
     </>
   );

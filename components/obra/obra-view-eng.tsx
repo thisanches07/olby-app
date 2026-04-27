@@ -213,6 +213,7 @@ export function ObraViewEng({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<EngTabId>("projetos");
+  const [headerBottom, setHeaderBottom] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [documentComposerSignal, setDocumentComposerSignal] = useState(0);
   const [isDocumentUploading, setIsDocumentUploading] = useState(false);
@@ -384,13 +385,15 @@ export function ObraViewEng({
 
   return (
     <>
-      <ObraHeader
-        title={obra.nome}
-        projectId={obra.id}
-        projectRole={projectRole}
-        members={projectMembers}
-        onBack={handleBack}
-      />
+      <View onLayout={(e) => setHeaderBottom(e.nativeEvent.layout.height)}>
+        <ObraHeader
+          title={obra.nome}
+          projectId={obra.id}
+          projectRole={projectRole}
+          members={projectMembers}
+          onBack={handleBack}
+        />
+      </View>
 
       {/* Tarefas tab rendered outside ScrollView — DraggableFlatList manages its own scroll */}
       {activeTab === "tarefas" && (
@@ -614,7 +617,10 @@ export function ObraViewEng({
 
       {/* Edge swipe zone — captures left-to-right swipe on secondary tabs */}
       {activeTab !== "projetos" && (
-        <View {...edgeSwipe.panHandlers} style={styles.edgeSwipeZone} />
+        <View
+          {...edgeSwipe.panHandlers}
+          style={[styles.edgeSwipeZone, { top: headerBottom }]}
+        />
       )}
     </>
   );
