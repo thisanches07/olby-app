@@ -786,25 +786,7 @@
 
   @media (max-width:760px){
     .nav-burger{display:flex}
-    .nav-links{
-      display:none;
-      flex-direction:column;position:fixed;
-      top:64px;left:0;right:0;bottom:0;
-      background:rgba(6,9,27,.98);
-      backdrop-filter:blur(24px) saturate(140%);
-      -webkit-backdrop-filter:blur(24px) saturate(140%);
-      padding:24px 0;gap:0;
-      font-size:20px;font-weight:500;z-index:200;
-      color:#fff;
-      align-items:stretch;overflow-y:auto;
-    }
-    .nav-links.open{display:flex}
-    .nav-links a{
-      padding:18px clamp(16px,4vw,32px);
-      border-bottom:1px solid rgba(255,255,255,.07);
-      opacity:.9;
-    }
-    .nav-links a:hover{opacity:1;background:rgba(255,255,255,.04)}
+    .nav-links{display:none}
     .nav-cta{display:none}
   }
 
@@ -843,7 +825,74 @@
     footer{padding:48px 0 32px}
     .footer-cols{gap:32px}
   }
-</style>
+
+  /* ========== MOBILE MENU (sibling of nav, outside its stacking context) ===== */
+  .mobile-menu{
+    display:none;
+  }
+  @media (max-width:760px){
+    .mobile-menu{
+      display:block;
+      position:fixed;
+      inset:0;
+      z-index:999;
+      background:rgba(6,9,27,.97);
+      -webkit-backdrop-filter:blur(20px) saturate(160%);
+      backdrop-filter:blur(20px) saturate(160%);
+      padding-top:64px;
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(-8px);
+      transition:opacity .22s ease, transform .22s ease;
+      overflow-y:auto;
+    }
+    .mobile-menu.open{
+      opacity:1;
+      pointer-events:auto;
+      transform:translateY(0);
+    }
+    .mobile-menu-inner{
+      padding:16px clamp(16px,5vw,32px) 40px;
+      display:flex;
+      flex-direction:column;
+      min-height:calc(100dvh - 64px);
+    }
+    .mobile-menu-nav{
+      display:flex;
+      flex-direction:column;
+      flex:1;
+    }
+    .mobile-menu-nav a{
+      display:flex;align-items:center;
+      color:rgba(255,255,255,.92);
+      font-family:'Geist',sans-serif;
+      font-size:clamp(22px,6vw,28px);
+      font-weight:500;
+      letter-spacing:-0.03em;
+      padding:18px 0;
+      border-bottom:1px solid rgba(255,255,255,.07);
+      text-decoration:none;
+      transition:color .15s,padding-left .15s;
+    }
+    .mobile-menu-nav a:hover{
+      color:#fff;
+      padding-left:6px;
+    }
+    .mobile-menu-cta{
+      display:inline-flex;align-items:center;gap:10px;
+      margin-top:40px;
+      background:#fff;color:#06091B;
+      padding:16px 28px;border-radius:99px;
+      font-family:'Geist',sans-serif;
+      font-size:16px;font-weight:700;
+      letter-spacing:-0.01em;
+      text-decoration:none;
+      width:fit-content;
+      transition:transform .15s,opacity .15s;
+    }
+    .mobile-menu-cta:hover{transform:translateY(-1px);opacity:.92}
+    .mobile-menu-cta svg{width:16px;height:16px}
+  }</style>
 </head>
 <body>
 
@@ -869,6 +918,22 @@
     </a>
   </div>
 </nav>
+
+<!-- MOBILE MENU — outside nav to avoid stacking context issues -->
+<div class="mobile-menu" id="mobile-menu" aria-hidden="true" role="dialog" aria-label="Menu de navegação">
+  <div class="mobile-menu-inner">
+    <nav class="mobile-menu-nav">
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#para-quem">Para quem</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#planos">Planos</a>
+    </nav>
+    <a class="mobile-menu-cta" href="/download">
+      Baixar app
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </a>
+  </div>
+</div>
 
 <!-- ============================ HERO ============================ -->
 <section class="hero" id="top">
@@ -1308,21 +1373,27 @@
 <script>
 (function(){
   var burger = document.querySelector('.nav-burger');
-  var links  = document.querySelector('.nav-links');
-  if(!burger || !links) return;
+  var menu   = document.getElementById('mobile-menu');
+  if (!burger || !menu) return;
+  function close() {
+    menu.classList.remove('open');
+    burger.classList.remove('open');
+    burger.setAttribute('aria-expanded', 'false');
+    menu.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
   burger.addEventListener('click', function(){
-    var open = links.classList.toggle('open');
+    var open = menu.classList.toggle('open');
     burger.classList.toggle('open', open);
     burger.setAttribute('aria-expanded', String(open));
+    menu.setAttribute('aria-hidden', String(!open));
     document.body.style.overflow = open ? 'hidden' : '';
   });
-  links.querySelectorAll('a').forEach(function(a){
-    a.addEventListener('click', function(){
-      links.classList.remove('open');
-      burger.classList.remove('open');
-      burger.setAttribute('aria-expanded', 'false');
-      document.body.style.overflow = '';
-    });
+  menu.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', close);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') close();
   });
 })();
 </script></body></html>
