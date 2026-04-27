@@ -52,7 +52,7 @@
   a{color:inherit;text-decoration:none}
 
   /* ---------- shared chrome ---------- */
-  .container{max-width:1280px;margin:0 auto;padding:0 32px}
+  .container{max-width:1280px;margin:0 auto;padding:0 clamp(16px,4vw,32px)}
 
   /* mono micro-label */
   .kicker{
@@ -95,8 +95,9 @@
   .nav-links a:hover{opacity:1}
   .nav-cta{
     display:inline-flex;align-items:center;gap:8px;
-    background:#fff;color:var(--ink);padding:9px 16px;border-radius:99px;
+    background:#fff;color:var(--ink);padding:10px 20px;border-radius:99px;
     font-size:13px;font-weight:600;letter-spacing:-0.005em;
+    min-height:44px;
     transition:transform .15s ease, background .15s ease;
   }
   .nav.light .nav-cta{background:var(--ink);color:#fff}
@@ -135,7 +136,7 @@
     position:relative;z-index:2;
   }
   @media (max-width: 980px){
-    .hero{padding:140px 0 80px}
+    .hero{padding:100px 0 64px}
     .hero-grid{grid-template-columns:1fr;gap:56px}
   }
 
@@ -179,6 +180,7 @@
     display:inline-flex;align-items:center;gap:10px;
     padding:16px 24px;border-radius:99px;
     font-size:15px;font-weight:600;letter-spacing:-0.005em;
+    min-height:48px;
     transition:transform .15s ease, background .15s ease, box-shadow .15s ease;
     cursor:pointer;border:0;font-family:inherit;
   }
@@ -766,6 +768,80 @@
     color:rgba(255,255,255,.4);flex-wrap:wrap;
   }
 
+
+  /* ---------- hamburger button ---------- */
+  .nav-burger{
+    display:none;flex-direction:column;justify-content:center;gap:5px;
+    width:40px;height:40px;padding:8px;
+    background:none;border:none;cursor:pointer;color:inherit;flex-shrink:0;
+  }
+  .nav-burger span{
+    display:block;width:100%;height:2px;
+    background:currentColor;border-radius:2px;
+    transition:transform .22s ease, opacity .18s ease;
+  }
+  .nav-burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+  .nav-burger.open span:nth-child(2){opacity:0}
+  .nav-burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+  @media (max-width:760px){
+    .nav-burger{display:flex}
+    .nav-links{
+      display:none;
+      flex-direction:column;position:fixed;
+      top:64px;left:0;right:0;bottom:0;
+      background:rgba(6,9,27,.97);
+      backdrop-filter:blur(24px) saturate(140%);
+      -webkit-backdrop-filter:blur(24px) saturate(140%);
+      padding:24px 0;gap:0;
+      font-size:20px;font-weight:500;z-index:49;
+      align-items:stretch;overflow-y:auto;
+    }
+    .nav-links.open{display:flex}
+    .nav-links a{
+      padding:18px clamp(16px,4vw,32px);
+      border-bottom:1px solid rgba(255,255,255,.07);
+      opacity:.9;
+    }
+    .nav-links a:hover{opacity:1;background:rgba(255,255,255,.04)}
+    .nav-cta{display:none}
+  }
+
+  /* ---------- hero mobile ---------- */
+  @media (max-width:480px){
+    .hero{padding:72px 0 40px}
+    .hero-device{display:none}
+    .stores{flex-direction:column;align-items:flex-start;gap:10px}
+  }
+
+  /* ---------- bento + cards mobile ---------- */
+  @media (max-width:640px){
+    .bento{grid-template-columns:1fr}
+    .card{padding:clamp(20px,5vw,40px)}
+    .card-diary .shot{width:92%;margin-right:-20px;margin-bottom:-20px}
+    .money-stat{grid-template-columns:1fr}
+  }
+
+  /* ---------- marquee mobile ---------- */
+  @media (max-width:640px){
+    .marquee{padding:32px 0}
+    .marquee-row{gap:20px;row-gap:12px}
+    .marquee-row .sep{display:none}
+  }
+
+  /* ---------- tipografia mobile ---------- */
+  @media (max-width:640px){
+    .card h3{font-size:clamp(20px,5.5vw,34px)}
+    .pain .ttl{font-size:clamp(18px,4.5vw,26px)}
+    .plan .price .num{font-size:clamp(36px,9vw,64px)}
+    .plan-cta{min-height:44px}
+  }
+
+  /* ---------- footer mobile ---------- */
+  @media (max-width:640px){
+    footer{padding:48px 0 32px}
+    .footer-cols{gap:32px}
+  }
 </style>
 </head>
 <body>
@@ -783,6 +859,9 @@
       <a href="#como-funciona">Como funciona</a>
       <a href="#planos">Planos</a>
     </div>
+    <button class="nav-burger" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
     <a class="nav-cta" href="/download">
       Baixar app
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
@@ -1055,8 +1134,7 @@
     <div class="how-head">
       <div>
         <div class="kicker"><span class="dot"></span><span class="num">03</span> Como funciona</div>
-        <h2 style="font-size: 70px; width: 650.993px">Em três passos.<br><em style="font-family: Geist; font-size: 70px">Da primeira visita
-ao cliente atualizado.</em></h2>
+        <h2 style="font-size: clamp(36px,6vw,70px)">Em três passos.<br><em style="font-family: Geist">Da primeira visita ao cliente atualizado.</em></h2>
       </div>
       <p>Você não precisa mudar a forma de trabalhar. O Obly só organiza o que você já faz — e entrega visibilidade pro cliente automaticamente.</p>
     </div>
@@ -1095,7 +1173,7 @@ ao cliente atualizado.</em></h2>
   <div class="container">
     <div class="pricing-head">
       <div class="kicker" style="justify-content:center;display:inline-flex"><span class="dot"></span><span class="num">04</span> Planos</div>
-      <h2 style="width: 800px;">Comece grátis.<br><em style="font-family: Geist">Cresça quando precisar.</em></h2>
+      <h2>Comece grátis.<br><em style="font-family: Geist">Cresça quando precisar.</em></h2>
       <p>Cliente sempre visualiza de graça. Você paga só por quantas obras gerencia ao mesmo tempo.</p>
     </div>
 
@@ -1226,4 +1304,24 @@ ao cliente atualizado.</em></h2>
 
 
 
-</body></html>
+<script>
+(function(){
+  var burger = document.querySelector('.nav-burger');
+  var links  = document.querySelector('.nav-links');
+  if(!burger || !links) return;
+  burger.addEventListener('click', function(){
+    var open = links.classList.toggle('open');
+    burger.classList.toggle('open', open);
+    burger.setAttribute('aria-expanded', String(open));
+    document.body.style.overflow = open ? 'hidden' : '';
+  });
+  links.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){
+      links.classList.remove('open');
+      burger.classList.remove('open');
+      burger.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    });
+  });
+})();
+</script></body></html>
