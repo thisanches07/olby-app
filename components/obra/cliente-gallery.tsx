@@ -129,7 +129,7 @@ const MONTHS_SHORT = [
 ];
 
 function formatDateLabel(isoDate: string): string {
-  const [y, m, d] = isoDate.split("-").map(Number);
+  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
   const date = new Date(y, m - 1, d);
   const todayISO = toISODate(new Date());
   if (isoDate === todayISO) return "Hoje";
