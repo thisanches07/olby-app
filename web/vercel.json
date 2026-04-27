@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/",               "destination": "/legal/index.html" },
     { "source": "/privacy",        "destination": "/legal/privacy.html" },
     { "source": "/terms",          "destination": "/legal/terms.html" },
     { "source": "/auth-action",    "destination": "/legal/auth-action.html" },

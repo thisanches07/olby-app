@@ -1,0 +1,1229 @@
+﻿<!DOCTYPE html>
+<!-- saved from url=(0299)https://3cecbf26-32a4-4887-8be3-e96118baa67f.claudeusercontent.com/v1/design/projects/3cecbf26-32a4-4887-8be3-e96118baa67f/serve/site.html?t=04735f271c8e7ebba09fc0728363f65f63e75daf6be68ee1fd575cddec155e31.2c68499f-7779-4ca8-aa0e-86cc475d4f79.2900c42c-81f9-4bf8-8e36-bfda40b8a6c6.1777298332&srcmap=1 -->
+<html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+
+
+<title>Obly — Sua obra, documentada. Seu cliente, informado.</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Obly é o aplicativo que engenheiros e mestres de obra usam para documentar cada visita, cada hora e cada real — e compartilhar tudo, em tempo real, com quem contratou.">
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="./fonts.css" rel="stylesheet">
+<style>
+  :root{
+    --blue-300:#A8C2FF;
+    --blue-400:#6E97FF;
+    --blue-500:#3B82F6;
+    --blue-600:#2563EB;
+    --blue-700:#1D4ED8;
+    --blue-800:#1B38AD;
+    --blue-900:#16309A;
+
+    --ink:#0A0F2C;
+    --ink-2:#111827;
+    --ink-3:#1F2640;
+    --muted:#6B7280;
+    --muted-2:#8A92A8;
+
+    --paper:#F4F6FA;
+    --paper-2:#EAEEF6;
+    --hairline:#E6E8EE;
+    --hairline-strong:#D9DCE5;
+
+    --night:#06091B;
+    --night-2:#0A0F2C;
+    --night-3:#121937;
+    --night-line: rgba(255,255,255,0.10);
+    --night-line-2: rgba(255,255,255,0.16);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Geist',system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+    background:#fff;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  img{max-width:100%;display:block}
+  a{color:inherit;text-decoration:none}
+
+  /* ---------- shared chrome ---------- */
+  .container{max-width:1280px;margin:0 auto;padding:0 32px}
+
+  /* mono micro-label */
+  .kicker{
+    font-family:'Geist Mono',monospace;
+    font-size:12px;letter-spacing:0.18em;text-transform:uppercase;
+    font-weight:500;color:var(--muted);
+    display:inline-flex;align-items:center;gap:10px;
+  }
+  .kicker .dot{width:6px;height:6px;border-radius:99px;background:var(--blue-500)}
+  .kicker .num{color:var(--ink-3);font-weight:600}
+
+  .hairline{height:1px;background:var(--hairline-strong);width:100%}
+
+  /* ---------- nav ---------- */
+  .nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    background:rgba(6,9,27,.72);backdrop-filter:blur(20px) saturate(140%);
+    -webkit-backdrop-filter:blur(20px) saturate(140%);
+    border-bottom:1px solid rgba(255,255,255,.08);
+    color:#fff;
+    transition:background .3s ease, color .3s ease, border-color .3s ease;
+  }
+  .nav.light{
+    background:rgba(255,255,255,.78);
+    border-bottom:1px solid var(--hairline);
+    color:var(--ink);
+  }
+  .nav-inner{
+    display:flex;align-items:center;justify-content:space-between;
+    height:64px;
+  }
+  .logo{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-0.03em;font-size:20px;font-family:'Geist',sans-serif}
+  .logo .mark{
+    width:32px;height:32px;border-radius:9px;
+    overflow:hidden;display:block;
+    box-shadow:0 1px 2px rgba(0,0,0,.15);
+  }
+  .logo .mark img{width:100%;height:100%;display:block}
+  .nav-links{display:flex;align-items:center;gap:32px;font-size:14px;font-weight:500;opacity:.85}
+  .nav-links a:hover{opacity:1}
+  .nav-cta{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#fff;color:var(--ink);padding:9px 16px;border-radius:99px;
+    font-size:13px;font-weight:600;letter-spacing:-0.005em;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .nav.light .nav-cta{background:var(--ink);color:#fff}
+  .nav-cta:hover{transform:translateY(-1px)}
+  .nav-cta svg{width:14px;height:14px}
+
+  @media (max-width: 760px){
+    .nav-links{display:none}
+  }
+
+  /* ====================================================== */
+  /* ===================  HERO (dark)  ==================== */
+  /* ====================================================== */
+  .hero{
+    position:relative;
+    background:
+      radial-gradient(80% 60% at 70% 0%, rgba(59,130,246,.22) 0%, transparent 60%),
+      radial-gradient(60% 50% at 10% 30%, rgba(29,78,216,.20) 0%, transparent 70%),
+      linear-gradient(180deg, #06091B 0%, #0A0F2C 60%, #0A0F2C 100%);
+    color:#fff;
+    overflow:hidden;
+    padding:160px 0 120px;
+  }
+  .hero::before{
+    /* faint grid */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+    background-size: 96px 96px;
+    mask-image: radial-gradient(80% 60% at 50% 30%, #000 0%, transparent 80%);
+    -webkit-mask-image: radial-gradient(80% 60% at 50% 30%, #000 0%, transparent 80%);
+  }
+  .hero-grid{
+    display:grid;grid-template-columns: 1.15fr 1fr;gap:64px;align-items:center;
+    position:relative;z-index:2;
+  }
+  @media (max-width: 980px){
+    .hero{padding:140px 0 80px}
+    .hero-grid{grid-template-columns:1fr;gap:56px}
+  }
+
+  .hero-eyebrow{
+    color:rgba(255,255,255,.7);
+    margin-bottom:32px;
+  }
+  .hero-eyebrow .dot{background:#6E97FF;box-shadow:0 0 0 4px rgba(110,151,255,.18)}
+
+  .hero h1{
+    font-family:'Geist',sans-serif;
+    font-weight:500;
+    font-size: clamp(56px, 8vw, 116px);
+    line-height:.94;
+    letter-spacing:-0.055em;
+    margin:0 0 32px;
+    color:#fff;
+    text-wrap:balance;
+  }
+  .hero h1 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;
+    font-weight:300;
+    letter-spacing:-0.04em;
+    background:linear-gradient(180deg, #A8C2FF 0%, #3B82F6 70%, #1D4ED8 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    display:block;
+  }
+  .hero-sub{
+    font-size: clamp(18px, 1.5vw, 22px);
+    line-height:1.45;
+    color:rgba(255,255,255,.75);
+    max-width:560px;margin:0 0 48px;
+    font-weight:400;
+    letter-spacing:-0.005em;
+  }
+  .hero-sub strong{color:#fff;font-weight:600}
+
+  .hero-cta{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:16px 24px;border-radius:99px;
+    font-size:15px;font-weight:600;letter-spacing:-0.005em;
+    transition:transform .15s ease, background .15s ease, box-shadow .15s ease;
+    cursor:pointer;border:0;font-family:inherit;
+  }
+  .btn-primary{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1), 0 12px 32px rgba(59,130,246,.18)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 1px 2px rgba(0,0,0,.1), 0 18px 40px rgba(59,130,246,.28)}
+  .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.16)}
+  .btn-ghost:hover{background:rgba(255,255,255,.14)}
+  .btn-dark{background:var(--ink);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06), 0 12px 32px rgba(10,15,44,.18)}
+  .btn-dark:hover{transform:translateY(-2px)}
+  .btn svg{width:16px;height:16px}
+
+  .stores{
+    margin-top:24px;display:flex;align-items:center;gap:18px;
+    color:rgba(255,255,255,.55);font-size:13px;
+  }
+  .stores .pill{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 14px;border-radius:99px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+    color:rgba(255,255,255,.7);font-weight:500;
+  }
+  .stores .pill svg{width:13px;height:13px}
+
+  /* hero device */
+  .hero-device{
+    position:relative;
+    display:flex;justify-content:center;align-items:center;
+    perspective:1800px;
+  }
+  .device{
+    position:relative;
+    width:340px;
+    border-radius:48px;
+    padding:10px;
+    background:linear-gradient(180deg, #1A2240 0%, #0E1430 100%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.06) inset,
+      0 0 0 1px rgba(255,255,255,.05),
+      0 50px 80px -30px rgba(0,0,0,.7),
+      0 30px 60px -20px rgba(29,78,216,.4);
+  }
+  .device::before{
+    content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:110px;height:30px;background:#06091B;border-radius:99px;z-index:2;
+  }
+  .device img{
+    width:100%;display:block;
+    border-radius:38px;
+  }
+  .device-glow{
+    position:absolute;inset:-40px;border-radius:50%;
+    background:radial-gradient(50% 50% at 50% 50%, rgba(59,130,246,.35) 0%, transparent 70%);
+    filter:blur(40px);z-index:-1;
+  }
+  /* second screen behind */
+  .device-back{
+    position:absolute;left:-42%;top:8%;
+    transform:rotate(-8deg) scale(.85);
+    opacity:.7;filter:blur(.3px);
+    z-index:-1;
+  }
+  .device-back .device{box-shadow:0 30px 60px -30px rgba(0,0,0,.6)}
+
+  @media (max-width: 980px){
+    .device-back{display:none}
+    .device{width:300px}
+  }
+
+  /* ====================================================== */
+  /* ===================  LOGO BAR  ======================= */
+  /* ====================================================== */
+  .marquee{
+    background:#fff;border-bottom:1px solid var(--hairline);
+    padding:48px 0;
+  }
+  .marquee-row{
+    display:flex;align-items:center;justify-content:space-between;gap:48px;
+    color:var(--muted);
+    font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;
+    flex-wrap:wrap;row-gap:16px;
+  }
+  .marquee-row strong{color:var(--ink-3);font-weight:600}
+  .marquee-row .sep{
+    flex:1;height:1px;background:var(--hairline-strong);
+    min-width:40px;
+  }
+
+  /* ====================================================== */
+  /* =================  PROBLEM (dark)  ==================== */
+  /* ====================================================== */
+  .problem{
+    background:#0A0F2C;color:#fff;
+    padding:140px 0;
+    position:relative;overflow:hidden;
+  }
+  .problem-helmet{
+    position:absolute;
+    right:-14%;top:50%;transform:translateY(-50%);
+    width:1200px;height:1200px;
+    pointer-events:none;
+    opacity:.07;
+    z-index:0;
+  }
+  .problem-helmet img{width:100%;height:100%;display:block}
+  .problem > .container{position:relative;z-index:1}
+  @media (max-width:980px){
+    .problem-helmet{width:760px;height:760px;right:-30%;opacity:.05}
+  }
+  .problem-head{
+    display:grid;grid-template-columns: 1fr 1.4fr;gap:64px;align-items:end;
+    margin-bottom:96px;
+  }
+  @media (max-width: 980px){
+    .problem{padding:96px 0}
+    .problem-head{grid-template-columns:1fr;gap:32px;margin-bottom:64px}
+  }
+  .problem h2{
+    font-family:'Geist',sans-serif;
+    font-weight:500;
+    font-size: clamp(40px, 5.6vw, 80px);
+    line-height:1.0;
+    letter-spacing:-0.045em;
+    margin:24px 0 0;
+    color:#fff;
+    text-wrap:balance;
+  }
+  .problem h2 strike{
+    text-decoration:line-through;
+    text-decoration-color:rgba(239,68,68,.7);
+    text-decoration-thickness:4px;
+    color:rgba(255,255,255,.45);
+  }
+  .problem-aside{
+    color:rgba(255,255,255,.7);
+    font-size:18px;line-height:1.55;letter-spacing:-0.005em;max-width:520px;
+  }
+
+  .pain-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    border-top:1px solid var(--night-line);
+    border-bottom:1px solid var(--night-line);
+  }
+  @media (max-width: 980px){
+    .pain-grid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width: 600px){
+    .pain-grid{grid-template-columns:1fr}
+  }
+  .pain{
+    padding:40px 32px 40px 0;
+    border-right:1px solid var(--night-line);
+  }
+  .pain:last-child{border-right:0}
+  @media (max-width:600px){
+    .pain{border-right:0;border-bottom:1px solid var(--night-line);padding:32px 0}
+    .pain:last-child{border-bottom:0}
+  }
+  .pain .num{
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;
+    color:var(--blue-300);margin-bottom:24px;display:block;font-weight:500;
+  }
+  .pain .ttl{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:26px;line-height:1.15;letter-spacing:-0.025em;
+    color:#fff;margin:0 0 12px;
+  }
+  .pain p{
+    color:rgba(255,255,255,.6);font-size:14px;line-height:1.55;margin:0;
+  }
+
+  /* ====================================================== */
+  /* =================  SOLUTION (light)  ================= */
+  /* ====================================================== */
+  .solution{
+    background:linear-gradient(180deg, #FFFFFF 0%, #F4F6FA 100%);
+    padding:160px 0 120px;
+  }
+  .solution-head{
+    text-align:center;max-width:920px;margin:0 auto 96px;
+  }
+  .solution-head h2{
+    font-family:'Geist',sans-serif;
+    font-weight:500;
+    font-size: clamp(44px, 6vw, 92px);
+    line-height:.98;
+    letter-spacing:-0.05em;
+    margin:24px 0 32px;
+    text-wrap:balance;
+  }
+  .solution-head h2 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.04em;
+    background:linear-gradient(180deg, #2563EB 0%, #1B38AD 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .solution-head p{
+    font-size:20px;line-height:1.5;color:var(--muted);max-width:640px;margin:0 auto;
+  }
+
+  /* big bento */
+  .bento{
+    display:grid;grid-template-columns:repeat(6,1fr);grid-auto-rows:minmax(320px,auto);gap:20px;
+  }
+  .card{
+    position:relative;background:#fff;border-radius:28px;
+    border:1px solid var(--hairline);
+    padding:40px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,24,40,.04);
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover{transform:translateY(-4px);box-shadow:0 1px 2px rgba(16,24,40,.06), 0 24px 48px rgba(16,24,40,.08)}
+  .card .feat-kicker{
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;
+    color:var(--blue-700);font-weight:600;
+  }
+  .card h3{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:34px;line-height:1.05;letter-spacing:-0.035em;
+    margin:16px 0 12px;color:var(--ink);
+    text-wrap:balance;
+  }
+  .card h3 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.03em;color:var(--blue-700);
+  }
+  .card-money h3 em{color:#A8C2FF}
+  .card p{
+    color:var(--muted);font-size:15px;line-height:1.55;margin:0;
+  }
+
+  /* big card 1 — diário (with screenshot) */
+  .card-diary{grid-column: span 4;grid-row: span 2;
+    background:
+      radial-gradient(60% 80% at 100% 100%, rgba(59,130,246,.10) 0%, transparent 60%),
+      #fff;
+    padding:48px 48px 0;
+    display:flex;flex-direction:column;
+  }
+  .card-diary .copy{max-width:420px}
+  .card-diary .shot{
+    margin-top:auto;align-self:flex-end;
+    width:78%;max-width:420px;margin-right:-30px;margin-bottom:-30px;
+    border-radius:24px 24px 0 0;
+    box-shadow:0 30px 60px -20px rgba(16,24,40,.25), 0 0 0 1px var(--hairline);
+    overflow:hidden;
+  }
+  .card-diary .shot img{display:block;width:100%}
+
+  /* card 2 — financeiro */
+  .card-money{grid-column: span 2;grid-row: span 2;
+    background:linear-gradient(180deg, #0A0F2C 0%, #16235A 100%);color:#fff;border-color:transparent;
+    display:flex;flex-direction:column;justify-content:space-between;
+    overflow:hidden;
+  }
+  .card-money:hover{box-shadow:0 1px 2px rgba(0,0,0,.4), 0 24px 48px rgba(29,78,216,.3)}
+  .card-money .feat-kicker{color:var(--blue-300)}
+  .card-money h3{color:#fff}
+  .card-money p{color:rgba(255,255,255,.7)}
+  .money-stat{
+    margin-top:24px;
+    display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  }
+  .money-stat .row{
+    display:flex;align-items:baseline;gap:8px;
+    padding:18px 20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    border-radius:16px;flex-direction:column;
+  }
+  .money-stat .lbl{
+    font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+    color:rgba(255,255,255,.55);font-weight:500;
+  }
+  .money-stat .val{
+    font-family:'Geist',sans-serif;
+    font-size:28px;font-weight:600;letter-spacing:-0.03em;line-height:1;
+  }
+  .money-stat .val.green{color:#7AE3A1}
+  .money-stat .bar{
+    grid-column:1/-1;height:6px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;
+  }
+  .money-stat .bar i{display:block;height:100%;width:14%;background:linear-gradient(90deg,#3B82F6,#A8C2FF);border-radius:99px}
+  .money-stat .meta{
+    grid-column:1/-1;display:flex;justify-content:space-between;
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,.55);
+  }
+  .money-stat .meta b{color:#7AE3A1;font-weight:600}
+
+  /* card 3 — tarefas */
+  .card-tasks{grid-column: span 3;grid-row: span 1}
+  .tasks-mini{
+    margin-top:20px;display:flex;flex-direction:column;gap:8px;
+  }
+  .tk{
+    display:flex;align-items:center;gap:12px;padding:12px 14px;
+    border:1px solid var(--hairline);border-radius:12px;background:#fff;
+    font-size:14px;
+  }
+  .tk .check{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--hairline-strong);flex-shrink:0;display:grid;place-items:center}
+  .tk.done .check{background:var(--blue-600);border-color:var(--blue-600)}
+  .tk.done .check svg{width:11px;height:11px;color:#fff}
+  .tk.done span{text-decoration:line-through;color:var(--muted-2)}
+  .tk .pill{margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;font-family:'Geist Mono',monospace;letter-spacing:0.08em;text-transform:uppercase}
+  .pill-alta{background:#FEE2E2;color:#B91C1C}
+  .pill-media{background:#FEF3C7;color:#92400E}
+  .pill-baixa{background:#DBEAFE;color:#1E40AF}
+
+  /* card 4 — convite */
+  .card-share{grid-column: span 3;grid-row: span 1;
+    background:linear-gradient(135deg, #EAEEF6 0%, #FFFFFF 100%);
+  }
+  .share-link{
+    margin-top:20px;display:flex;align-items:center;gap:0;
+    background:#fff;border:1px solid var(--hairline);border-radius:12px;overflow:hidden;
+    font-family:'Geist Mono',monospace;font-size:13px;
+  }
+  .share-link .url{padding:14px 16px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .share-link .url b{color:var(--ink)}
+  .share-link button{
+    border:0;background:var(--ink);color:#fff;padding:14px 18px;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;cursor:pointer;
+  }
+  .share-roles{
+    margin-top:16px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+  }
+  .share-roles .role{
+    display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:99px;
+    background:#fff;border:1px solid var(--hairline);font-weight:500;color:var(--ink-2);
+  }
+  .share-roles .role.eye{color:var(--blue-700)}
+
+  @media (max-width:980px){
+    .bento{grid-template-columns:repeat(2,1fr);grid-auto-rows:auto}
+    .card-diary,.card-money,.card-tasks,.card-share{grid-column:1/-1;grid-row:auto}
+    .card-diary .shot{width:90%;margin-right:0;margin-left:auto}
+  }
+
+  /* ====================================================== */
+  /* =================  AUDIENCE (split)  ================= */
+  /* ====================================================== */
+  .audience{
+    padding:140px 0;background:#fff;
+  }
+  .aud-head{
+    display:flex;align-items:end;justify-content:space-between;gap:32px;margin-bottom:64px;
+    flex-wrap:wrap;
+  }
+  .aud-head h2{
+    font-family:'Geist',sans-serif;
+    font-weight:500;
+    font-size: clamp(40px, 5.6vw, 78px);
+    line-height:1.0;letter-spacing:-0.05em;
+    margin:24px 0 0;max-width:760px;text-wrap:balance;
+  }
+  .aud-head h2 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.04em;color:var(--blue-700);
+  }
+  .aud-head p{color:var(--muted);font-size:18px;max-width:380px;margin:0;line-height:1.55}
+
+  .aud-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:1px;
+    background:var(--hairline-strong);
+    border-radius:24px;overflow:hidden;border:1px solid var(--hairline-strong);
+  }
+  @media (max-width:880px){.aud-grid{grid-template-columns:1fr}}
+  .aud{
+    background:#fff;padding:48px;
+    display:flex;flex-direction:column;gap:24px;
+    min-height:480px;
+  }
+  .aud-tag{
+    display:inline-flex;align-items:center;gap:10px;
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;
+    color:var(--muted);font-weight:500;
+  }
+  .aud-tag .ic{
+    width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+    background:var(--paper);border:1px solid var(--hairline);
+  }
+  .aud-tag .ic svg{width:16px;height:16px}
+  .aud.engineer .aud-tag .ic{background:#1D4ED8;border-color:#1D4ED8;color:#fff}
+  .aud.client .aud-tag .ic{background:#0A0F2C;border-color:#0A0F2C;color:#fff}
+
+  .aud h3{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:38px;line-height:1.05;letter-spacing:-0.035em;
+    margin:0;text-wrap:balance;
+  }
+  .aud h3 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.03em;color:var(--blue-700);
+  }
+  .aud.client h3 em{color:var(--ink)}
+  .aud blockquote{
+    margin:0;padding:0;
+    font-size:20px;line-height:1.45;color:var(--ink-3);font-weight:500;letter-spacing:-0.01em;
+    border-left:3px solid var(--blue-500);padding-left:20px;
+  }
+  .aud.client blockquote{border-left-color:var(--ink)}
+  .aud-list{
+    margin:0;padding:0;list-style:none;
+    display:flex;flex-direction:column;gap:14px;
+    margin-top:auto;
+  }
+  .aud-list li{
+    display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--ink-2);
+  }
+  .aud-list li svg{width:18px;height:18px;color:var(--blue-600);flex-shrink:0;margin-top:2px}
+  .aud.client .aud-list li svg{color:var(--ink)}
+
+  /* ====================================================== */
+  /* =================  HOW IT WORKS  ===================== */
+  /* ====================================================== */
+  .how{
+    padding:140px 0;background:var(--paper);
+  }
+  .how-head{
+    display:grid;grid-template-columns: 1fr 1fr;gap:48px;margin-bottom:80px;align-items:end;
+  }
+  @media (max-width:880px){.how-head{grid-template-columns:1fr}}
+  .how-head h2{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:clamp(40px,5.6vw,76px);line-height:1.0;letter-spacing:-0.05em;
+    margin:24px 0 0;
+  }
+  .how-head h2 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.04em;color:var(--blue-700);
+  }
+  .how-head p{color:var(--muted);font-size:18px;line-height:1.55;margin:0;max-width:480px;justify-self:end}
+  .steps{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+  }
+  @media (max-width:880px){.steps{grid-template-columns:1fr}}
+  .step{
+    background:#fff;border:1px solid var(--hairline);border-radius:24px;padding:36px;
+    position:relative;
+    display:flex;flex-direction:column;gap:16px;min-height:300px;
+  }
+  .step .num{
+    font-family:'Geist',sans-serif;
+    font-weight:300;font-style:italic;font-size:104px;line-height:1;letter-spacing:-0.04em;
+    color:var(--blue-600);
+    background:linear-gradient(180deg, #3B82F6, #1B38AD);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    margin:0 0 8px;
+  }
+  .step h3{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:26px;line-height:1.15;letter-spacing:-0.03em;margin:0;
+  }
+  .step p{color:var(--muted);font-size:15px;line-height:1.55;margin:0}
+  .step .ic{
+    margin-top:auto;align-self:flex-start;
+    width:40px;height:40px;border-radius:12px;background:var(--paper);
+    display:grid;place-items:center;border:1px solid var(--hairline);
+  }
+  .step .ic svg{width:20px;height:20px;color:var(--ink-3)}
+
+  /* ====================================================== */
+  /* ===================  PRICING  ======================== */
+  /* ====================================================== */
+  .pricing{padding:140px 0;background:#fff}
+  .pricing-head{text-align:center;max-width:760px;margin:0 auto 80px}
+  .pricing-head h2{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:clamp(40px,5.6vw,80px);line-height:.96;letter-spacing:-0.05em;
+    margin:24px 0 24px;text-wrap:balance;
+  }
+  .pricing-head h2 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.04em;color:var(--blue-700);
+  }
+  .pricing-head p{color:var(--muted);font-size:18px;line-height:1.55;margin:0}
+
+  .plans{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+  }
+  @media (max-width:880px){.plans{grid-template-columns:1fr}}
+  .plan{
+    background:#fff;border:1px solid var(--hairline);border-radius:24px;padding:40px;
+    display:flex;flex-direction:column;gap:24px;
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .plan:hover{transform:translateY(-2px);border-color:var(--hairline-strong)}
+  .plan .nm{
+    font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--muted);font-weight:600;
+  }
+  .plan .price{
+    display:flex;align-items:baseline;gap:6px;
+    font-family:'Geist',sans-serif;
+  }
+  .plan .price .cur{font-size:18px;color:var(--muted);font-weight:500}
+  .plan .price .num{font-size:64px;font-weight:500;letter-spacing:-0.05em;line-height:1}
+  .plan .price .per{font-size:14px;color:var(--muted);font-weight:500}
+  .plan .desc{color:var(--muted);font-size:15px;line-height:1.5;margin:0;min-height:48px}
+  .plan ul{
+    list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;
+    border-top:1px solid var(--hairline);padding-top:24px;
+  }
+  .plan li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--ink-2)}
+  .plan li svg{width:16px;height:16px;color:var(--blue-600);flex-shrink:0;margin-top:3px}
+  .plan li.off{color:var(--muted-2)}
+  .plan li.off svg{color:var(--muted-2)}
+  .plan-cta{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:14px 18px;border-radius:99px;font-size:14px;font-weight:600;
+    background:var(--paper);color:var(--ink-2);border:1px solid var(--hairline);
+    transition:transform .15s ease;
+  }
+  .plan-cta:hover{transform:translateY(-1px)}
+
+  .plan.featured{
+    background:linear-gradient(180deg, #0A0F2C 0%, #16235A 100%);color:#fff;border-color:transparent;
+    position:relative;
+    box-shadow:0 30px 60px -20px rgba(29,78,216,.35);
+  }
+  .plan.featured .nm{color:var(--blue-300)}
+  .plan.featured .price .cur,.plan.featured .price .per{color:rgba(255,255,255,.6)}
+  .plan.featured .desc{color:rgba(255,255,255,.7)}
+  .plan.featured ul{border-top-color:rgba(255,255,255,.12)}
+  .plan.featured li{color:rgba(255,255,255,.92)}
+  .plan.featured li svg{color:#7AE3A1}
+  .plan.featured .plan-cta{background:#fff;color:var(--ink);border-color:transparent}
+  .plan.featured .badge{
+    position:absolute;top:-12px;right:32px;background:var(--blue-500);color:#fff;
+    font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+    font-weight:700;padding:6px 12px;border-radius:99px;
+  }
+
+  /* ====================================================== */
+  /* =================  CTA / FOOTER  ===================== */
+  /* ====================================================== */
+  .cta{
+    padding:160px 0;
+    background:
+      radial-gradient(80% 60% at 50% 0%, rgba(59,130,246,.18) 0%, transparent 60%),
+      linear-gradient(180deg, #06091B 0%, #0A0F2C 100%);
+    color:#fff;text-align:center;position:relative;overflow:hidden;
+  }
+  .cta::before{
+    content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+    background-size: 96px 96px;
+    mask-image: radial-gradient(60% 60% at 50% 50%, #000 0%, transparent 80%);
+    -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000 0%, transparent 80%);
+  }
+  .cta-inner{position:relative;z-index:2;max-width:880px;margin:0 auto}
+  .cta h2{
+    font-family:'Geist',sans-serif;
+    font-weight:500;font-size:clamp(48px,7vw,108px);line-height:.94;letter-spacing:-0.055em;
+    margin:24px 0 32px;color:#fff;text-wrap:balance;
+  }
+  .cta h2 em{
+    font-family:'Fraunces','Instrument Serif',Georgia,serif;
+    font-style:italic;font-weight:300;letter-spacing:-0.04em;
+    background:linear-gradient(180deg, #A8C2FF 0%, #3B82F6 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .cta p{color:rgba(255,255,255,.7);font-size:20px;line-height:1.5;margin:0 0 40px;max-width:560px;margin-left:auto;margin-right:auto}
+  .cta-buttons{display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:wrap}
+
+  footer{
+    background:#06091B;color:rgba(255,255,255,.55);
+    border-top:1px solid rgba(255,255,255,.08);
+    padding:64px 0 48px;font-size:14px;
+  }
+  .footer-grid{display:flex;justify-content:space-between;gap:32px;flex-wrap:wrap;align-items:flex-start}
+  .footer-brand{display:flex;flex-direction:column;gap:16px;max-width:340px}
+  .footer-brand .logo{color:#fff;font-size:22px}
+  .footer-brand p{margin:0;line-height:1.55}
+  .footer-cols{display:flex;gap:64px;flex-wrap:wrap}
+  .footer-col h4{
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;
+    color:rgba(255,255,255,.5);font-weight:600;margin:0 0 16px;
+  }
+  .footer-col a{display:block;color:rgba(255,255,255,.85);font-size:14px;margin-bottom:10px}
+  .footer-col a:hover{color:#fff}
+  .footer-bottom{
+    margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08);
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+    color:rgba(255,255,255,.4);flex-wrap:wrap;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ============================ NAV ============================ -->
+<nav class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="logo" href="#top">
+      <span class="mark"><img src="./images/logo.svg" alt=""></span>
+      Obly
+    </a>
+    <div class="nav-links">
+      <a href="#funcionalidades">Funcionalidades</a>
+      <a href="#para-quem">Para quem</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#planos">Planos</a>
+    </div>
+    <a class="nav-cta" href="/download">
+      Baixar app
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+    </a>
+  </div>
+</nav>
+
+<!-- ============================ HERO ============================ -->
+<section class="hero" id="top">
+  <div class="container hero-grid">
+    <div>
+      <div class="kicker hero-eyebrow"><span class="dot"></span>Para arquitetos, engenheiros e mestres de obra</div>
+      <h1>
+        Sua obra,<br>documentada.
+        <em style="font-family: Geist">Seu cliente, informado.</em>
+      </h1>
+      <p class="hero-sub">
+        O app que <strong>registra cada visita, hora e real gasto</strong> da obra — e compartilha tudo, em tempo real, com quem contratou. Sem WhatsApp, sem planilha, sem ligação.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#planos">
+          Começar grátis
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+        </a>
+        <a class="btn btn-ghost" href="#como-funciona">
+          Ver como funciona
+        </a>
+      </div>
+      <div class="stores">
+        <a class="pill" href="https://apps.apple.com/us/app/obly/id6760023664" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path></svg>
+          App Store
+        </a>
+        <span class="pill">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 20.5V3.5l13 8.5-13 8.5z" opacity=".7"></path><path d="M3.5 3.5 16.5 12 13 14.3l-9.5-10.8z"></path><path d="M3.5 20.5 13 9.7 16.5 12 3.5 20.5z"></path></svg>
+          Google Play
+        </span>
+        <span>· grátis para começar</span>
+      </div>
+    </div>
+
+    <div class="hero-device">
+      <div class="device-back">
+        <div class="device">
+          <img src="./images/app-diario.png" alt="Diário de obra">
+        </div>
+      </div>
+      <div class="device">
+        <div class="device-glow"></div>
+        <img src="./images/app-dashboard.png" alt="Painel da obra no Obly">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ MARQUEE ============================ -->
+<section class="marquee">
+  <div class="container marquee-row">
+    <span><strong>Diário de obra</strong></span>
+    <span class="sep"></span>
+    <span><strong>Galeria de fotos</strong></span>
+    <span class="sep"></span>
+    <span><strong>Orçamento × gastos</strong></span>
+    <span class="sep"></span>
+    <span><strong>Tarefas</strong></span>
+    <span class="sep"></span>
+    <span><strong>Convite do cliente</strong></span>
+  </div>
+</section>
+
+<!-- ============================ PROBLEM ============================ -->
+<section class="problem">
+  <div class="problem-helmet" aria-hidden="true"><img src="./images/logo-sem-fundo.svg" alt=""></div>
+  <div class="container">
+    <div class="problem-head">
+      <div>
+        <div class="kicker" style="color:rgba(255,255,255,.6)"><span class="dot"></span>O problema</div>
+        <h2>
+          A obra anda. <strike>O cliente não sabe.</strike>
+        </h2>
+      </div>
+      <p class="problem-aside">
+        Engenheiro tira foto pra um WhatsApp, anota gasto num caderno, manda áudio explicando. O cliente investe centenas de milhares e ainda liga toda semana perguntando “como tá indo?”. Tem que ter um jeito melhor.
+      </p>
+    </div>
+
+    <div class="pain-grid">
+      <div class="pain">
+        <span class="num">01 — Documentação</span>
+        <h3 class="ttl">Foto solta no WhatsApp</h3>
+        <p>Imagem some na conversa. Sem data, sem contexto, sem prova do que foi feito.</p>
+      </div>
+      <div class="pain">
+        <span class="num">02 — Cliente</span>
+        <h3 class="ttl">Liga toda semana</h3>
+        <p>“Como tá a obra?” vira o ringtone do engenheiro. Tempo perdido respondendo o óbvio.</p>
+      </div>
+      <div class="pain">
+        <span class="num">03 — Financeiro</span>
+        <h3 class="ttl">Planilha desatualizada</h3>
+        <p>Nota fiscal no porta-luvas, gasto anotado no caderno, saldo só Deus sabe.</p>
+      </div>
+      <div class="pain">
+        <span class="num">04 — Tarefas</span>
+        <h3 class="ttl">Sem prioridade clara</h3>
+        <p>Equipe não sabe o que é urgente. Atraso vira surpresa no fim do mês.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ SOLUTION ============================ -->
+<section class="solution" id="funcionalidades">
+  <div class="container">
+    <div class="solution-head">
+      <div class="kicker"><span class="dot"></span><span class="num">01</span> A solução</div>
+      <h2>Tudo que sua obra precisa,<br><em style="font-family: Geist">em um só app.</em></h2>
+      <p>Diário, fotos, financeiro e tarefas — integrados. O engenheiro registra uma vez. O cliente vê tudo em tempo real.</p>
+    </div>
+
+    <div class="bento">
+      <!-- BIG: Diário -->
+      <div class="card card-diary">
+        <div class="copy">
+          <div class="feat-kicker">Diário de obra</div>
+          <h3>Foto, hora e descrição. <em style="font-family: Geist">Todo dia.</em></h3>
+          <p>Em campo, registra a visita em 30 segundos. O app salva data, duração e fotos automaticamente — e organiza tudo numa linha do tempo bonita pro cliente acompanhar.</p>
+        </div>
+        <div class="shot">
+          <img src="./images/app-diario.png" alt="Tela do diário de obra do Obly">
+        </div>
+      </div>
+
+      <!-- Financeiro -->
+      <div class="card card-money">
+        <div>
+          <div class="feat-kicker">Financeiro</div>
+          <h3>Orçamento × gastos, <em style="font-family: Geist">sempre vivo.</em></h3>
+          <p>Categorize despesas, anexe nota fiscal, veja o saldo da obra em tempo real.</p>
+        </div>
+        <div class="money-stat">
+          <div class="meta"><span>Casa na Praia</span><b>3% usado</b></div>
+          <div class="bar"><i></i></div>
+          <div class="row"><span class="lbl">Gasto</span><span class="val">R$10k</span></div>
+          <div class="row"><span class="lbl">Saldo</span><span class="val green">R$290k</span></div>
+        </div>
+      </div>
+
+      <!-- Tarefas -->
+      <div class="card card-tasks">
+        <div class="feat-kicker">Tarefas</div>
+        <h3>Prioridade <em style="font-family: Geist">clara</em> para a equipe.</h3>
+        <p>Alta, média e baixa. Reordena com o dedo. Acompanha o progresso visual.</p>
+        <div class="tasks-mini">
+          <div class="tk done">
+            <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg></span>
+            <span>Criar planta do projeto</span>
+            <span class="pill pill-alta">Alta</span>
+          </div>
+          <div class="tk">
+            <span class="check"></span>
+            <span>Cortes do banheiro suíte</span>
+            <span class="pill pill-media">Média</span>
+          </div>
+          <div class="tk">
+            <span class="check"></span>
+            <span>Conferir azulejo área gourmet</span>
+            <span class="pill pill-baixa">Baixa</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Convite -->
+      <div class="card card-share">
+        <div class="feat-kicker">Convite do cliente</div>
+        <h3>Um link. Acesso seguro. <em style="font-family: Geist">Só visualização.</em></h3>
+        <p>Cliente entra com um toque, vê a obra inteira — e não consegue editar nada. Transparência sem risco.</p>
+        <div class="share-link">
+          <span class="url">obly.app/convite/<b>casa-praia-7f3a</b></span>
+          <button>Copiar</button>
+        </div>
+        <div class="share-roles">
+          <span class="role">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0"></path></svg>
+            Engenheiro
+          </span>
+          <span>edita</span>
+          <span>·</span>
+          <span class="role eye">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            Cliente
+          </span>
+          <span>visualiza</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ AUDIENCE ============================ -->
+<section class="audience" id="para-quem">
+  <div class="container">
+    <div class="aud-head">
+      <div>
+        <div class="kicker"><span class="dot"></span><span class="num">02</span> Para quem é</div>
+        <h2>Dois lados da obra. <br><em style="font-family: Geist">Uma única realidade.</em></h2>
+      </div>
+      <p>Quem executa ganha tempo e prova do trabalho. Quem contratou ganha visibilidade e confiança. Os dois ganham um relacionamento melhor.</p>
+    </div>
+
+    <div class="aud-grid">
+      <div class="aud engineer">
+        <div class="aud-tag">
+          <span class="ic"><img src="./images/logo-sem-fundo.svg" alt="Obly" style="width:100%;height:100%;object-fit:contain"></span>
+          Arquiteto · Engenheiro · Mestre de obra
+        </div>
+        <h3>Pare de responder <em style="font-family: Geist">"como tá indo?"</em></h3>
+        <blockquote>
+          “Agora tiro foto todo dia, o cliente recebe notificação, e ninguém mais me liga pra perguntar o andamento.”
+        </blockquote>
+        <ul class="aud-list">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>
+            Documenta a obra em campo, sem voltar pro escritório
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>
+            Tem prova fotográfica de tudo que foi executado
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>
+            Gerencia múltiplas obras numa lista única
+          </li>
+        </ul>
+      </div>
+
+      <div class="aud client">
+        <div class="aud-tag">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>
+          </span>
+          Cliente · Dono da obra
+        </div>
+        <h3>Veja onde seu <em style="font-family: Geist">dinheiro</em> está indo.</h3>
+        <blockquote>
+          “Investi R$ 400 mil na reforma e agora vejo cada foto e cada real gasto direto no celular.”
+        </blockquote>
+        <ul class="aud-list">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>
+            Acompanha a obra em tempo real, sem ligar pro engenheiro
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>
+            Vê fotos e gastos do dia, organizados por data
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>
+            Acesso seguro: visualiza tudo, não edita nada
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ HOW IT WORKS ============================ -->
+<section class="how" id="como-funciona">
+  <div class="container">
+    <div class="how-head">
+      <div>
+        <div class="kicker"><span class="dot"></span><span class="num">03</span> Como funciona</div>
+        <h2 style="font-size: 70px; width: 650.993px">Em três passos.<br><em style="font-family: Geist; font-size: 70px">Da primeira visita
+ao cliente atualizado.</em></h2>
+      </div>
+      <p>Você não precisa mudar a forma de trabalhar. O Obly só organiza o que você já faz — e entrega visibilidade pro cliente automaticamente.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="num">01</div>
+        <h3>Crie a obra</h3>
+        <p>Nome, endereço, prazo de entrega e orçamento previsto. Em menos de 2 minutos.</p>
+        <span class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h12"></path></svg>
+        </span>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <h3>Registre o dia</h3>
+        <p>Em campo, abre o app, tira as fotos, descreve em uma linha. Hora e duração ficam automáticos.</p>
+        <span class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="4"></circle><path d="M3 7h4l2-3h6l2 3h4v13H3z"></path></svg>
+        </span>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <h3>Convide o cliente</h3>
+        <p>Mande um link. Ele vê tudo, em tempo real, sem precisar baixar nada novo. Você ganha o resto do dia de volta.</p>
+        <span class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path><path d="m16 6-4-4-4 4"></path><path d="M12 2v14"></path></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PRICING ============================ -->
+<section class="pricing" id="planos">
+  <div class="container">
+    <div class="pricing-head">
+      <div class="kicker" style="justify-content:center;display:inline-flex"><span class="dot"></span><span class="num">04</span> Planos</div>
+      <h2 style="width: 800px;">Comece grátis.<br><em style="font-family: Geist">Cresça quando precisar.</em></h2>
+      <p>Cliente sempre visualiza de graça. Você paga só por quantas obras gerencia ao mesmo tempo.</p>
+    </div>
+
+    <div class="plans">
+      <div class="plan">
+        <div>
+          <div class="nm">Free</div>
+          <p class="desc" style="margin-top:8px">Para clientes acompanharem obras compartilhadas com eles.</p>
+        </div>
+        <div class="price"><span class="num">R$ 0</span><span class="per">/mês</span></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Visualização ilimitada</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Recebe convites por link</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Acesso a fotos e timeline</li>
+          <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18 18 6"></path></svg>Não cria obras</li>
+        </ul>
+        <a class="plan-cta" href="/download">Baixar app</a>
+      </div>
+
+      <div class="plan">
+        <div>
+          <div class="nm">Basic</div>
+          <p class="desc" style="margin-top:8px">Para o engenheiro que toca poucas obras com cuidado.</p>
+        </div>
+        <div class="price"><span class="cur">R$</span><span class="num">79,90</span><span class="per">/mês</span></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Até 3 obras ativas simultâneas</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Diário, tarefas e financeiro completos</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Convites ilimitados de clientes</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Armazenamento de documentos&nbsp;</li>
+        </ul>
+        <a class="plan-cta" href="#">Assinar Basic</a>
+      </div>
+
+      <div class="plan featured">
+        <span class="badge">Mais popular</span>
+        <div>
+          <div class="nm">Pro</div>
+          <p class="desc" style="margin-top:8px">Para quem toca várias obras ao mesmo tempo, sem limite.</p>
+        </div>
+        <div class="price"><span class="cur">R$</span><span class="num">129,90</span><span class="per">/mês</span></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg><strong>Obras ilimitadas simultâneas</strong></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Tudo que tem no Basic</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"></path></svg>Convites ilimitados de clientes</li>
+          <li style="opacity:.85"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5l3 2"></path></svg>Novas funcionalidades em desenvolvimento</li>
+        </ul>
+        <a class="plan-cta" href="#">Assinar Pro</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CTA ============================ -->
+<section class="cta">
+  <div class="container cta-inner">
+    <div class="kicker" style="color:rgba(255,255,255,.6);justify-content:center;display:inline-flex"><span class="dot"></span>Pronto pra começar</div>
+    <h2>Documente sua próxima obra<br><em style="font-family: Geist">como ela merece.</em></h2>
+    <p>Em menos de 2 minutos sua primeira obra está no ar — e seu cliente recebe o primeiro convite.</p>
+    <div class="cta-buttons">
+      <a class="btn btn-primary" href="/download">
+        Baixar grátis
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+      </a>
+      <a class="btn btn-ghost" href="mailto:suporte@oblyapp.com">Falar com suporte</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ FOOTER ============================ -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="logo" href="#top">
+          <span class="mark"><img src="./images/logo-sem-fundo.svg" alt=""></span>
+          Obly
+        </a>
+        <p>Sua obra, documentada. Seu cliente, informado. Feito no Brasil para profissionais da construção civil.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Produto</h4>
+          <a href="#funcionalidades">Funcionalidades</a>
+          <a href="#para-quem">Para quem</a>
+          <a href="#planos">Planos</a>
+        </div>
+        <div class="footer-col">
+          <h4>Empresa</h4>
+          <a href="mailto:suporte@oblyapp.com">Suporte</a>
+          <a href="/terms">Termos</a>
+          <a href="/privacy">Privacidade</a>
+          <a href="/delete-account">Excluir Conta</a>
+        </div>
+        <div class="footer-col">
+          <h4>Baixar</h4>
+          <a href="https://apps.apple.com/us/app/obly/id6760023664" target="_blank" rel="noopener">App Store</a>
+          <a href="#">Google Play</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Obly App · oblyapp.com</span>
+      <span>Feito com cuidado em SP · BR</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Light/dark nav based on scroll position over light sections
+  const nav = document.getElementById('nav');
+  const lightZones = ['.marquee', '.solution', '.audience', '.how', '.pricing'];
+  const observed = lightZones.map(s => document.querySelector(s)).filter(Boolean);
+
+  function update(){
+    const navMid = 32; // px from top
+    let inLight = false;
+    for (const el of observed) {
+      const r = el.getBoundingClientRect();
+      if (r.top <= navMid && r.bottom > navMid) { inLight = true; break; }
+    }
+    nav.classList.toggle('light', inLight);
+  }
+  update();
+  window.addEventListener('scroll', update, {passive:true});
+  window.addEventListener('resize', update);
+</script>
+
+
+
+</body></html>
