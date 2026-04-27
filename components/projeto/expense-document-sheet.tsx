@@ -97,6 +97,7 @@ export function ExpenseDocumentSheet({
     asset: LocalDocumentAsset,
     source: "CAMERA" | "SCAN" | "GALLERY" | "FILE_PICKER",
   ) => {
+    if (documents.length >= 1) return;
     await addDocument(asset, "RECEIPT", source);
   };
 
@@ -141,7 +142,7 @@ export function ExpenseDocumentSheet({
               </Text>
             )}
           </View>
-          {canManage ? (
+          {canManage && documents.length === 0 ? (
             <TouchableOpacity
               style={styles.addBtn}
               onPress={() => setShowCapture(true)}

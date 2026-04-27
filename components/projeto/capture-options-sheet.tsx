@@ -96,6 +96,13 @@ export function CaptureOptionsSheet({
           maxNumDocuments: 1,
         });
         if (!scannedImages?.length) return;
+        if (scannedImages.length > 1) {
+          showToast({
+            title: "Apenas 1 página utilizada",
+            message: "Somente a primeira página foi anexada.",
+            tone: "info",
+          });
+        }
         const uri = scannedImages[0];
         onAssetSelected(
           {
@@ -168,7 +175,8 @@ export function CaptureOptionsSheet({
             <View style={styles.header}>
               <Text style={styles.title}>Adicionar comprovante</Text>
               <Text style={styles.subtitle}>
-                Fotos, PDFs e digitalizações aceitas. Limite de 25 MB por arquivo.
+                Fotos, PDFs e digitalizações aceitas. Limite de 25 MB por
+                arquivo.
               </Text>
             </View>
 
