@@ -1,0 +1,78 @@
+{
+  "project_info": {
+    "project_number": "18461850708",
+    "project_id": "obra-app-5d762",
+    "storage_bucket": "obra-app-5d762.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:18461850708:android:e8600e9f5bbbec850e41c1",
+        "android_client_info": {
+          "package_name": "com.tsanc.obraapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "18461850708-967kpv7c57ip7thqlqvni67fkmp9hop2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tsanc.obraapp",
+            "certificate_hash": "3d2b4ca1832478ce2415aa6bc22370c84f94fdbc"
+          }
+        },
+        {
+          "client_id": "18461850708-h7gh28anls40r0l8ruf8fj4he95qmgb2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tsanc.obraapp",
+            "certificate_hash": "3d561ad6361e7600b9580c69b13495d6f2038f3b"
+          }
+        },
+        {
+          "client_id": "18461850708-ni8esqhku6gr8s2cr3dqvc0ethoqopp6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tsanc.obraapp",
+            "certificate_hash": "db6372a12771b236744ead5fcec700608bcf666c"
+          }
+        },
+        {
+          "client_id": "18461850708-t4i01c13rf6m5kq5vr8f5sqbn4codf2i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tsanc.obraapp",
+            "certificate_hash": "3550f66f70e5f058f87bbc6d36838f4aba4ec49a"
+          }
+        },
+        {
+          "client_id": "18461850708-dghu58r6nueh1koosp23ko9fnohcno19.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuN2-IGurHykBOlZdI0y-LGbVNCnQnRcE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "18461850708-dghu58r6nueh1koosp23ko9fnohcno19.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "18461850708-63goopab94pvh53204cknhihsg4qfkq7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tsanc.obraapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
