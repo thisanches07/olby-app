@@ -71,6 +71,12 @@
       "expo-notifications",
       "expo-router",
       [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.18461850708-irutv545bnff1o5fnkja08av2pahpa2i"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/logo.png",

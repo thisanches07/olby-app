@@ -1,6 +1,9 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import * as Google from "expo-auth-session/providers/google";
+import {
+  GoogleSignin,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
@@ -39,7 +42,11 @@ import {
   isValidBrazilMobilePhone,
 } from "@/utils/phone";
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  offlineAccess: false,
+});
 
 type AuthMode = "login" | "register";
 
@@ -297,18 +304,6 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const googleAndroidClientId =
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
-  const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: googleWebClientId,
-    androidClientId: googleAndroidClientId,
-    iosClientId: googleIosClientId,
-    selectAccount: true,
-  });
-  const googleAuthRequestedRef = useRef(false);
 
   // Refs para navegação entre campos
   const nomeRef = useRef<TextInput>(null);
@@ -344,58 +339,6 @@ export default function LoginScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    const handleGoogleResponse = async () => {
-      if (!response || !googleAuthRequestedRef.current) return;
-
-      if (response.type === "success") {
-        const idToken =
-          response.params?.id_token ?? response.authentication?.idToken;
-
-        if (!idToken) {
-          showError(
-            "Não foi possível obter o token do Google. Tente novamente.",
-          );
-          setGoogleLoading(false);
-          googleAuthRequestedRef.current = false;
-          return;
-        }
-
-        try {
-          await loginWithGoogleIdToken(idToken);
-          router.replace("/(tabs)");
-        } catch (err) {
-          showError(getAuthErrorMessage(err));
-        } finally {
-          setGoogleLoading(false);
-          googleAuthRequestedRef.current = false;
-        }
-        return;
-      }
-
-      if (response.type !== "dismiss" && response.type !== "cancel") {
-        const raw =
-          "params" in response
-            ? `${response.params?.error ?? ""} ${response.params?.error_description ?? ""}`.toLowerCase()
-            : "";
-        const isOauthPolicyBlock =
-          raw.includes("oauth") ||
-          raw.includes("policy") ||
-          raw.includes("redirect_uri_mismatch") ||
-          raw.includes("invalid_request");
-
-        showError(
-          isOauthPolicyBlock
-            ? "Google bloqueou a autenticação por configuração OAuth. Revise IDs (Web/Android/iOS), URIs de redirecionamento e usuários de teste no Google Cloud."
-            : "Não foi possível concluir o login com Google.",
-        );
-      }
-      setGoogleLoading(false);
-      googleAuthRequestedRef.current = false;
-    };
-
-    void handleGoogleResponse();
-  }, [response]);
 
   const handleLogin = async () => {
     clearError();
@@ -454,42 +397,28 @@ export default function LoginScreen() {
 
   const handleGoogleAuth = async () => {
     clearError();
-
-    const missingCoreIds =
-      !googleWebClientId || !googleAndroidClientId || !googleIosClientId;
-    const sameIdsForAllPlatforms =
-      googleWebClientId &&
-      googleWebClientId === googleAndroidClientId &&
-      googleWebClientId === googleIosClientId;
-
-    if (missingCoreIds || sameIdsForAllPlatforms) {
-      showError(
-        "Google login não configurado corretamente. Configure client IDs separados (Web, Android e iOS).",
-      );
-      return;
-    }
-
-    if (!request) {
-      showToast({
-        title: "Aguarde",
-        message: "Inicializando login com Google...",
-        tone: "info",
-      });
-      return;
-    }
-
     try {
       setGoogleLoading(true);
-      googleAuthRequestedRef.current = true;
-      const result = await promptAsync();
-      if (result.type === "cancel" || result.type === "dismiss") {
-        setGoogleLoading(false);
-        googleAuthRequestedRef.current = false;
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      if (response.type === "cancelled") return;
+      const idToken = response.data?.idToken;
+      if (!idToken) {
+        showError("Não foi possível obter o token do Google. Tente novamente.");
+        return;
       }
-    } catch {
+      await loginWithGoogleIdToken(idToken);
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      if (
+        err.code === statusCodes.SIGN_IN_CANCELLED ||
+        err.code === statusCodes.IN_PROGRESS
+      ) {
+        return;
+      }
+      showError(getAuthErrorMessage(err));
+    } finally {
       setGoogleLoading(false);
-      googleAuthRequestedRef.current = false;
-      showError("Falha ao abrir login Google. Tente novamente.");
     }
   };
 
