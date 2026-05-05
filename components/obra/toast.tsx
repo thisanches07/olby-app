@@ -18,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { colors } from "@/theme/colors";
 import { notifyError, notifySuccess } from "@/utils/haptics";
 
 type ToastTone = "success" | "error" | "info";
@@ -47,9 +48,21 @@ const TONE_ICON: Record<ToastTone, string> = {
 };
 
 const TONE_COLOR: Record<ToastTone, string> = {
-  success: "#34D399",
-  error: "#F87171",
-  info: "#818CF8",
+  success: colors.success,
+  error: colors.danger,
+  info: colors.primary,
+};
+
+const TONE_BG: Record<ToastTone, string> = {
+  success: "#ECFDF5",
+  error: "#FEF2F2",
+  info: colors.tintBlue,
+};
+
+const TONE_BORDER: Record<ToastTone, string> = {
+  success: "#BBF7D0",
+  error: "#FECACA",
+  info: "#BFDBFE",
 };
 
 /**
@@ -81,14 +94,25 @@ export function ToastRenderer({ topOffset }: { topOffset?: number }) {
         pointerEvents="box-none"
         style={[styles.anchor, { top }]}
       >
-        <Animated.View style={[styles.toast, animStyle]}>
+        <Animated.View
+          style={[
+            styles.toast,
+            {
+              borderColor: TONE_BORDER[tone],
+              backgroundColor: colors.white,
+            },
+            animStyle,
+          ]}
+        >
           <View style={styles.row}>
-            <MaterialIcons
-              // @ts-expect-error runtime ok
-              name={TONE_ICON[tone]}
-              size={20}
-              color={TONE_COLOR[tone]}
-            />
+            <View style={[styles.iconWrap, { backgroundColor: TONE_BG[tone] }]}>
+              <MaterialIcons
+                // @ts-expect-error runtime ok
+                name={TONE_ICON[tone]}
+                size={18}
+                color={TONE_COLOR[tone]}
+              />
+            </View>
             <View style={styles.textBlock}>
               <Text style={styles.title} numberOfLines={1}>
                 {payload.title}
@@ -100,7 +124,7 @@ export function ToastRenderer({ topOffset }: { topOffset?: number }) {
               )}
             </View>
             <Pressable onPress={hideToast} hitSlop={12}>
-              <MaterialIcons name="close" size={16} color="#71717A" />
+              <MaterialIcons name="close" size={16} color={colors.textMuted} />
             </Pressable>
           </View>
         </Animated.View>
@@ -191,20 +215,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   toast: {
-    backgroundColor: "#18181B",
-    borderRadius: 100,
+    borderRadius: 18,
+    borderWidth: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     maxWidth: 380,
     width: "100%",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOpacity: 0.22,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
       },
-      android: { elevation: 12 },
+      android: { elevation: 8 },
     }),
   },
   row: {
@@ -212,19 +236,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   textBlock: {
     flex: 1,
     gap: 1,
   },
   title: {
     fontSize: 13,
-    fontWeight: "700",
-    color: "#FAFAFA",
+    fontWeight: "800",
+    color: colors.text,
     letterSpacing: -0.1,
   },
   message: {
     fontSize: 12,
-    color: "#A1A1AA",
+    color: colors.textMuted,
     lineHeight: 16,
   },
 });

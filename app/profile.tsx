@@ -24,6 +24,8 @@ import { updateProfile } from "firebase/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSubscription } from "@/contexts/subscription-context";
+import { useOnboarding } from "@/contexts/onboarding-context";
+import { useToast as useTopToast } from "@/components/obra/toast";
 import { useAccountDeletion } from "@/hooks/use-account-deletion";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
@@ -596,6 +598,8 @@ export default function ProfileScreen() {
   const { user, signOut, emailVerified, refreshUser, sendVerificationEmail } =
     useAuth();
   const { plan } = useSubscription();
+  const { resetTours } = useOnboarding();
+  const { showToast: showTopToast } = useTopToast();
   const accountDeletion = useAccountDeletion();
 
   const hasGoogleProvider =
@@ -881,6 +885,17 @@ export default function ProfileScreen() {
       },
     });
   }, [signOut]);
+
+  const handleRestartTour = useCallback(async () => {
+    await resetTours();
+    showTopToast({
+      title: "Tour reativado",
+      message: "Abra uma obra para navegar pelo guia novamente.",
+      tone: "success",
+      durationMs: 3200,
+    });
+    router.replace("/(tabs)");
+  }, [resetTours, showTopToast]);
 
   /**
    * Monitora o estado do fluxo de deleção de conta e gerencia as modais
@@ -1470,6 +1485,22 @@ export default function ProfileScreen() {
               label="Sair da conta"
               sublabel="Encerrar sessão atual"
               onPress={handleLogout}
+              isLast
+            />
+          </View>
+
+          {/* Ajuda */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Ajuda</Text>
+          </View>
+          <View style={styles.card}>
+            <ActionRow
+              icon="tips-and-updates"
+              iconBg="#ECFEFF"
+              iconColor="#0891B2"
+              label="Ver tour novamente"
+              sublabel="Reativa o guia ao abrir uma obra"
+              onPress={handleRestartTour}
               isLast
             />
           </View>

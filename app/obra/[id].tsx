@@ -27,6 +27,7 @@ import {
 
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
+import { useOnboarding } from "@/contexts/onboarding-context";
 import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
@@ -53,18 +54,21 @@ import { HoursAdjustmentModal } from "@/components/projeto/hours-adjustment-moda
 import { ProjectSettingsModal } from "@/components/projeto/project-settings-modal";
 import { TaskFormModal } from "@/components/projeto/task-form-modal";
 
-import { ObraViewCliente } from "@/components/obra/obra-view-cliente";
-import { ObraViewEng } from "@/components/obra/obra-view-eng";
+import {
+  ObraViewCliente,
+  type ViewerTourRefs,
+} from "@/components/obra/obra-view-cliente";
+import { ObraViewEng, type EngTourRefs } from "@/components/obra/obra-view-eng";
 import { ProjectDetailLoadingScreen } from "@/components/obra/project-detail-loading-screen";
+import { ManagerTour } from "@/components/onboarding/manager-tour";
+import {
+  ViewerTour,
+  VIEWER_TOUR_TOTAL_STEPS,
+} from "@/components/onboarding/viewer-tour";
 
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
-
-// ─── Loading screen ───────────────────────────────────────────────────────────
-function LoadingScreen() {
-  return <ProjectDetailLoadingScreen />;
-}
 
 // ─── Error screen ─────────────────────────────────────────────────────────────
 function ErrorScreen({
@@ -104,6 +108,99 @@ export default function ObraDetalheScreen() {
   const bottomPad = useMemo(() => insets.bottom + spacing[16], [insets.bottom]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { backendUserId } = useAuth();
+  const {
+    managerTourStep,
+    managerTourCompleted,
+    startManagerTour,
+    advanceManagerTour,
+    skipManagerTour,
+    isViewerTourDone,
+    completeViewerTour,
+  } = useOnboarding();
+
+  // Tour refs — created here so ManagerTour and ObraViewEng share the same instances
+  const heroRef = useRef<View>(null);
+  const diaryButtonRef = useRef<View>(null);
+  const tasksTabRef = useRef<View>(null);
+  const gastosTabRef = useRef<View>(null);
+  const documentosTabRef = useRef<View>(null);
+  const shareButtonRef = useRef<View>(null);
+  const reportButtonRef = useRef<View>(null);
+  const engTourRefs: EngTourRefs = {
+    heroRef, diaryButtonRef,
+    tasksTabRef, gastosTabRef, documentosTabRef,
+    shareButtonRef, reportButtonRef,
+  };
+  const viewerOverviewRef = useRef<View>(null);
+  const viewerDiaryButtonRef = useRef<View>(null);
+  const viewerGalleryTabRef = useRef<View>(null);
+  const viewerDocumentsTabRef = useRef<View>(null);
+  const viewerExpensesTabRef = useRef<View>(null);
+  const viewerTasksTabRef = useRef<View>(null);
+  const viewerBottomTabsRef = useRef<View>(null);
+  const viewerTourRefs: ViewerTourRefs = {
+    overviewRef: viewerOverviewRef,
+    diaryButtonRef: viewerDiaryButtonRef,
+    galleryTabRef: viewerGalleryTabRef,
+    documentsTabRef: viewerDocumentsTabRef,
+    expensesTabRef: viewerExpensesTabRef,
+    tasksTabRef: viewerTasksTabRef,
+    bottomTabsRef: viewerBottomTabsRef,
+  };
+
+  // Programmatic share modal control (tour opens/closes it during step 5→6)
+  const shareControlRef = useRef<{ open: () => void; close: () => void } | null>(null);
+
+  // Tour-driven tab override: ManagerTour calls onSwitchTab → sets this → ObraViewEng reacts
+  const [tourTabOverride, setTourTabOverride] = useState<string | null>(null);
+  const [viewerTourTabOverride, setViewerTourTabOverride] = useState<string | null>(null);
+  const [viewerTourStep, setViewerTourStep] = useState(-1);
+  const [shouldOpenShareAfterTour, setShouldOpenShareAfterTour] =
+    useState(false);
+  const [isTourSharePreviewOpen, setIsTourSharePreviewOpen] = useState(false);
+
+  const handleTourSkip = useCallback(() => {
+    shareControlRef.current?.close();
+    setShouldOpenShareAfterTour(false);
+    setIsTourSharePreviewOpen(false);
+    void skipManagerTour();
+  }, [skipManagerTour]);
+
+  const handleViewerTourSkip = useCallback(() => {
+    setViewerTourStep(-1);
+    void completeViewerTour();
+  }, [completeViewerTour]);
+
+  const handleViewerTourAdvance = useCallback(() => {
+    setViewerTourStep((prev) => {
+      const next = prev + 1;
+      if (next >= VIEWER_TOUR_TOTAL_STEPS) {
+        void completeViewerTour();
+        return -1;
+      }
+      return next;
+    });
+  }, [completeViewerTour]);
+
+  useEffect(() => {
+    if (!shouldOpenShareAfterTour) return;
+    if (managerTourStep !== 6) return;
+
+    const timer = setTimeout(() => {
+      setIsTourSharePreviewOpen(true);
+      shareControlRef.current?.open();
+      setShouldOpenShareAfterTour(false);
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [managerTourStep, shouldOpenShareAfterTour]);
+
+  // Hide tour while navigating to sub-screens (e.g. report) so the Modal doesn't float on top
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  useFocusEffect(useCallback(() => {
+    setIsScreenFocused(true);
+    return () => setIsScreenFocused(false);
+  }, []));
 
   // Controls iOS swipe-back gesture: disabled on secondary tabs
   const [isOnPrimaryTab, setIsOnPrimaryTab] = useState(true);
@@ -167,7 +264,7 @@ export default function ObraDetalheScreen() {
   const handleExpenseDocumentsSync = useCallback(
     (
       expenseId: string,
-      documents: Array<{ id: string; status: string; viewUrl?: string }>,
+      documents: { id: string; status: string; viewUrl?: string }[],
     ) => {
       const primaryReadyDocument =
         documents.find((document) => document.status === "READY") ??
@@ -207,12 +304,12 @@ export default function ObraDetalheScreen() {
 
   const handleProjectDocumentsChanged = useCallback(
     (
-      documents: Array<{
+      documents: {
         id: string;
         expenseId: string | null;
         status: string;
         viewUrl?: string;
-      }>,
+      }[],
     ) => {
       syncExpenseReceiptsFromDocuments(documents);
     },
@@ -338,17 +435,59 @@ export default function ObraDetalheScreen() {
       : isClientView(loadingRole)
         ? "cliente"
         : "responsavel";
+  const currentProjectRole = (obraView?.myRole ??
+    obra?.myRole ??
+    null) as ProjectApiRole;
+  const currentIsCliente = isClientView(currentProjectRole);
+  const hasProjectRole = currentProjectRole != null;
+  const shouldShowManagerTour = hasProjectRole && !currentIsCliente;
+  const shouldShowViewerTour = currentIsCliente;
+
+  useEffect(() => {
+    if (
+      shouldShowManagerTour &&
+      !managerTourCompleted &&
+      managerTourStep === -1 &&
+      !loading &&
+      !!obra
+    ) {
+      void startManagerTour();
+    }
+  }, [
+    loading,
+    managerTourCompleted,
+    managerTourStep,
+    obra,
+    shouldShowManagerTour,
+    startManagerTour,
+  ]);
+
+  useEffect(() => {
+    if (
+      shouldShowViewerTour &&
+      !isViewerTourDone &&
+      viewerTourStep === -1 &&
+      !loading &&
+      !!obra
+    ) {
+      setViewerTourStep(0);
+    }
+  }, [
+    isViewerTourDone,
+    loading,
+    obra,
+    shouldShowViewerTour,
+    viewerTourStep,
+  ]);
 
   // Guards
   if (loading && !obra) return <ProjectDetailLoadingScreen variant={loadingVariant} />;
   if (error && !obra) return <ErrorScreen message={error} onRetry={refresh} />;
   if (!obra) return null;
 
-  const projectRole = (obraView?.myRole ??
-    obra?.myRole ??
-    null) as ProjectApiRole;
+  const projectRole = currentProjectRole;
 
-  const isCliente = isClientView(projectRole);
+  const isCliente = currentIsCliente;
   const isEng = !isCliente;
   const canEdit = canEditProject(projectRole);
   const taskLimitReached = (obraView?.tarefas?.length ?? 0) >= PROJECT_ITEM_LIMIT;
@@ -633,6 +772,8 @@ export default function ObraDetalheScreen() {
           projectRole={projectRole}
           onTabChange={(isPrimary) => setIsOnPrimaryTab(isPrimary)}
           onRefresh={refresh}
+          tourRefs={viewerTourRefs}
+          activeTabOverride={viewerTourTabOverride}
         />
       )}
 
@@ -671,6 +812,12 @@ export default function ObraDetalheScreen() {
           onDocumentsPress={handleDocumentsPress}
           isExpenseLoading={isExpenseLoading}
           creatingExpenseId={creatingExpenseId}
+          tourRefs={engTourRefs}
+          activeTabOverride={tourTabOverride}
+          shareControlRef={shareControlRef}
+          onShareModalVisibilityChange={(visible) => {
+            if (!visible) setIsTourSharePreviewOpen(false);
+          }}
         />
       )}
 
@@ -777,6 +924,41 @@ export default function ObraDetalheScreen() {
           onClose={() => setShowProjectSettings(false)}
         />
       )}
+
+      {isEng &&
+        managerTourStep >= 0 &&
+        !managerTourCompleted &&
+        isScreenFocused &&
+        !(managerTourStep === 6 && isTourSharePreviewOpen) && (
+        <ManagerTour
+          currentStep={managerTourStep}
+          refs={engTourRefs}
+          onAdvance={advanceManagerTour}
+          onSkip={handleTourSkip}
+          onSwitchTab={setTourTabOverride}
+          stepSideEffects={{
+            5: () => setShouldOpenShareAfterTour(true),
+            6: () =>
+              router.push({
+                pathname: "/report/[id]" as any,
+                params: { id: obraView.id, fromOnboarding: "1" },
+              }),
+          }}
+        />
+      )}
+
+      {isCliente &&
+        viewerTourStep >= 0 &&
+        !isViewerTourDone &&
+        isScreenFocused && (
+          <ViewerTour
+            currentStep={viewerTourStep}
+            refs={viewerTourRefs}
+            onAdvance={handleViewerTourAdvance}
+            onSkip={handleViewerTourSkip}
+            onSwitchTab={setViewerTourTabOverride}
+          />
+        )}
     </SafeAreaView>
   );
 }

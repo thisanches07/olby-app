@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { usePreventRemove } from "@react-navigation/native";
 import { router, useNavigation } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -25,6 +25,7 @@ import type { ProjectAccessMember } from "@/utils/project-members";
 import { canManageMembers, type ProjectApiRole } from "@/utils/project-role";
 
 import { BottomTabs, type TabDefinition } from "@/components/obra/bottom-tabs";
+import type { ShareProjectButtonControl } from "@/components/projeto/share-project-button";
 import { ProjectDocumentsHub } from "@/components/documents/project-documents-hub";
 import { EngCTARow } from "@/components/obra/eng-cta-row";
 import { EngExpensesList } from "@/components/obra/eng-expenses-list";
@@ -132,6 +133,17 @@ function formatDatePtBrShort(d: Date) {
   });
 }
 
+// ─── Tour refs ────────────────────────────────────────────────────────────────
+export interface EngTourRefs {
+  heroRef: RefObject<View>;
+  diaryButtonRef: RefObject<View>;
+  tasksTabRef: RefObject<View>;
+  gastosTabRef: RefObject<View>;
+  documentosTabRef: RefObject<View>;
+  shareButtonRef: RefObject<View>;
+  reportButtonRef: RefObject<View>;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface ObraViewEngProps {
   obra: ObraDetalhe;
@@ -167,6 +179,10 @@ interface ObraViewEngProps {
   projectRole: ProjectApiRole;
   onTabChange?: (isPrimary: boolean) => void;
   onRefresh?: () => Promise<void>;
+  tourRefs?: EngTourRefs;
+  activeTabOverride?: string | null;
+  shareControlRef?: React.MutableRefObject<ShareProjectButtonControl | null>;
+  onShareModalVisibilityChange?: (visible: boolean) => void;
   docCounts?: Record<string, number>;
   projectDocumentsRefreshSignal?: number;
   onDocumentsPress?: (expense: Gasto) => void;
@@ -209,6 +225,10 @@ export function ObraViewEng({
   onDocumentsPress,
   isExpenseLoading,
   creatingExpenseId,
+  tourRefs,
+  activeTabOverride,
+  shareControlRef,
+  onShareModalVisibilityChange,
 }: ObraViewEngProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -259,6 +279,15 @@ export function ObraViewEng({
     },
     [onTabChange],
   );
+
+  // Tour-driven tab override — keeps a stable ref so the effect doesn't re-run on changeTab identity changes
+  const changeTabRef = useRef(changeTab);
+  changeTabRef.current = changeTab;
+  useEffect(() => {
+    if (!activeTabOverride) return;
+    changeTabRef.current(activeTabOverride as EngTabId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTabOverride]);
 
   const performLeaveNavigation = useCallback(
     (action: { type?: string } | undefined) => {
@@ -324,8 +353,7 @@ export function ObraViewEng({
   // ── Edge swipe (left-to-right) on secondary tabs → go to projetos ─────────
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
-  const changeTabRef = useRef(changeTab);
-  changeTabRef.current = changeTab;
+  // changeTabRef already declared above (shared with activeTabOverride effect)
 
   const edgeSwipe = useRef(
     PanResponder.create({
@@ -392,6 +420,10 @@ export function ObraViewEng({
           projectRole={projectRole}
           members={projectMembers}
           onBack={handleBack}
+          reportButtonRef={tourRefs?.reportButtonRef}
+          shareButtonRef={tourRefs?.shareButtonRef}
+          shareControlRef={shareControlRef}
+          onShareModalVisibilityChange={onShareModalVisibilityChange}
         />
       </View>
 
@@ -457,14 +489,16 @@ export function ObraViewEng({
       >
         {activeTab === "projetos" && (
           <>
-            <EngHeroSection
-              progresso={obra.progresso}
-              etapaAtual={obra.etapaAtual}
-              endereco={obra.endereco}
-              dataPrevisaoEntrega={entregaLabel}
-              onEditPress={onEditProject}
-              status={obra.status}
-            />
+            <View ref={tourRefs?.heroRef} collapsable={false}>
+              <EngHeroSection
+                progresso={obra.progresso}
+                etapaAtual={obra.etapaAtual}
+                endereco={obra.endereco}
+                dataPrevisaoEntrega={entregaLabel}
+                onEditPress={onEditProject}
+                status={obra.status}
+              />
+            </View>
 
             {showCompletionBanner && (
               <Animated.View
@@ -506,23 +540,25 @@ export function ObraViewEng({
               </Animated.View>
             )}
 
-            <TouchableOpacity
-              style={styles.diarioBtn}
-              onPress={onViewDiary}
-              activeOpacity={0.85}
-            >
-              <MaterialIcons
-                name="assignment"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
-              <MaterialIcons
-                name="arrow-forward-ios"
-                size={13}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
+            <View ref={tourRefs?.diaryButtonRef} collapsable={false}>
+              <TouchableOpacity
+                style={styles.diarioBtn}
+                onPress={onViewDiary}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons
+                  name="assignment"
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
+                <MaterialIcons
+                  name="arrow-forward-ios"
+                  size={13}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
 
             <EngHoursCompactCard
               obra={obra}
@@ -612,6 +648,11 @@ export function ObraViewEng({
           tabs={ENG_TABS}
           activeTab={activeTab}
           onTabChange={(tabId) => changeTab(tabId as EngTabId)}
+          tabRefs={tourRefs ? {
+            tarefas: tourRefs.tasksTabRef,
+            gastos: tourRefs.gastosTabRef,
+            documentos: tourRefs.documentosTabRef,
+          } : undefined}
         />
       </View>
 

@@ -11,13 +11,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
 import { AppState, LogBox, View } from "react-native";
-
-// DraggableFlatList inside the create-project modal's outer ScrollView triggers
-// this warning, but it's safe: the list has a fixed maxHeight and is bounded to
-// 100 items, so windowing is never needed.
-LogBox.ignoreLogs([
-  "VirtualizedLists should never be nested inside plain ScrollViews",
-]);
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -25,8 +18,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import DevPanel from "@/app/dev/DevPanel";
 import { BootstrapLoadingScreen } from "@/components/app/bootstrap-loading-screen";
+import {
+  OnboardingRoleSheet,
+  type OnboardingRoleSheetRef,
+} from "@/components/onboarding/role-picker-sheet";
 import { ToastProvider, useToast } from "@/components/obra/toast";
 import type { DevUser } from "@/constants/dev-users";
+import {
+  OnboardingProvider,
+  useOnboarding,
+} from "@/contexts/onboarding-context";
 import { ProjectsProvider } from "@/contexts/projects-context";
 import {
   SubscriptionProvider,
@@ -38,6 +39,13 @@ import { PushNotificationsProvider } from "@/hooks/use-push-notifications";
 import { setPlanErrorHandler } from "@/services/api";
 import { loginWithEmail } from "@/services/auth.service";
 import { pendingInviteToken } from "@/utils/pending-invite";
+
+// DraggableFlatList inside the create-project modal's outer ScrollView triggers
+// this warning, but it's safe: the list has a fixed maxHeight and is bounded to
+// 100 items, so windowing is never needed.
+LogBox.ignoreLogs([
+  "VirtualizedLists should never be nested inside plain ScrollViews",
+]);
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -135,6 +143,7 @@ function PlanErrorInterceptor() {
 function DevPanelBridge() {
   const { role, setRole, dataState, setDataState } = useAppSession();
   const { user, signOut } = useAuth();
+  const { resetOnboarding } = useOnboarding();
 
   async function handleLoginAs(devUser: DevUser) {
     await loginWithEmail(devUser.email, devUser.password);
@@ -151,6 +160,7 @@ function DevPanelBridge() {
         currentUserEmail={user?.email ?? null}
         onLoginAs={handleLoginAs}
         onSignOut={signOut}
+        onResetOnboarding={resetOnboarding}
       />
     </View>
   );
@@ -189,6 +199,35 @@ function EmailVerificationToastBridge() {
   return null;
 }
 
+function RolePickerGate() {
+  const { user } = useAuth();
+  const { isReady, isRoleSelected, selectRole, dismissRolePicker } = useOnboarding();
+  const sheetRef = useRef<OnboardingRoleSheetRef>(null);
+  const openedRef = useRef(false);
+
+  useEffect(() => {
+    if (!user || !isRoleSelected) {
+      openedRef.current = false;
+    }
+    if (isReady && user && !isRoleSelected && !openedRef.current) {
+      openedRef.current = true;
+      sheetRef.current?.open();
+    }
+  }, [isReady, user, isRoleSelected]);
+
+  return (
+    <OnboardingRoleSheet
+      ref={sheetRef}
+      onSelect={(role) => {
+        void selectRole(role);
+      }}
+      onDismissWithoutSelection={() => {
+        void dismissRolePicker();
+      }}
+    />
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "Inter-Regular": Inter_400Regular,
@@ -216,73 +255,80 @@ export default function RootLayout() {
                   <ToastProvider>
                     <EmailVerificationToastBridge />
                     <ProjectsProvider>
-                      <PushNotificationsProvider>
-                        <AuthGate>
-                          <SubscriptionLoader />
-                          <PlanErrorInterceptor />
+                      <OnboardingProvider>
+                        <PushNotificationsProvider>
+                          <AuthGate>
+                            <RolePickerGate />
+                            <SubscriptionLoader />
+                            <PlanErrorInterceptor />
 
-                          <Stack>
-                            <Stack.Screen
-                              name="login"
-                              options={{ headerShown: false }}
-                            />
-                            <Stack.Screen
-                              name="(tabs)"
-                              options={{ headerShown: false }}
-                            />
-                            <Stack.Screen
-                              name="obra/[id]"
-                              options={{
-                                headerShown: false,
-                                headerBackButtonMenuEnabled: false,
-                              }}
-                            />
-                            <Stack.Screen
-                              name="diario/[id]"
-                              options={{ headerShown: false }}
-                            />
-                            <Stack.Screen
-                              name="profile"
-                              options={{ headerShown: false }}
-                            />
-                            <Stack.Screen
-                              name="notifications"
-                              options={{ headerShown: false }}
-                            />
-                            <Stack.Screen
-                              name="invite"
-                              options={{
-                                headerShown: false,
-                                presentation: "modal",
-                                animation: "slide_from_bottom",
-                              }}
-                            />
-                            <Stack.Screen
-                              name="subscription/plans"
-                              options={{
-                                headerShown: false,
-                                presentation: "modal",
-                                animation: "slide_from_bottom",
-                              }}
-                            />
-                            <Stack.Screen
-                              name="subscription/my-plan"
-                              options={{
-                                headerShown: false,
-                                presentation: "modal",
-                                animation: "slide_from_bottom",
-                              }}
-                            />
-                            <Stack.Screen
-                              name="modal"
-                              options={{ presentation: "modal", title: "Modal" }}
-                            />
-                          </Stack>
-                        </AuthGate>
-                      </PushNotificationsProvider>
+                            <Stack>
+                              <Stack.Screen
+                                name="login"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
+                                name="(tabs)"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
+                                name="obra/[id]"
+                                options={{
+                                  headerShown: false,
+                                  headerBackButtonMenuEnabled: false,
+                                }}
+                              />
+                              <Stack.Screen
+                                name="diario/[id]"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
+                                name="profile"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
+                                name="notifications"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
+                                name="invite"
+                                options={{
+                                  headerShown: false,
+                                  presentation: "modal",
+                                  animation: "slide_from_bottom",
+                                }}
+                              />
+                              <Stack.Screen
+                                name="subscription/plans"
+                                options={{
+                                  headerShown: false,
+                                  presentation: "modal",
+                                  animation: "slide_from_bottom",
+                                }}
+                              />
+                              <Stack.Screen
+                                name="subscription/my-plan"
+                                options={{
+                                  headerShown: false,
+                                  presentation: "modal",
+                                  animation: "slide_from_bottom",
+                                }}
+                              />
+                              <Stack.Screen
+                                name="report/[id]"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
+                                name="modal"
+                                options={{ presentation: "modal", title: "Modal" }}
+                              />
+                            </Stack>
+                          </AuthGate>
+                        </PushNotificationsProvider>
 
-                      <StatusBar style="dark" />
-                      {__DEV__ ? <DevPanelBridge /> : null}
+                        <StatusBar style="dark" />
+                        {__DEV__ ? <DevPanelBridge /> : null}
+                      </OnboardingProvider>
                     </ProjectsProvider>
                   </ToastProvider>
                 </AppSessionProvider>

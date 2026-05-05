@@ -1,7 +1,7 @@
 import { PRIMARY } from "@/utils/obra-utils";
 import { tapLight } from "@/utils/haptics";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, type RefObject } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -24,11 +24,12 @@ interface BottomTabsProps {
   tabs: TabDefinition[];
   activeTab: TabId;
   onTabChange: (tabId: TabId) => void;
+  tabRefs?: Record<string, RefObject<View>>;
 }
 
 const FALLBACK_TAB_WIDTH = 80;
 
-export function BottomTabs({ tabs, activeTab, onTabChange }: BottomTabsProps) {
+export function BottomTabs({ tabs, activeTab, onTabChange, tabRefs }: BottomTabsProps) {
   const insets = useSafeAreaInsets();
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -66,25 +67,30 @@ export function BottomTabs({ tabs, activeTab, onTabChange }: BottomTabsProps) {
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
-            <PressableScale
+            <View
               key={tab.id}
-              style={[styles.tabItem, { width: tabItemWidth }]}
-              onPress={() => {
-                tapLight();
-                onTabChange(tab.id);
-              }}
-              scaleTo={0.88}
-              haptic="none"
+              ref={tabRefs?.[tab.id]}
+              collapsable={false}
             >
-              <MaterialIcons
-                name={tab.icon}
-                size={24}
-                color={isActive ? PRIMARY : "#9CA3AF"}
-              />
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                {tab.label}
-              </Text>
-            </PressableScale>
+              <PressableScale
+                style={[styles.tabItem, { width: tabItemWidth }]}
+                onPress={() => {
+                  tapLight();
+                  onTabChange(tab.id);
+                }}
+                scaleTo={0.88}
+                haptic="none"
+              >
+                <MaterialIcons
+                  name={tab.icon}
+                  size={24}
+                  color={isActive ? PRIMARY : "#9CA3AF"}
+                />
+                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                  {tab.label}
+                </Text>
+              </PressableScale>
+            </View>
           );
         })}
       </View>

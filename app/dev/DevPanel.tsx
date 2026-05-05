@@ -17,6 +17,7 @@ export default function DevPanel({
   currentUserEmail,
   onLoginAs,
   onSignOut,
+  onResetOnboarding,
 }: {
   role: AppRole;
   setRole: (r: AppRole) => void;
@@ -25,6 +26,7 @@ export default function DevPanel({
   currentUserEmail?: string | null;
   onLoginAs?: (devUser: DevUser) => Promise<void>;
   onSignOut?: () => Promise<void>;
+  onResetOnboarding?: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [loginLoading, setLoginLoading] = useState<string | null>(null);
@@ -142,6 +144,17 @@ export default function DevPanel({
           <Text style={styles.emptyText}>
             Sincronizado via API /subscriptions/me
           </Text>
+
+          <Text style={styles.section}>Onboarding</Text>
+          <View style={styles.row}>
+            <Chip
+              label="Reset Onboarding"
+              onPress={() => {
+                void onResetOnboarding?.();
+                setOpen(false);
+              }}
+            />
+          </View>
 
           <Text style={styles.section}>Navigate</Text>
           <View style={styles.rowWrap}>

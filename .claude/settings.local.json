@@ -32,7 +32,15 @@
       "Bash(grep -rn \"trackFinancial\" \"c:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\obra-app\\\\components\\\\obra\\\\\" --include=\"*.tsx\")",
       "Bash(find ./components/obra -name \"*.tsx\" -exec grep -l \"trackFinancial\" {} \\\\;)",
       "Bash(grep -E \"\\\\.\\(tsx?|js\\)$\")",
-      "Bash(grep -v \"//\")"
+      "Bash(grep -v \"//\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\obra-app\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\obra-app\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(xargs cat *)",
+      "Read(//c/Users/tsanc/Desktop/novo app/**)",
+      "WebFetch(domain:www.oblyapp.com)"
     ]
   }
 }

@@ -4,7 +4,7 @@ import { FlashList } from "@shopify/flash-list";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   RefreshControl,
@@ -17,10 +17,14 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEmptyState } from "@/components/home/home-empty-state";
+import { ViewerWaitingCard } from "@/components/onboarding/viewer-waiting-card";
 import { HomeFilterChips } from "@/components/home/home-filter-chips";
 import { HomeHeader } from "@/components/home/home-header";
 import { HomeSearchBar } from "@/components/home/home-search-bar";
@@ -34,6 +38,7 @@ import { FadeSlideIn } from "@/components/ui/fade-slide-in";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
+import { useOnboarding } from "@/contexts/onboarding-context";
 import type { ObraDetalhe } from "@/data/obras";
 import { useAuth } from "@/hooks/use-auth";
 import { shadow, spacing } from "@/theme";
@@ -48,6 +53,7 @@ const FILTROS: { label: string; value: StatusType | "todas" }[] = [
 
 export default function MinhasObrasScreen() {
   const { user, backendUserId, isLoading: authLoading } = useAuth();
+  const { role, managerTourStep, managerTourCompleted, startManagerTour } = useOnboarding();
   const [busca, setBusca] = useState("");
   const [filtroAtivo, setFiltroAtivo] = useState<StatusType | "todas">("todas");
   const [mode, setMode] = useState<"cliente" | "engenheiro">("cliente");
@@ -143,9 +149,14 @@ export default function MinhasObrasScreen() {
         return;
       }
 
+      // A tela da obra valida o papel real do usuário antes de mostrar o tour.
+      if (!managerTourCompleted && managerTourStep === -1) {
+        void startManagerTour();
+      }
+
       router.push({ pathname: "/obra/[id]", params: { id: novaObra.id } });
     },
-    [addObra, ownedCount, plan?.code, planLimit, refreshSubscription],
+    [addObra, ownedCount, plan?.code, planLimit, refreshSubscription, managerTourCompleted, managerTourStep, startManagerTour],
   );
 
   const showBlockedCreateAlert = useCallback(() => {
@@ -192,6 +203,27 @@ export default function MinhasObrasScreen() {
   const compactHeaderStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [80, 150], [0, 1], Extrapolation.CLAMP),
     pointerEvents: scrollY.value > 80 ? "none" : "none",
+  }));
+
+  // FAB pulse — draws attention when manager has no obras and hasn't started the tour
+  const fabScale = useSharedValue(1);
+  const shouldPulseFab = role === "manager" && obras.length === 0 && managerTourStep === -1;
+  useEffect(() => {
+    if (shouldPulseFab) {
+      fabScale.value = withRepeat(
+        withSequence(
+          withTiming(1.18, { duration: 600 }),
+          withTiming(1, { duration: 600 }),
+        ),
+        -1,
+        false,
+      );
+    } else {
+      fabScale.value = withTiming(1, { duration: 200 });
+    }
+  }, [shouldPulseFab, fabScale]);
+  const fabPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: fabScale.value }],
   }));
 
   return (
@@ -276,16 +308,24 @@ export default function MinhasObrasScreen() {
               )}
             </>
           }
-          ListEmptyComponent={!isLoading ? <HomeEmptyState /> : null}
+          ListEmptyComponent={
+            !isLoading
+              ? role === "viewer"
+                ? <ViewerWaitingCard />
+                : <HomeEmptyState />
+              : null
+          }
         />
 
-        <PressableScale
-          style={styles.fab}
-          scaleTo={0.92}
-          onPress={handlePressCreate}
-        >
-          <MaterialIcons name="add" size={28} color={colors.white} />
-        </PressableScale>
+        <Animated.View style={[styles.fabWrapper, fabPulseStyle]}>
+          <PressableScale
+            style={styles.fab}
+            scaleTo={0.92}
+            onPress={handlePressCreate}
+          >
+            <MaterialIcons name="add" size={28} color={colors.white} />
+          </PressableScale>
+        </Animated.View>
 
         <CreateProjectModal
           visible={showCreateModal}
@@ -376,10 +416,12 @@ const styles = StyleSheet.create({
   loadingWrap: {
     paddingVertical: spacing[12],
   },
-  fab: {
+  fabWrapper: {
     position: "absolute",
     bottom: spacing[80],
     right: spacing[20],
+  },
+  fab: {
     width: spacing[56],
     height: spacing[56],
     borderRadius: spacing[28],

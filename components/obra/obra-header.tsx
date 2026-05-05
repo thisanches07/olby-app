@@ -1,5 +1,5 @@
 import { ClienteTeamModal } from "@/components/obra/cliente-team-modal";
-import { ShareProjectButton } from "@/components/projeto/share-project-button";
+import { ShareProjectButton, type ShareProjectButtonControl } from "@/components/projeto/share-project-button";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { colors } from "@/theme/colors";
 import type { ProjectAccessMember } from "@/utils/project-members";
@@ -7,7 +7,7 @@ import type { ProjectApiRole } from "@/utils/project-role";
 import { canManageMembers } from "@/utils/project-role";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, type RefObject } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 interface ObraHeaderProps {
@@ -16,6 +16,25 @@ interface ObraHeaderProps {
   projectRole: ProjectApiRole;
   members?: ProjectAccessMember[];
   onBack?: () => void;
+  reportButtonRef?: RefObject<View>;
+  shareButtonRef?: RefObject<View>;
+  shareControlRef?: React.MutableRefObject<ShareProjectButtonControl | null>;
+  onShareModalVisibilityChange?: (visible: boolean) => void;
+}
+
+function ReportButton({ projectId }: { projectId: string }) {
+  return (
+    <PressableScale
+      style={styles.reportBtn}
+      onPress={() =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.push({ pathname: "/report/[id]" as any, params: { id: projectId } })
+      }
+      scaleTo={0.88}
+    >
+      <MaterialIcons name="description" size={19} color={colors.primary} />
+    </PressableScale>
+  );
 }
 
 export function ObraHeader({
@@ -24,6 +43,10 @@ export function ObraHeader({
   projectRole,
   members = [],
   onBack,
+  reportButtonRef,
+  shareButtonRef,
+  shareControlRef,
+  onShareModalVisibilityChange,
 }: ObraHeaderProps) {
   const [teamModalOpen, setTeamModalOpen] = useState(false);
   const isClient = !canManageMembers(projectRole);
@@ -48,12 +71,21 @@ export function ObraHeader({
           </View>
 
           {canManageMembers(projectRole) ? (
-            <ShareProjectButton
-              projectId={projectId}
-              projectName={title}
-              projectRole={projectRole}
-              members={members}
-            />
+            <View style={styles.rightActions}>
+              <View ref={reportButtonRef} collapsable={false}>
+                <ReportButton projectId={projectId} />
+              </View>
+              <View ref={shareButtonRef} collapsable={false}>
+                <ShareProjectButton
+                  projectId={projectId}
+                  projectName={title}
+                  projectRole={projectRole}
+                  members={members}
+                  controlRef={shareControlRef}
+                  onVisibilityChange={onShareModalVisibilityChange}
+                />
+              </View>
+            </View>
           ) : (
             <PressableScale
               style={styles.teamBtn}
@@ -124,6 +156,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  reportBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: colors.tintBlue,
+  },
   teamBtn: {
     width: 40,
     height: 40,

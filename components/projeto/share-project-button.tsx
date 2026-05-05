@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 
 import type { ProjectAccessMember } from "@/utils/project-members";
@@ -7,11 +7,18 @@ import type { ProjectApiRole } from "@/utils/project-role";
 import { canManageMembers } from "@/utils/project-role";
 import { ShareProjectModal } from "./share-project-modal";
 
+export interface ShareProjectButtonControl {
+  open: () => void;
+  close: () => void;
+}
+
 interface ShareProjectButtonProps {
   projectId: string;
   projectName: string;
   projectRole?: ProjectApiRole;
   members?: ProjectAccessMember[];
+  controlRef?: React.MutableRefObject<ShareProjectButtonControl | null>;
+  onVisibilityChange?: (visible: boolean) => void;
 }
 
 export function ShareProjectButton({
@@ -19,8 +26,23 @@ export function ShareProjectButton({
   projectName,
   projectRole = null,
   members = [],
+  controlRef,
+  onVisibilityChange,
 }: ShareProjectButtonProps) {
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (!controlRef) return;
+    controlRef.current = {
+      open: () => setShowModal(true),
+      close: () => setShowModal(false),
+    };
+    return () => { controlRef.current = null; };
+  }, [controlRef]);
+
+  useEffect(() => {
+    onVisibilityChange?.(showModal);
+  }, [onVisibilityChange, showModal]);
 
   return (
     <>

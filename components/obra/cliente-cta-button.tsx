@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React from "react";
+import React, { type RefObject } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -10,6 +10,7 @@ interface ClienteCTAButtonProps {
   onGastos?: () => void;
   onTarefas?: () => void;
   activeKey?: string;
+  tabRefs?: Partial<Record<string, RefObject<View>>>;
 }
 
 const ACTIONS = [
@@ -52,6 +53,7 @@ export function ClienteCTAButton({
   onGastos,
   onTarefas,
   activeKey,
+  tabRefs,
 }: ClienteCTAButtonProps) {
   const insets = useSafeAreaInsets();
 
@@ -70,6 +72,7 @@ export function ClienteCTAButton({
         return (
           <TouchableOpacity
             key={key}
+            ref={tabRefs?.[key]}
             style={styles.tab}
             activeOpacity={0.72}
             onPress={handlers[key]}

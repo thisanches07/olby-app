@@ -1,7 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { usePreventRemove } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import {
   PanResponder,
   RefreshControl,
@@ -39,21 +45,33 @@ type ClienteTabId =
 
 const BOTTOM_H = 84;
 
+export interface ViewerTourRefs {
+  overviewRef: RefObject<View>;
+  diaryButtonRef: RefObject<View>;
+  galleryTabRef: RefObject<View>;
+  documentsTabRef: RefObject<View>;
+  expensesTabRef: RefObject<View>;
+  tasksTabRef: RefObject<View>;
+  bottomTabsRef: RefObject<View>;
+}
+
 interface ObraViewClienteProps {
   obra: ObraDetalhe;
   expenseReceiptDocuments?: DocumentAttachment[];
   projectMembers?: ProjectAccessMember[];
-  onProjectDocumentsChanged?: (documents: Array<{
+  onProjectDocumentsChanged?: (documents: {
     id: string;
     expenseId: string | null;
     status: string;
     viewUrl?: string;
-  }>) => void;
+  }[]) => void;
   onProjectDocumentRemoved?: (document: DocumentAttachment) => void;
   onViewDiary: () => void;
   projectRole: ProjectApiRole;
   onTabChange?: (isPrimary: boolean) => void;
   onRefresh?: () => Promise<void>;
+  tourRefs?: ViewerTourRefs;
+  activeTabOverride?: string | null;
 }
 
 export function ObraViewCliente({
@@ -66,6 +84,8 @@ export function ObraViewCliente({
   projectRole,
   onTabChange,
   onRefresh,
+  tourRefs,
+  activeTabOverride,
 }: ObraViewClienteProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -116,6 +136,11 @@ export function ObraViewCliente({
   const changeTabRef = useRef(changeTab);
   changeTabRef.current = changeTab;
 
+  React.useEffect(() => {
+    if (!activeTabOverride) return;
+    changeTabRef.current(activeTabOverride as ClienteTabId);
+  }, [activeTabOverride]);
+
   const edgeSwipe = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, gs) =>
@@ -157,11 +182,17 @@ export function ObraViewCliente({
             ) : undefined
           }
         >
-          <View style={styles.topBlock}>
+          <View
+            ref={tourRefs?.overviewRef}
+            collapsable={false}
+            style={styles.topBlock}
+          >
             <ClienteTitleSection obra={obra} />
           </View>
 
           <TouchableOpacity
+            ref={tourRefs?.diaryButtonRef}
+            collapsable={false}
             style={styles.diarioBtn}
             onPress={onViewDiary}
             activeOpacity={0.85}
@@ -170,8 +201,8 @@ export function ObraViewCliente({
               <MaterialIcons name="assignment" size={20} color={colors.primary} />
             </View>
             <View style={styles.diarioTextBlock}>
-              <Text style={styles.diarioBtnText}>Ver Diario de Obra</Text>
-              <Text style={styles.diarioBtnSub}>Registro diario da obra</Text>
+              <Text style={styles.diarioBtnText}>Ver Diário de Obra</Text>
+              <Text style={styles.diarioBtnSub}>Registro diário da obra</Text>
             </View>
             <View style={styles.diarioArrowCircle}>
               <MaterialIcons
@@ -280,7 +311,11 @@ export function ObraViewCliente({
         />
       </View>
 
-      <View style={[styles.bottomArea, { backgroundColor: colors.white }]}>
+      <View
+        ref={tourRefs?.bottomTabsRef}
+        collapsable={false}
+        style={[styles.bottomArea, { backgroundColor: colors.white }]}
+      >
         <ClienteCTAButton
           onInicio={() => changeTab("visao_geral")}
           onGaleria={() => changeTab("galeria")}
@@ -288,6 +323,12 @@ export function ObraViewCliente({
           onDocumentos={() => changeTab("documentos")}
           onTarefas={() => changeTab("tarefas")}
           activeKey={activeTab}
+          tabRefs={{
+            galeria: tourRefs?.galleryTabRef,
+            documentos: tourRefs?.documentsTabRef,
+            gastos: tourRefs?.expensesTabRef,
+            tarefas: tourRefs?.tasksTabRef,
+          }}
         />
       </View>
 

@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useAppSession } from "@/hooks/use-app-session";
+import { useOnboarding } from "@/contexts/onboarding-context";
 import { ApiError } from "@/services/api";
 import { invitesService } from "@/services/invites.service";
 import { pendingInviteToken } from "@/utils/pending-invite";
@@ -56,7 +57,23 @@ export default function InviteScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
   const { user, isLoading: authLoading } = useAuth();
   const { setRole } = useAppSession();
+  const { isRoleSelected, selectRole } = useOnboarding();
   const [state, setState] = useState<ScreenState>({ kind: "loading" });
+  const hasStartedAcceptRef = useRef(false);
+
+  const acceptInvite = useCallback(async (inviteToken: string) => {
+    setState({ kind: "accepting" });
+    try {
+      const result = await invitesService.accept(inviteToken);
+      setRole("cliente");
+      if (!isRoleSelected) {
+        await selectRole("viewer");
+      }
+      setState({ kind: "success", projectId: result.projectId });
+    } catch (err) {
+      setState({ kind: "error", message: resolveErrorMessage(err) });
+    }
+  }, [isRoleSelected, selectRole, setRole]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -71,19 +88,10 @@ export default function InviteScreen() {
       return;
     }
 
-    acceptInvite(token);
-  }, [authLoading, user, token]);
-
-  async function acceptInvite(inviteToken: string) {
-    setState({ kind: "accepting" });
-    try {
-      const result = await invitesService.accept(inviteToken);
-      setRole("cliente");
-      setState({ kind: "success", projectId: result.projectId });
-    } catch (err) {
-      setState({ kind: "error", message: resolveErrorMessage(err) });
-    }
-  }
+    if (hasStartedAcceptRef.current) return;
+    hasStartedAcceptRef.current = true;
+    void acceptInvite(token);
+  }, [acceptInvite, authLoading, user, token]);
 
   async function handleLoginRedirect() {
     if (token) {
