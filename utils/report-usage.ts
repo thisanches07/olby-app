@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { PlanCode } from "@/services/subscription.service";
 
-const BASIC_MONTHLY_LIMIT = 2;
+const BASIC_MONTHLY_LIMIT = 1;
 
 function storageKey(projectId: string): string {
   const now = new Date();

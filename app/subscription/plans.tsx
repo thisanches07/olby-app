@@ -68,6 +68,7 @@ const PLANS = [
     features: [
       { ok: true, text: "Obras ilimitadas" },
       { ok: true, text: "Tudo do plano Básico" },
+      { ok: true, text: "Relatórios de obra ilimitados" },
       { ok: true, text: "Suporte prioritário" },
     ],
     productId: "com.tsanc.obraapp.sub.pro",

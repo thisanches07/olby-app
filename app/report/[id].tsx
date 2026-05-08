@@ -562,7 +562,7 @@ function UsageNote({ projectId }: { projectId: string }) {
     <View style={styles.usageNote}>
       <MaterialIcons name="info-outline" size={14} color="#94A3B8" />
       <Text style={styles.usageNoteText}>
-        {used}/2 relatórios usados este mês nesta obra
+        {used}/1 relatório usado este mês nesta obra
       </Text>
     </View>
   );
