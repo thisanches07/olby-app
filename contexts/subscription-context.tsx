@@ -9,17 +9,6 @@ import React, {
 
 import { forceRefreshIdToken } from "@/services/token";
 
-const TAG = "[SUB]";
-function subLog(event: string, data?: unknown): void {
-  if (__DEV__) {
-    if (data !== undefined) {
-      console.log(`${TAG} ${event}`, JSON.stringify(data, null, 2));
-    } else {
-      console.log(`${TAG} ${event}`);
-    }
-  }
-}
-
 import {
   BillingApiError,
   billingApi,
@@ -31,6 +20,17 @@ import {
   buildFreeSubscriptionInfo,
   subscriptionService,
 } from "@/services/subscription.service";
+
+const TAG = "[SUB]";
+function subLog(event: string, data?: unknown): void {
+  if (__DEV__) {
+    if (data !== undefined) {
+      console.log(`${TAG} ${event}`, JSON.stringify(data, null, 2));
+    } else {
+      console.log(`${TAG} ${event}`);
+    }
+  }
+}
 
 interface SubscriptionState {
   plan: SubscriptionInfo | null;

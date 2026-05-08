@@ -1,6 +1,6 @@
 import type { ReportData, ReportPeriod } from "@/services/report.service";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const OBLY_LOGO_PATH =
   "M 555.34307,229.05651 c -45.96476,-0.80749 -81.45377,7.5651 -89.81129,10.49055 -90.30922,29.02465 -163.99335,108.10684 -183.79361,203.35204 -8.87261,24.24346 -9.69338,63.97222 -9.69338,63.97222 0,0 -62.70802,72.84924 -75.48898,110.82437 -16.0067,38.68994 7.37706,81.22718 40.69482,100.83047 62.97392,40.18621 135.20737,64.55192 208.62061,74.63084 49.73521,8.79621 97.15713,-12.45114 143.34523,-28.05884 63.14291,-26.67769 126.81129,-53.19061 186.06586,-88.18017 88.94717,-49.2887 87.21729,-136.47062 58.16033,-153.50222 C 808.28708,277.03945 656.46567,230.83298 555.34307,229.05651 Z m 4.36029,27.17763 C 328.02532,319.80788 304.25925,582.58487 304.2683,577.63347 271.70754,549.40658 273.67853,252.60306 559.70336,256.23414 Z m 31.25268,14.85587 c 24.74377,-0.54154 49.6481,4.89191 73.99317,17.10221 -96.89773,20.08625 -190.0772,71.62383 -255.14877,360.84523 -29.9158,-1.88896 -70.55592,-27.4273 -84.916,-43.74245 31.34987,-190.2805 146.85133,-331.59574 266.0716,-334.20499 z m 71.78337,41.76607 c 43.86437,-0.0864 78.01136,24.3231 86.94437,43.79593 -147.95111,-16.84809 -230.08227,153.59225 -240.187,304.48304 -18.98839,4.9027 -58.28095,0.80764 -75.33231,-7.47505 55.3649,-272.47439 155.46745,-340.6601 228.57494,-340.80392 z m 62.87636,69.18056 c 5.81141,0.008 11.07009,0.9654 15.63131,2.86521 47.70645,8.17053 52.91574,93.40169 65.35756,152.76363 C 699.17658,635.46414 560.39039,663.28607 535.9189,658.55507 561.75285,470.82982 669.43956,381.96587 725.61577,382.03664 Z M 265.75341,555.69985 c 24.02094,102.15029 237.21554,240.87566 557.98834,8.60841 10.14025,63.75887 -184.25981,169.5603 -345.01252,203.99642 -60.464,12.95248 -253.40165,-44.35043 -263.98121,-124.226 -2.92388,-22.07529 22.74489,-61.09185 51.00539,-88.37883 z";
@@ -59,6 +59,7 @@ function fmtDateShort(iso: string): string {
 }
 
 function fmtPeriodLabel(period: ReportPeriod): string {
+  if (period === "all") return "Obra toda";
   if (period === 7) return "Últimos 7 dias";
   if (period === 15) return "Últimos 15 dias";
   return "Últimos 30 dias";
@@ -84,7 +85,7 @@ function pctClass(p: number): string {
   return "";
 }
 
-// ─── Photo grid section ───────────────────────────────────────────────────────
+// â”€â”€â”€ Photo grid section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function photoGridSection(data: ReportData): string {
   const withPhotos = data.diaryEntries.filter((e) => e.photos.length > 0);
@@ -118,7 +119,7 @@ function photoGridSection(data: ReportData): string {
   </div>`;
 }
 
-// ─── Tasks section ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Tasks section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function tasksSection(data: ReportData): string {
   const doneItems = data.doneTasks
@@ -163,7 +164,7 @@ function tasksSection(data: ReportData): string {
   </div>`;
 }
 
-// ─── Indicators section ───────────────────────────────────────────────────────
+// â”€â”€â”€ Indicators section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function indicatorsSection(data: ReportData): string {
   const showHours = data.horasContratadas > 0;
@@ -216,13 +217,16 @@ function indicatorsSection(data: ReportData): string {
   </div>`;
 }
 
-// ─── Financial section ────────────────────────────────────────────────────────
+// â”€â”€â”€ Financial section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function financialSection(data: ReportData): string {
   if (data.expensesInPeriod.length === 0 && data.totalInvestido === 0)
     return "";
 
-  const periodLabel = `${fmtDateBR(data.periodStart)} – ${fmtDateBR(data.periodEnd)}`;
+  const isFullProjectReport = data.periodStart === "0000-01-01";
+  const periodLabel = isFullProjectReport
+    ? "Todo o período"
+    : `${fmtDateBR(data.periodStart)} - ${fmtDateBR(data.periodEnd)}`;
 
   const catItems = data.expensesByCategory
     .map(
@@ -253,7 +257,7 @@ function financialSection(data: ReportData): string {
   </div>`;
 }
 
-// ─── Diary section ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Diary section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function diarySection(data: ReportData): string {
   if (data.diaryEntries.length === 0) return "";
@@ -287,13 +291,19 @@ function diarySection(data: ReportData): string {
   </div>`;
 }
 
-// ─── Main generator ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function generateReportHtml(
   data: ReportData,
   period: ReportPeriod,
 ): string {
-  const periodPill = `${fmtDateShort(data.periodStart)} – ${fmtDateShort(data.periodEnd)} ${new Date(data.periodEnd).getFullYear()}`;
+  const isFullProjectReport = period === "all";
+  const periodText = isFullProjectReport
+    ? "Todo o período"
+    : `${fmtDateBR(data.periodStart)} - ${fmtDateBR(data.periodEnd)}`;
+  const periodPill = isFullProjectReport
+    ? "Obra toda"
+    : `${fmtDateShort(data.periodStart)} - ${fmtDateShort(data.periodEnd)} ${new Date(data.periodEnd).getFullYear()}`;
   const generatedDate = new Date(data.generatedAt).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -307,7 +317,7 @@ export function generateReportHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Relatório — ${escHtml(data.projectName)}</title>
+<title>Relatório - ${escHtml(data.projectName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -329,7 +339,7 @@ export function generateReportHtml(
     box-shadow:0 4px 48px rgba(0,0,0,0.13);
   }
 
-  /* ── CAPA ── */
+  /* â”€â”€ CAPA â”€â”€ */
   .cover {
     background:linear-gradient(150deg,#EFF6FF 0%,#DBEAFE 100%);
     padding:52px 52px 44px;
@@ -352,7 +362,7 @@ export function generateReportHtml(
     padding:8px 18px; border-radius:999px; white-space:nowrap;
   }
 
-  /* ── STATS ── */
+  /* â”€â”€ STATS â”€â”€ */
   .stats {
     display:grid; grid-template-columns:repeat(4,1fr);
     border-bottom:1px solid #F1F5F9; background:#FAFBFC;
@@ -364,7 +374,7 @@ export function generateReportHtml(
   .stat-val { font-size:20px; font-weight:800; color:#0F172A; letter-spacing:-0.02em; line-height:1; display:block; }
   .stat-lbl { font-size:11px; color:#64748B; font-weight:500; margin-top:3px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  /* ── CONTEÚDO ── */
+  /* â”€â”€ CONTEÚDO â”€â”€ */
   .content { padding:32px 52px 52px; }
   .section { margin-top:30px; padding-top:30px; border-top:1px solid #F1F5F9; }
   .section:first-child { margin-top:0; padding-top:28px; border-top:none; }
@@ -373,7 +383,7 @@ export function generateReportHtml(
   .s-bar { width:3px; height:18px; background:#2563EB; border-radius:2px; flex-shrink:0; }
   .s-title { font-size:14px; font-weight:700; color:#0F172A; letter-spacing:-0.01em; }
 
-  /* ── DIÁRIO ── */
+  /* â”€â”€ DIÁRIO â”€â”€ */
   .di-item { margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid #F8FAFC; }
   .di-item:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
   .di-header { display:flex; align-items:center; gap:10px; margin-bottom:5px; }
@@ -383,7 +393,7 @@ export function generateReportHtml(
   .di-dur { font-size:11px; color:#64748B; white-space:nowrap; flex-shrink:0; }
   .di-notes { font-size:12px; color:#64748B; padding-left:0; line-height:1.5; margin-top:2px; }
 
-  /* ── TAREFAS ── */
+  /* â”€â”€ TAREFAS â”€â”€ */
   .task-item { display:flex; align-items:center; gap:9px; padding:10px 0; border-bottom:1px solid #F8FAFC; }
   .task-item:last-of-type { border-bottom:none; }
   .task-icon { flex-shrink:0; }
@@ -395,7 +405,7 @@ export function generateReportHtml(
   .task-item.next { break-inside:avoid; page-break-inside:avoid; }
   .task-pending-count { font-size:12px; color:#64748B; margin-top:10px; }
 
-  /* ── INDICADORES ── */
+  /* â”€â”€ INDICADORES â”€â”€ */
   .ind-pair { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .ind-b { background:#F8FAFC; border-radius:10px; padding:16px 18px; }
   .ib-t { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:8px; }
@@ -410,7 +420,7 @@ export function generateReportHtml(
   .ib-s { display:flex; justify-content:space-between; font-size:11px; color:#64748B; }
   .ib-s strong { color:#1E293B; font-weight:600; }
 
-  /* ── FINANCEIRO ── */
+  /* â”€â”€ FINANCEIRO â”€â”€ */
   .fin-row { display:flex; gap:14px; margin-bottom:18px; }
   .fin-box { flex:1; background:#F8FAFC; border-radius:10px; padding:16px 18px; }
   .fb-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:6px; }
@@ -423,20 +433,20 @@ export function generateReportHtml(
   .ci-nm { font-size:13px; color:#4B5563; }
   .ci-val { font-size:13px; font-weight:600; color:#0F172A; }
 
-  /* ── FOTOS ── */
+  /* â”€â”€ FOTOS â”€â”€ */
   .photo-day { margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
   .photo-day-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:8px; }
   .pg { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; break-inside:avoid; page-break-inside:avoid; }
   .ph { aspect-ratio:1; background:#F1F5F9; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; break-inside:avoid; page-break-inside:avoid; }
   .ph img { width:100%; height:100%; object-fit:cover; }
 
-  /* ── FOOTER ── */
+  /* â”€â”€ FOOTER â”€â”€ */
   .footer { padding:20px 52px; border-top:1px solid #F1F5F9; display:flex; justify-content:space-between; align-items:center; }
   .f-brand { display:flex; align-items:center; gap:6px; }
   .f-brand-text { font-size:11px; font-weight:800; color:#64748B; letter-spacing:0.12em; text-transform:uppercase; }
   .f-info { font-size:11px; color:#CBD5E1; }
 
-  /* ── MOBILE ── */
+  /* â”€â”€ MOBILE â”€â”€ */
   @media (max-width:600px) {
     body { padding:0; background:#fff; }
     .page { box-shadow:none; }
@@ -471,7 +481,7 @@ export function generateReportHtml(
     </div>
     <div class="cover-bottom">
       <div class="cover-fields">
-        <div class="cf"><label>Período</label><span>${fmtDateBR(data.periodStart)} – ${fmtDateBR(data.periodEnd)}</span></div>
+        <div class="cf"><label>Período</label><span>${periodText}</span></div>
         <div class="cf"><label>Gerado em</label><span>${generatedDate}</span></div>
       </div>
       <div class="period-pill">${periodPill}</div>
@@ -520,7 +530,7 @@ export function generateReportHtml(
         </svg>
       </div>
       <div class="stat-body">
-        <span class="stat-val">${fmtBRL(data.totalExpensesInPeriod).replace("R$ ", "R$ ")}</span>
+        <span class="stat-val">${fmtBRL(data.totalExpensesInPeriod).replace("R$ ", "R$ ")}</span>
         <span class="stat-lbl">Despesas no período</span>
       </div>
     </div>

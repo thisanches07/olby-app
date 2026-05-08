@@ -7,7 +7,7 @@ import {
 } from "./daily-log-entries.service";
 import { dailyLogPhotosService } from "./daily-log-photos.service";
 
-export type ReportPeriod = 7 | 15 | 30;
+export type ReportPeriod = 7 | 15 | 30 | "all";
 
 export interface ReportPhoto {
   id: string;
@@ -85,10 +85,13 @@ function isoDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-function getPeriodDates(days: ReportPeriod): { dateFrom: string; dateTo: string } {
+function getPeriodDates(period: ReportPeriod): { dateFrom: string; dateTo: string } {
   const to = new Date();
+  if (period === "all") {
+    return { dateFrom: "0000-01-01", dateTo: isoDate(to) };
+  }
   const from = new Date();
-  from.setDate(from.getDate() - (days - 1));
+  from.setDate(from.getDate() - (period - 1));
   return { dateFrom: isoDate(from), dateTo: isoDate(to) };
 }
 

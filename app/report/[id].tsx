@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -17,6 +18,7 @@ import {
 import { WebView } from "react-native-webview";
 
 import { PressableScale } from "@/components/ui/pressable-scale";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSubscription } from "@/contexts/subscription-context";
 import { useObraData } from "@/hooks/use-obra-data";
 import { buildReportData, type ReportPeriod } from "@/services/report.service";
@@ -37,6 +39,7 @@ const PERIOD_OPTIONS: { value: ReportPeriod; label: string; sub: string }[] = [
   { value: 7, label: "7 dias", sub: "Última semana" },
   { value: 15, label: "15 dias", sub: "Últimas duas semanas" },
   { value: 30, label: "30 dias", sub: "Último mês" },
+  { value: "all", label: "Obra toda", sub: "Todo o histórico da obra" },
 ];
 
 function slugifyFilePart(value: string): string {
@@ -53,6 +56,7 @@ function slugifyFilePart(value: string): string {
 function reportPeriodFileSuffix(period: ReportPeriod): string {
   if (period === 7) return "ultimos-7-dias";
   if (period === 15) return "ultimos-15-dias";
+  if (period === "all") return "obra-toda";
   return "esse-mes";
 }
 
@@ -63,27 +67,174 @@ function buildReportFileName(
   return `${slugifyFilePart(projectName)}-${reportPeriodFileSuffix(period)}.pdf`;
 }
 
+function ReportLoadingScreen() {
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <PressableScale
+          style={styles.iconBtn}
+          onPress={() => router.back()}
+          scaleTo={0.88}
+        >
+          <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
+        </PressableScale>
+        <Text style={styles.headerTitle}>Relatório</Text>
+        <View style={styles.iconBtn} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.sectionLabel}>Selecione o período</Text>
+
+        <View style={styles.loadingSection}>
+          {[0, 1, 2, 3].map((item) => (
+            <View key={item} style={styles.loadingCard}>
+              <View style={styles.loadingCardRow}>
+                <Skeleton width={20} height={20} borderRadius={10} />
+                <View style={styles.flex1}>
+                  <Skeleton
+                    width={`${38 + item * 2}%`}
+                    height={15}
+                    borderRadius={6}
+                  />
+                  <Skeleton
+                    width={`${56 - item * 4}%`}
+                    height={11}
+                    borderRadius={5}
+                    style={styles.mt8}
+                  />
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.loadingButton}>
+          <Skeleton width={18} height={18} borderRadius={5} />
+          <Skeleton width={128} height={16} borderRadius={7} />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+type BuiltReportData = Awaited<ReturnType<typeof buildReportData>>;
+
+function hasReportContent(data: BuiltReportData): boolean {
+  return data.diaryEntries.length > 0 || data.expensesInPeriod.length > 0;
+}
+
 export default function ReportScreen() {
   const { id, fromOnboarding } = useLocalSearchParams<{
     id: string;
     fromOnboarding?: string;
   }>();
-  const { plan } = useSubscription();
+  const { plan, isLoading: subscriptionLoading } = useSubscription();
   const { obra, loading: obraLoading } = useObraData(id!);
 
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>(7);
   const [state, setState] = useState<ScreenState>({ kind: "select" });
   const [isExporting, setIsExporting] = useState(false);
+  const [emptyReportResolver, setEmptyReportResolver] = useState<
+    ((shouldContinue: boolean) => void) | null
+  >(null);
 
   const planCode = plan?.code ?? "FREE";
   const isOnboardingPreview = fromOnboarding === "1";
 
+  const confirmEmptyReport = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        setEmptyReportResolver(() => resolve);
+      }),
+    [],
+  );
+
+  const resolveEmptyReportModal = useCallback(
+    (shouldContinue: boolean) => {
+      emptyReportResolver?.(shouldContinue);
+      setEmptyReportResolver(null);
+    },
+    [emptyReportResolver],
+  );
+
   const handleGenerate = useCallback(async () => {
     if (!obra) return;
+    if (subscriptionLoading && !plan) {
+      Alert.alert(
+        "Aguarde um momento",
+        "Estamos carregando as informações do seu plano. Tente novamente em alguns segundos.",
+      );
+      return;
+    }
     if (isOnboardingPreview) {
       Alert.alert(
         "Prévia do tour",
         "Durante o onboarding, a geração de relatório fica desativada para não consumir seu limite mensal sem querer.",
+      );
+      return;
+    }
+
+    if (planCode === "FREE") {
+      Alert.alert(
+        "Recurso BASIC",
+        "Relatórios estão disponíveis a partir do plano BASIC. Quer conhecer os planos?",
+        [
+          { text: "Agora não", style: "cancel" },
+          {
+            text: "Ver planos",
+            onPress: () => router.push("/subscription/plans"),
+          },
+        ],
+      );
+      return;
+    }
+
+    try {
+      setState({ kind: "loading" });
+      const data = await buildReportData(id!, obra, selectedPeriod);
+      if (!hasReportContent(data)) {
+        setState({ kind: "select" });
+        const shouldContinue = await confirmEmptyReport();
+        if (!shouldContinue) return;
+        setState({ kind: "loading" });
+      }
+      const html = generateReportHtml(data, selectedPeriod);
+      const fileName = buildReportFileName(obra.nome, selectedPeriod);
+      setState({ kind: "preview", html, fileName });
+    } catch {
+      setState({
+        kind: "error",
+        message:
+          "Não foi possível gerar o relatório. Verifique sua conexão e tente novamente.",
+      });
+    }
+  }, [
+    confirmEmptyReport,
+    obra,
+    id,
+    isOnboardingPreview,
+    plan,
+    planCode,
+    selectedPeriod,
+    subscriptionLoading,
+  ]);
+  const emptyReportModal = (
+    <EmptyReportModal
+      visible={!!emptyReportResolver}
+      onCancel={() => resolveEmptyReportModal(false)}
+      onContinue={() => resolveEmptyReportModal(true)}
+    />
+  );
+
+  const handleExport = useCallback(async () => {
+    if (state.kind !== "preview") return;
+    if (subscriptionLoading && !plan) {
+      Alert.alert(
+        "Aguarde um momento",
+        "Estamos carregando as informações do seu plano. Tente novamente em alguns segundos.",
       );
       return;
     }
@@ -119,24 +270,6 @@ export default function ReportScreen() {
     }
 
     try {
-      setState({ kind: "loading" });
-      const data = await buildReportData(id!, obra, selectedPeriod);
-      const html = generateReportHtml(data, selectedPeriod);
-      const fileName = buildReportFileName(obra.nome, selectedPeriod);
-      await recordReportGeneration(id!);
-      setState({ kind: "preview", html, fileName });
-    } catch {
-      setState({
-        kind: "error",
-        message:
-          "Não foi possível gerar o relatório. Verifique sua conexão e tente novamente.",
-      });
-    }
-  }, [obra, id, isOnboardingPreview, planCode, selectedPeriod]);
-
-  const handleExport = useCallback(async () => {
-    if (state.kind !== "preview") return;
-    try {
       setIsExporting(true);
       const { uri } = await Print.printToFileAsync({ html: state.html });
       const namedUri = `${FileSystem.cacheDirectory}${state.fileName}`;
@@ -152,77 +285,114 @@ export default function ReportScreen() {
       } else {
         Alert.alert("Arquivo salvo", `PDF salvo em: ${namedUri}`);
       }
+      if (planCode === "BASIC") {
+        await recordReportGeneration(id!);
+      }
     } catch {
       Alert.alert("Erro", "Não foi possível exportar o PDF.");
     } finally {
       setIsExporting(false);
     }
-  }, [state]);
-
+  }, [id, plan, planCode, state, subscriptionLoading]);
   if (obraLoading && !obra) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      </SafeAreaView>
+      <>
+        <ReportLoadingScreen />
+        {emptyReportModal}
+      </>
     );
   }
 
-  // ── Preview mode ────────────────────────────────────────────────────────────
+  // â”€â”€ Preview mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (state.kind === "preview") {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.previewHeader}>
-          <PressableScale
-            style={styles.iconBtn}
-            onPress={() => setState({ kind: "select" })}
-            scaleTo={0.88}
-          >
-            <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
-          </PressableScale>
-          <Text style={styles.previewTitle}>Pré-visualização</Text>
-          <PressableScale
-            style={[styles.exportBtn, isExporting && styles.exportBtnDisabled]}
-            onPress={handleExport}
-            scaleTo={0.93}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <MaterialIcons name="ios-share" size={16} color="#fff" />
-                <Text style={styles.exportBtnText}>Exportar PDF</Text>
-              </>
-            )}
-          </PressableScale>
-        </View>
-        <WebView
-          source={{ html: state.html }}
-          style={styles.webview}
-          originWhitelist={["*"]}
-          scalesPageToFit={false}
-        />
-      </SafeAreaView>
+      <>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.previewHeader}>
+            <PressableScale
+              style={styles.iconBtn}
+              onPress={() => setState({ kind: "select" })}
+              scaleTo={0.88}
+            >
+              <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
+            </PressableScale>
+            <Text style={styles.previewTitle}>Pré-visualização</Text>
+            <PressableScale
+              style={[
+                styles.exportBtn,
+                isExporting && styles.exportBtnDisabled,
+              ]}
+              onPress={handleExport}
+              scaleTo={0.93}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <MaterialIcons name="ios-share" size={16} color="#fff" />
+                  <Text style={styles.exportBtnText}>Exportar PDF</Text>
+                </>
+              )}
+            </PressableScale>
+          </View>
+          <WebView
+            source={{ html: state.html }}
+            style={styles.webview}
+            originWhitelist={["*"]}
+            scalesPageToFit={false}
+          />
+        </SafeAreaView>
+        {emptyReportModal}
+      </>
     );
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (state.kind === "loading") {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={styles.loadingText}>Gerando relatório…</Text>
-        </View>
-      </SafeAreaView>
+      <>
+        <ReportLoadingScreen />
+        {emptyReportModal}
+      </>
     );
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────────
+  // â”€â”€ Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (state.kind === "error") {
     return (
+      <>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.header}>
+            <PressableScale
+              style={styles.iconBtn}
+              onPress={() => router.back()}
+              scaleTo={0.88}
+            >
+              <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
+            </PressableScale>
+            <Text style={styles.headerTitle}>Relatório</Text>
+            <View style={styles.iconBtn} />
+          </View>
+          <View style={styles.center}>
+            <MaterialIcons name="error-outline" size={48} color="#EF4444" />
+            <Text style={styles.errorText}>{state.message}</Text>
+            <Pressable
+              style={styles.retryBtn}
+              onPress={() => setState({ kind: "select" })}
+            >
+              <Text style={styles.retryText}>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+        {emptyReportModal}
+      </>
+    );
+  }
+
+  // â”€â”€ Select period â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  return (
+    <>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <PressableScale
@@ -235,115 +405,147 @@ export default function ReportScreen() {
           <Text style={styles.headerTitle}>Relatório</Text>
           <View style={styles.iconBtn} />
         </View>
-        <View style={styles.center}>
-          <MaterialIcons name="error-outline" size={48} color="#EF4444" />
-          <Text style={styles.errorText}>{state.message}</Text>
-          <Pressable
-            style={styles.retryBtn}
-            onPress={() => setState({ kind: "select" })}
-          >
-            <Text style={styles.retryText}>Tentar novamente</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
-  // ── Select period ────────────────────────────────────────────────────────────
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <PressableScale
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-          scaleTo={0.88}
+        <ScrollView
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
         >
-          <MaterialIcons name="arrow-back-ios" size={20} color="#111827" />
-        </PressableScale>
-        <Text style={styles.headerTitle}>Relatório</Text>
-        <View style={styles.iconBtn} />
-      </View>
+          <Text style={styles.sectionLabel}>Selecione o período</Text>
 
-      <ScrollView
-        contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.obraName} numberOfLines={2}>
-          {obra?.nome ?? ""}
-        </Text>
-        <Text style={styles.sectionLabel}>Selecione o período</Text>
-
-        {PERIOD_OPTIONS.map((opt) => (
-          <Pressable
-            key={opt.value}
-            style={[
-              styles.periodCard,
-              selectedPeriod === opt.value && styles.periodCardSelected,
-            ]}
-            onPress={() => setSelectedPeriod(opt.value)}
-            android_ripple={{ color: "rgba(37,99,235,0.07)" }}
-          >
-            <View style={styles.periodCardLeft}>
-              <View
-                style={[
-                  styles.radio,
-                  selectedPeriod === opt.value && styles.radioSelected,
-                ]}
-              >
-                {selectedPeriod === opt.value && (
-                  <View style={styles.radioDot} />
-                )}
-              </View>
-              <View>
-                <Text
+          {PERIOD_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.value}
+              style={[
+                styles.periodCard,
+                selectedPeriod === opt.value && styles.periodCardSelected,
+              ]}
+              onPress={() => setSelectedPeriod(opt.value)}
+              android_ripple={{ color: "rgba(37,99,235,0.07)" }}
+            >
+              <View style={styles.periodCardLeft}>
+                <View
                   style={[
-                    styles.periodLabel,
-                    selectedPeriod === opt.value && styles.periodLabelSelected,
+                    styles.radio,
+                    selectedPeriod === opt.value && styles.radioSelected,
                   ]}
                 >
-                  {opt.label}
-                </Text>
-                <Text style={styles.periodSub}>{opt.sub}</Text>
+                  {selectedPeriod === opt.value && (
+                    <View style={styles.radioDot} />
+                  )}
+                </View>
+                <View>
+                  <Text
+                    style={[
+                      styles.periodLabel,
+                      selectedPeriod === opt.value &&
+                        styles.periodLabelSelected,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  <Text style={styles.periodSub}>{opt.sub}</Text>
+                </View>
               </View>
+            </Pressable>
+          ))}
+
+          {isOnboardingPreview && (
+            <View style={styles.onboardingNote}>
+              <MaterialIcons name="lock-outline" size={16} color="#64748B" />
+              <Text style={styles.onboardingNoteText}>
+                Geração desativada durante o tour para preservar seu limite
+                mensal.
+              </Text>
             </View>
-          </Pressable>
-        ))}
+          )}
 
-        {isOnboardingPreview && (
-          <View style={styles.onboardingNote}>
-            <MaterialIcons name="lock-outline" size={16} color="#64748B" />
-            <Text style={styles.onboardingNoteText}>
-              Geração desativada durante o tour para preservar seu limite mensal.
+          {planCode === "BASIC" && <UsageNote projectId={id!} />}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.generateBtn,
+              isOnboardingPreview && styles.generateBtnDisabled,
+              pressed && !isOnboardingPreview && styles.generateBtnPressed,
+            ]}
+            onPress={handleGenerate}
+            disabled={isOnboardingPreview}
+          >
+            <MaterialIcons
+              name={isOnboardingPreview ? "lock-outline" : "description"}
+              size={18}
+              color="#fff"
+            />
+            <Text style={styles.generateBtnText}>
+              {isOnboardingPreview ? "Indisponível no tour" : "Gerar relatório"}
             </Text>
-          </View>
-        )}
-
-        {planCode === "BASIC" && <UsageNote projectId={id!} />}
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.generateBtn,
-            isOnboardingPreview && styles.generateBtnDisabled,
-            pressed && !isOnboardingPreview && styles.generateBtnPressed,
-          ]}
-          onPress={handleGenerate}
-          disabled={isOnboardingPreview}
-        >
-          <MaterialIcons
-            name={isOnboardingPreview ? "lock-outline" : "description"}
-            size={18}
-            color="#fff"
-          />
-          <Text style={styles.generateBtnText}>
-            {isOnboardingPreview ? "Indisponível no tour" : "Gerar relatório"}
-          </Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+      {emptyReportModal}
+    </>
   );
 }
 
-// ─── Usage note for BASIC users ───────────────────────────────────────────────
+function EmptyReportModal({
+  visible,
+  onCancel,
+  onContinue,
+}: {
+  visible: boolean;
+  onCancel: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onCancel}
+    >
+      <View style={styles.emptyModalOverlay}>
+        <View style={styles.emptyModalCard}>
+          <View style={styles.emptyModalIcon}>
+            <MaterialIcons
+              name="description"
+              size={28}
+              color={colors.primary}
+            />
+          </View>
+          <Text style={styles.emptyModalTitle}>Relatório sem registros</Text>
+          <Text style={styles.emptyModalText}>
+            Não encontramos nenhuma visita ou gasto registrado para o período
+            selecionado. O PDF pode ficar incompleto.
+          </Text>
+          <View style={styles.emptyModalActions}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.emptyModalSecondary,
+                pressed && styles.emptyModalPressed,
+              ]}
+              onPress={onCancel}
+            >
+              <Text style={styles.emptyModalSecondaryText}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.emptyModalPrimary,
+                pressed && styles.emptyModalPressed,
+              ]}
+              onPress={onContinue}
+            >
+              <Text style={styles.emptyModalPrimaryText}>
+                Gerar mesmo assim
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// â”€â”€â”€ Usage note for BASIC users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function UsageNote({ projectId }: { projectId: string }) {
   const [used, setUsed] = useState<number | null>(null);
@@ -366,7 +568,7 @@ function UsageNote({ projectId }: { projectId: string }) {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
@@ -405,13 +607,6 @@ const styles = StyleSheet.create({
   body: {
     padding: 20,
     paddingBottom: 40,
-  },
-  obraName: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: -0.4,
-    marginBottom: 24,
   },
   sectionLabel: {
     fontSize: 11,
@@ -525,10 +720,42 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   // Loading
-  loadingText: {
-    fontSize: 14,
-    color: "#64748B",
-    marginTop: 4,
+  loadingSection: {
+    gap: 10,
+    marginBottom: 24,
+  },
+  loadingCard: {
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadingCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.tintBlue,
+    borderRadius: 12,
+    paddingVertical: 16,
+  },
+  flex1: {
+    flex: 1,
+  },
+  mt8: {
+    marginTop: 8,
+  },
+  mt10: {
+    marginTop: 10,
+  },
+  mt16: {
+    marginTop: 16,
   },
   // Error
   errorText: {
@@ -584,5 +811,87 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+  emptyModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  emptyModalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: colors.white,
+    borderRadius: 22,
+    padding: 22,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 14,
+  },
+  emptyModalIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: colors.tintBlue,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  emptyModalTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: colors.text,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  emptyModalText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
+    textAlign: "center",
+  },
+  emptyModalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+    width: "100%",
+  },
+  emptyModalSecondary: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingVertical: 13,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  emptyModalPrimary: {
+    flex: 1.2,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingVertical: 13,
+    backgroundColor: colors.primary,
+  },
+  emptyModalPressed: {
+    opacity: 0.86,
+  },
+  emptyModalSecondaryText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  emptyModalPrimaryText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.white,
   },
 });

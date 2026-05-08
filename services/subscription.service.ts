@@ -2,6 +2,7 @@ import { billingApi } from "./billing.api";
 
 export type PlanCode = "FREE" | "BASIC" | "PRO";
 export type SubscriptionStatus =
+  | "AMBASSADOR"
   | "TRIAL"
   | "ACTIVE"
   | "GRACE"
@@ -55,6 +56,7 @@ export function hasSubscriptionEntitlement(
   status: SubscriptionStatus,
 ): boolean {
   return (
+    status === "AMBASSADOR" ||
     status === "TRIAL" ||
     status === "ACTIVE" ||
     status === "GRACE" ||
@@ -108,6 +110,8 @@ export function getSubscriptionStatusMessage(params: {
   }
 
   switch (status) {
+    case "AMBASSADOR":
+      return null;
     case "ACTIVE":
       return null;
     case "GRACE":
@@ -137,6 +141,8 @@ export function getStatusBadge(params: {
   }
 
   switch (params.status) {
+    case "AMBASSADOR":
+      return { label: "Embaixador", color: "#D97706" };
     case "TRIAL":
       return { label: "Trial ativo", color: "#2563EB" };
     case "ACTIVE":

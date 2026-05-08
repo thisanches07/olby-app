@@ -609,11 +609,16 @@ export default function ProfileScreen() {
   const isEmailPasswordUser =
     user?.providerData?.some((p) => p.providerId === "password") ?? false;
 
+  const isAmbassador = plan?.subscriptionStatus === "AMBASSADOR";
   const subBadge = getStatusBadge({
     status: plan?.subscriptionStatus ?? null,
     isCanceled: plan?.isCanceled ?? false,
   });
-  const subSublabel = plan ? `${plan.name} · ${subBadge.label}` : "Gratuito";
+  const subSublabel = isAmbassador
+    ? "Embaixador"
+    : plan
+      ? `${plan.name} · ${subBadge.label}`
+      : "Gratuito";
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -1424,8 +1429,8 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <ActionRow
               icon="workspace-premium"
-              iconBg="#EFF6FF"
-              iconColor={colors.primary}
+              iconBg={isAmbassador ? "#FFFBEB" : "#EFF6FF"}
+              iconColor={isAmbassador ? "#D97706" : colors.primary}
               label="Minha assinatura"
               sublabel={subSublabel}
               onPress={() => router.push("/subscription/my-plan")}

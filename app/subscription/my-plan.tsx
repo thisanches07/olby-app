@@ -65,6 +65,13 @@ const PLAN_LABELS: Record<PlanCode, string> = {
 
 function getAlertTone(status: SubscriptionStatus) {
   switch (status) {
+    case "AMBASSADOR":
+      return {
+        container: styles.alertBannerAmber,
+        text: styles.alertTextAmber,
+        icon: "star",
+        iconColor: "#92400E",
+      } as const;
     case "GRACE":
     case "CANCELED":
     case "TRIAL":
@@ -152,11 +159,12 @@ export default function MyPlanScreen() {
 
   const code = plan?.code ?? "FREE";
   const status = plan?.subscriptionStatus ?? null;
+  const isAmbassador = status === "AMBASSADOR";
   const badge = getStatusBadge({
     status,
     isCanceled: plan?.isCanceled ?? false,
   });
-  const features = PLAN_FEATURES[code];
+  const features = plan?.projectLimit === -1 ? PLAN_FEATURES["PRO"] : PLAN_FEATURES[code];
   const periodEnd = plan?.currentPeriodEnd ?? null;
   const trialEnd = plan?.trialEndsAt ?? null;
   const accessUntil = plan?.accessUntil ?? null;
@@ -224,9 +232,17 @@ export default function MyPlanScreen() {
 
         <View style={styles.planCard}>
           <View style={styles.planCardHeader}>
-            <View>
-              <Text style={styles.planName}>{PLAN_LABELS[code].toUpperCase()}</Text>
-              <Text style={styles.planPrice}>{price}</Text>
+            <View style={styles.planCardTitleBlock}>
+              <Text style={[styles.planName, isAmbassador && styles.planNameAmbassador]}>
+                {isAmbassador ? "EMBAIXADOR" : PLAN_LABELS[code].toUpperCase()}
+              </Text>
+              {isAmbassador ? (
+                <Text style={styles.ambassadorSubtitle}>
+                  Você tem acesso gratuito a todas as funcionalidades do app.
+                </Text>
+              ) : (
+                <Text style={styles.planPrice}>{price}</Text>
+              )}
             </View>
             <View
               style={[styles.statusBadge, { backgroundColor: `${badge.color}18` }]}
@@ -335,7 +351,7 @@ export default function MyPlanScreen() {
           </View>
         </View>
 
-        {hasEntitlement && code !== "FREE" ? (
+        {hasEntitlement && code !== "FREE" && !isAmbassador ? (
           <TouchableOpacity
             style={styles.manageButton}
             onPress={() => void openSubscriptionManagement(refresh)}
@@ -381,6 +397,10 @@ export default function MyPlanScreen() {
             {code === "FREE" ? "Assinar agora" : "Ver todos os planos"}
           </Text>
         </TouchableOpacity>
+
+        {isAmbassador ? (
+          <Text style={styles.ambassadorNote}>Assine a qualquer momento</Text>
+        ) : null}
       </ScrollView>
       <ToastRenderer topOffset={16} />
       <RoleQualificationSheet ref={roleQualificationSheetRef} />
@@ -449,6 +469,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
     borderColor: "#FECACA",
   },
+  alertBannerAmber: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+  },
+  alertTextAmber: { color: "#92400E" },
   alertText: {
     flex: 1,
     fontSize: 13,
@@ -473,6 +498,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
   },
+  planCardTitleBlock: {
+    flex: 1,
+    marginRight: spacing[12],
+  },
   planName: {
     fontSize: 14,
     fontWeight: "800",
@@ -480,11 +509,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing[4],
   },
+  planNameAmbassador: {
+    color: "#D97706",
+  },
   planPrice: {
     fontSize: 22,
     fontWeight: "800",
     color: colors.text,
     letterSpacing: -0.5,
+  },
+  ambassadorSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
+  ambassadorNote: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: -spacing[8],
   },
   statusBadge: {
     flexDirection: "row",

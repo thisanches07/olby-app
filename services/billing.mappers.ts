@@ -1,5 +1,6 @@
 export type PlanCode = "FREE" | "BASIC" | "PRO";
 export type SubscriptionStatus =
+  | "AMBASSADOR"
   | "TRIAL"
   | "ACTIVE"
   | "GRACE"
@@ -133,6 +134,7 @@ export function mapEffectivePlanToSubscription(
 ): MySubscriptionResponse {
   const status = effectivePlan.subscriptionStatus;
   const normalizedStatus: SubscriptionStatus =
+    status === "AMBASSADOR" ||
     status === "TRIAL" ||
     status === "ACTIVE" ||
     status === "GRACE" ||
