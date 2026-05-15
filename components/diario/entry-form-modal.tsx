@@ -80,9 +80,12 @@ export function EntryFormModal({
   const [dateTouched, setDateTouched] = useState(false);
   const [saveAttempted, setSaveAttempted] = useState(false);
   const [time, setTime] = useState("");
+  const [timeError, setTimeError] = useState(false);
   const [title, setTitle] = useState("");
+  const [titleError, setTitleError] = useState(false);
   const [description, setDescription] = useState("");
   const [newPhotoAssets, setNewPhotoAssets] = useState<LocalPhotoAsset[]>([]);
+  const [durationError, setDurationError] = useState(false);
 
   // duration em minutos; null = não selecionado
   const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
@@ -205,9 +208,12 @@ export function EntryFormModal({
     setDateTouched(false);
     setSaveAttempted(false);
     setTime(`${hh}:${min}`);
+    setTimeError(false);
     setTitle("");
+    setTitleError(false);
     setDescription("");
     setNewPhotoAssets([]);
+    setDurationError(false);
     setDurationMinutes(null);
     setCustomMinutes(270);
     setShowCustom(false);
@@ -215,6 +221,7 @@ export function EntryFormModal({
   };
 
   const handlePreset = (value: number) => {
+    setDurationError(false);
     if (value === -1) {
       setShowCustom(true);
       setDurationMinutes(customMinutes);
@@ -225,6 +232,7 @@ export function EntryFormModal({
   };
 
   const adjustCustom = (delta: number) => {
+    setDurationError(false);
     const next = Math.max(30, Math.min(1440, customMinutes + delta));
     setCustomMinutes(next);
     setDurationMinutes(next);
@@ -233,16 +241,24 @@ export function EntryFormModal({
   // ── Salvar ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setSaveAttempted(true);
-    if (!title.trim()) {
-      showToast({ title: "Título obrigatório", message: "Informe um título para o registro.", tone: "error" });
-      return;
-    }
+
     const rawDate = date.trim();
-    if (!rawDate || dateDigitsLen !== 8 || !parseBRDateToLocalDate(rawDate)) {
+    const tituloVazio = !title.trim();
+    const chegadaVazia = !time.trim();
+    const dataVazia = !rawDate;
+    const tempoVazio = durationMinutes === null;
+
+    setTitleError(tituloVazio);
+    setTimeError(chegadaVazia);
+    setDurationError(tempoVazio);
+
+    if (tituloVazio || chegadaVazia || dataVazia || tempoVazio) {
+      showToast({ title: "Preencha os campos obrigatórios", tone: "error" });
       return;
     }
-    if (durationMinutes === null) {
-      showToast({ title: "Tempo não selecionado", message: "Selecione o tempo na obra.", tone: "error" });
+
+    // Erro de formato da data: realce inline + mensagem via dateError
+    if (dateDigitsLen !== 8 || !parseBRDateToLocalDate(rawDate)) {
       return;
     }
     try {
@@ -428,16 +444,19 @@ export function EntryFormModal({
               </View>
 
               <View style={[styles.field, { flex: 1 }]}>
-                <Text style={styles.label}>
+                <Text style={[styles.label, timeError && styles.labelError]}>
                   Chegada <Text style={styles.required}>*</Text>
                 </Text>
                 <TextInput
                   ref={timeRef}
-                  style={styles.input}
+                  style={[styles.input, timeError && styles.inputError]}
                   placeholder="HH:MM"
                   placeholderTextColor="#9CA3AF"
                   value={time}
-                  onChangeText={(t) => setTime(formatTime(t))}
+                  onChangeText={(t) => {
+                    setTime(formatTime(t));
+                    if (timeError) setTimeError(false);
+                  }}
                   maxLength={5}
                   keyboardType="number-pad"
                   returnKeyType="next"
@@ -471,8 +490,14 @@ export function EntryFormModal({
             {/* ── Tempo na Obra ── */}
             <View style={styles.field}>
               <View style={styles.tempoLabelRow}>
-                <MaterialIcons name="schedule" size={16} color={PRIMARY} />
-                <Text style={styles.label}>Tempo na Obra</Text>
+                <MaterialIcons
+                  name="schedule"
+                  size={16}
+                  color={durationError ? "#EF4444" : PRIMARY}
+                />
+                <Text style={[styles.label, durationError && styles.labelError]}>
+                  Tempo na Obra <Text style={styles.required}>*</Text>
+                </Text>
                 {durationMinutes !== null && (
                   <View style={styles.tempoBadge}>
                     <Text style={styles.tempoBadgeText}>
@@ -483,51 +508,61 @@ export function EntryFormModal({
               </View>
               <Text style={styles.sublabel}>Horas dedicadas a esta visita</Text>
 
-              <View style={styles.chipsRow}>
-                {PRESETS_ROW1.map(renderChip)}
-              </View>
-              <View style={[styles.chipsRow, { marginTop: 8 }]}>
-                {PRESETS_ROW2.map(renderChip)}
-              </View>
-
-              {showCustom && (
-                <View style={styles.stepper}>
-                  <TouchableOpacity
-                    style={styles.stepperBtn}
-                    onPress={() => adjustCustom(-30)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons name="remove" size={22} color={PRIMARY} />
-                  </TouchableOpacity>
-                  <View style={styles.stepperCenter}>
-                    <Text style={styles.stepperValue}>
-                      {formatMinutesLabel(customMinutes)}
-                    </Text>
-                    <Text style={styles.stepperSub}>na obra</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.stepperBtn}
-                    onPress={() => adjustCustom(30)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons name="add" size={22} color={PRIMARY} />
-                  </TouchableOpacity>
+              <View
+                style={[
+                  styles.chipsGroup,
+                  durationError && styles.chipsGroupError,
+                ]}
+              >
+                <View style={styles.chipsRow}>
+                  {PRESETS_ROW1.map(renderChip)}
                 </View>
-              )}
+                <View style={[styles.chipsRow, { marginTop: 8 }]}>
+                  {PRESETS_ROW2.map(renderChip)}
+                </View>
+
+                {showCustom && (
+                  <View style={styles.stepper}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustCustom(-30)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcons name="remove" size={22} color={PRIMARY} />
+                    </TouchableOpacity>
+                    <View style={styles.stepperCenter}>
+                      <Text style={styles.stepperValue}>
+                        {formatMinutesLabel(customMinutes)}
+                      </Text>
+                      <Text style={styles.stepperSub}>na obra</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => adjustCustom(30)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcons name="add" size={22} color={PRIMARY} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* ── Título ── */}
             <View style={styles.field}>
-              <Text style={styles.label}>
+              <Text style={[styles.label, titleError && styles.labelError]}>
                 Título <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
                 ref={titleRef}
-                style={styles.input}
+                style={[styles.input, titleError && styles.inputError]}
                 placeholder="Ex: Inspeção da estrutura – Pavimento 2"
                 placeholderTextColor="#9CA3AF"
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={(t) => {
+                  setTitle(t);
+                  if (titleError) setTitleError(false);
+                }}
                 maxLength={120}
                 returnKeyType="next"
                 blurOnSubmit={false}
@@ -673,6 +708,7 @@ const styles = StyleSheet.create({
     color: "#374151",
   },
   required: { color: "#EF4444" },
+  labelError: { color: "#EF4444" },
   sublabel: {
     fontSize: 12,
     color: "#9CA3AF",
@@ -692,6 +728,10 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 100,
     paddingTop: 12,
+  },
+  inputError: {
+    borderColor: "#EF4444",
+    backgroundColor: "#FFF1F2",
   },
   charCounter: {
     marginTop: 4,
@@ -775,6 +815,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: PRIMARY,
+  },
+  chipsGroup: {
+    borderWidth: 1,
+    borderColor: "transparent",
+    borderRadius: 12,
+    padding: 6,
+    marginHorizontal: -6,
+  },
+  chipsGroupError: {
+    borderColor: "#EF4444",
+    backgroundColor: "#FFF1F2",
   },
   chipsRow: {
     flexDirection: "row",

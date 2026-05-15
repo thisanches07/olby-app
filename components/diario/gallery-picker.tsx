@@ -50,12 +50,19 @@ export function GalleryPicker({
     onNewPhotosSelected(assets);
   };
 
+  // Vagas compartilhadas entre fotos já enviadas + novas (galeria/câmera).
+  const visibleExisting = existingPhotos.filter((p) => !deletedIds.has(p.id));
+  const totalExisting = visibleExisting.length;
+  const usedSlots = totalExisting + newAssets.length;
+  const spacesLeft = Math.max(0, MAX_NEW_PHOTOS - usedSlots);
+  const canAddMore = spacesLeft > 0;
+
   const handleCameraPhotos = (uris: string[]) => {
     const cameraAssets: LocalPhotoAsset[] = uris.map((uri) => ({
       uri,
       mimeType: "image/jpeg",
     }));
-    const updated = [...newAssets, ...cameraAssets].slice(0, MAX_NEW_PHOTOS);
+    const updated = [...newAssets, ...cameraAssets.slice(0, spacesLeft)];
     updateNew(updated);
     setShowCameraModal(false);
   };
@@ -69,7 +76,6 @@ export function GalleryPicker({
         return;
       }
 
-      const spacesLeft = MAX_NEW_PHOTOS - newAssets.length;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
@@ -99,18 +105,13 @@ export function GalleryPicker({
       mimeType: a.mimeType ?? "image/jpeg",
       fileSize: a.fileSize ?? null,
     }));
-    const updated = [...newAssets, ...mapped].slice(0, MAX_NEW_PHOTOS);
+    const updated = [...newAssets, ...mapped.slice(0, spacesLeft)];
     updateNew(updated);
   };
 
   const removeNew = (index: number) => {
     updateNew(newAssets.filter((_, i) => i !== index));
   };
-
-  const canAddMore = newAssets.length < MAX_NEW_PHOTOS;
-  const spacesLeft = MAX_NEW_PHOTOS - newAssets.length;
-  const visibleExisting = existingPhotos.filter((p) => !deletedIds.has(p.id));
-  const totalExisting = visibleExisting.length;
 
   const cameraLabel = canAddMore
     ? `Câmera · ${spacesLeft} vaga${spacesLeft === 1 ? "" : "s"}`
@@ -202,7 +203,8 @@ export function GalleryPicker({
         <View style={styles.previewSection}>
           <View style={styles.previewHeader}>
             <Text style={styles.label}>
-              Novas fotos ({newAssets.length}/{MAX_NEW_PHOTOS})
+              Novas fotos ({newAssets.length}) · {usedSlots}/{MAX_NEW_PHOTOS} no
+              registro
             </Text>
             {newAssets.length > 3 && (
               <Text style={styles.scrollHint}>→ deslize para ver mais</Text>
@@ -278,6 +280,7 @@ export function GalleryPicker({
 
       <CameraSequenceModal
         visible={showCameraModal}
+        remaining={spacesLeft}
         onPhotosCapture={handleCameraPhotos}
         onClose={() => setShowCameraModal(false)}
       />

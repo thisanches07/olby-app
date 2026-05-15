@@ -31,6 +31,7 @@ export default function DevPanel({
   const [open, setOpen] = useState(false);
   const [loginLoading, setLoginLoading] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [reportMsg, setReportMsg] = useState<string | null>(null);
   const { plan } = useSubscription();
 
   const DEFAULT_OBRA_ID = "1";
@@ -72,6 +73,19 @@ export default function DevPanel({
       setLoginError(msg);
     } finally {
       setLoginLoading(null);
+    }
+  }
+
+  async function handleResetReports() {
+    setReportMsg(null);
+    try {
+      const { resetReportUsage } = await import("@/utils/report-usage");
+      const removed = await resetReportUsage();
+      setReportMsg(
+        `Relatórios zerados (${removed} registro${removed === 1 ? "" : "s"})`,
+      );
+    } catch {
+      setReportMsg("Falha ao zerar relatórios");
     }
   }
 
@@ -144,6 +158,17 @@ export default function DevPanel({
           <Text style={styles.emptyText}>
             Sincronizado via API /subscriptions/me
           </Text>
+
+          <Text style={styles.section}>Relatórios</Text>
+          <View style={styles.row}>
+            <Chip
+              label="Zerar relatórios do mês"
+              onPress={() => void handleResetReports()}
+            />
+          </View>
+          {reportMsg ? (
+            <Text style={styles.okText}>{reportMsg}</Text>
+          ) : null}
 
           <Text style={styles.section}>Onboarding</Text>
           <View style={styles.row}>
@@ -265,6 +290,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#F87171",
+    fontSize: 11,
+    marginTop: 4,
+  },
+  okText: {
+    color: "#34D399",
     fontSize: 11,
     marginTop: 4,
   },

@@ -40,7 +40,10 @@
       "Bash(Select-Object Name)",
       "Bash(xargs cat *)",
       "Read(//c/Users/tsanc/Desktop/novo app/**)",
-      "WebFetch(domain:www.oblyapp.com)"
+      "WebFetch(domain:www.oblyapp.com)",
+      "PowerShell($p = \"C:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\skills-anthropic\"; Get-ChildItem $p -Directory | ForEach-Object { $_.Name })",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table FullName)"
     ]
   }
 }

@@ -2,11 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { PlanCode } from "@/services/subscription.service";
 
 const BASIC_MONTHLY_LIMIT = 1;
+const KEY_PREFIX = "report_usage_";
 
 function storageKey(projectId: string): string {
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  return `report_usage_${projectId}_${ym}`;
+  return `${KEY_PREFIX}${projectId}_${ym}`;
 }
 
 export async function getMonthlyUsage(projectId: string): Promise<number> {
@@ -35,6 +36,23 @@ export async function checkReportAccess(
     used,
     limit: BASIC_MONTHLY_LIMIT,
   };
+}
+
+/**
+ * DEV: remove todos os contadores de uso de relatório (todos os projetos,
+ * todos os meses). Retorna quantas chaves foram apagadas.
+ */
+export async function resetReportUsage(): Promise<number> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const reportKeys = keys.filter((k) => k.startsWith(KEY_PREFIX));
+    if (reportKeys.length > 0) {
+      await AsyncStorage.multiRemove(reportKeys);
+    }
+    return reportKeys.length;
+  } catch {
+    return 0;
+  }
 }
 
 export async function recordReportGeneration(projectId: string): Promise<void> {

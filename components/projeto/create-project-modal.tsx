@@ -466,7 +466,7 @@ export function CreateProjectModal({
             showToast({
               title: "Lista limpa",
               message: "Todas as tarefas foram removidas.",
-              tone: "neutral",
+              tone: "info",
             });
           },
         },
@@ -478,8 +478,21 @@ export function CreateProjectModal({
     setSubmitError(null);
     setDeliverySaveAttempted(true);
 
-    if (!actions.validate()) return;
-    if (deliveryForecastError) return;
+    if (!actions.validate()) {
+      showToast({
+        title: "Preencha os campos obrigatórios",
+        tone: "error",
+      });
+      return;
+    }
+    if (deliveryForecastError) {
+      showToast({
+        title: "Data inválida",
+        message: deliveryForecastError,
+        tone: "error",
+      });
+      return;
+    }
 
     setIsSaving(true);
 
@@ -744,14 +757,6 @@ export function CreateProjectModal({
                   current={formState.nome.length}
                   max={PROJECT_NAME_MAX}
                 />
-                {formState.errors.nome && (
-                  <View style={styles.errorBox}>
-                    <MaterialIcons name="error" size={16} color="#DC2626" />
-                    <Text style={styles.errorText}>
-                      {formState.errors.nome}
-                    </Text>
-                  </View>
-                )}
               </View>
 
               <View style={styles.formGroup}>
@@ -780,14 +785,6 @@ export function CreateProjectModal({
                   current={formState.endereco.length}
                   max={PROJECT_ADDRESS_MAX}
                 />
-                {formState.errors.endereco && (
-                  <View style={styles.errorBox}>
-                    <MaterialIcons name="error" size={16} color="#DC2626" />
-                    <Text style={styles.errorText}>
-                      {formState.errors.endereco}
-                    </Text>
-                  </View>
-                )}
               </View>
 
               <View style={styles.deliveryHorasRow}>
@@ -828,7 +825,7 @@ export function CreateProjectModal({
 
                     {!!deliveryForecastError && (
                       <View style={styles.errorBox}>
-                        <MaterialIcons name="error" size={16} color="#DC2626" />
+                        <MaterialIcons name="error" size={16} color="#EF4444" />
                         <Text style={styles.errorText}>
                           {deliveryForecastError}
                         </Text>
@@ -1393,7 +1390,7 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 16 },
   labelRow: { flexDirection: "row", marginBottom: 8, alignItems: "center" },
   label: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  required: { color: "#DC2626", marginLeft: 2 },
+  required: { color: "#EF4444", marginLeft: 2 },
   labelOptional: { fontSize: 12, fontWeight: "400", color: "#9CA3AF" },
   labelHint: {
     fontSize: 12,
@@ -1413,7 +1410,7 @@ const styles = StyleSheet.create({
     color: "#111827",
     maxHeight: 100,
   },
-  inputError: { borderColor: "#DC2626", backgroundColor: "#FEF2F2" },
+  inputError: { borderColor: "#EF4444", backgroundColor: "#FFF1F2" },
 
   errorBox: {
     flexDirection: "row",
@@ -1422,7 +1419,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
   },
-  errorText: { fontSize: 12, color: "#DC2626", fontWeight: "500" },
+  errorText: { fontSize: 12, color: "#EF4444", fontWeight: "500" },
 
   inlineInputWrap: { gap: 8 },
   inlineActions: { flexDirection: "row", gap: 8, justifyContent: "flex-end" },

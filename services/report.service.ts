@@ -79,7 +79,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   OTHER: "#E2E8F0",
 };
 
-const MAX_REPORT_PHOTOS_PER_ENTRY = 6;
+const MAX_REPORT_PHOTOS_PER_ENTRY = 10;
 
 function isoDate(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -165,16 +165,19 @@ async function getEntryReportPhotos(
   const previewPhotos = item.photosPreview.slice(0, MAX_REPORT_PHOTOS_PER_ENTRY);
 
   try {
-    const signedUrls = await dailyLogPhotosService.getSignedUrlsForEntry(
+    // listByEntry retorna TODAS as fotos READY (sem o cap de 3 do feed) com
+    // thumbUrl assinada — shape de array correto, ideal pro tamanho do PDF.
+    const allPhotos = await dailyLogPhotosService.listByEntry(
       projectId,
       item.id,
     );
-    const photos = signedUrls
+    const photos = allPhotos
+      .filter((p) => p.status === "READY" && p.thumbUrl)
       .slice(0, MAX_REPORT_PHOTOS_PER_ENTRY)
-      .map((photo) => ({
-        id: photo.id,
-        thumbUrl: photo.url,
-        thumbContentType: "image/jpeg",
+      .map((p) => ({
+        id: p.id,
+        thumbUrl: p.thumbUrl!,
+        thumbContentType: p.thumbContentType,
       }));
 
     if (photos.length > 0) {

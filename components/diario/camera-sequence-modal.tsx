@@ -23,12 +23,15 @@ const THUMB_GAP = 8;
 
 interface CameraSequenceModalProps {
   visible: boolean;
+  /** Vagas restantes no registro (compartilhadas com galeria + fotos já enviadas). */
+  remaining: number;
   onPhotosCapture: (photoUris: string[]) => void;
   onClose: () => void;
 }
 
 export function CameraSequenceModal({
   visible,
+  remaining,
   onPhotosCapture,
   onClose,
 }: CameraSequenceModalProps) {
@@ -41,6 +44,9 @@ export function CameraSequenceModal({
 
   // Derived preview URI — single source of truth
   const previewUri = selectedIndex !== null ? (photos[selectedIndex] ?? null) : null;
+
+  // Teto da sessão: vagas restantes no registro, limitado ao máximo absoluto.
+  const limit = Math.max(0, Math.min(MAX_PHOTOS, remaining));
 
   // Request permission once when modal opens
   useEffect(() => {
@@ -91,10 +97,10 @@ export function CameraSequenceModal({
         setPhotos(updatedPhotos);
         setSelectedIndex(updatedPhotos.length - 1);
 
-        if (updatedPhotos.length >= MAX_PHOTOS) {
+        if (updatedPhotos.length >= limit) {
           showToast({
             title: "Limite atingido",
-            message: "Você já tem 10 fotos. Toque em Usar fotos para confirmar.",
+            message: `Você atingiu ${limit} foto${limit === 1 ? "" : "s"}. Toque em Usar fotos para confirmar.`,
             tone: "info",
           });
         }
@@ -140,7 +146,7 @@ export function CameraSequenceModal({
     }
   };
 
-  const canTakeMore = photos.length < MAX_PHOTOS;
+  const canTakeMore = photos.length < limit;
   const confirmLabel =
     photos.length === 0
       ? "OK"
@@ -167,14 +173,16 @@ export function CameraSequenceModal({
         {/* Counter */}
         <View style={styles.counterBar}>
           {photos.length === 0 ? (
-            <Text style={styles.counterGuidance}>Até {MAX_PHOTOS} fotos por registro</Text>
+            <Text style={styles.counterGuidance}>
+              Até {limit} foto{limit === 1 ? "" : "s"} nesta sessão
+            </Text>
           ) : (
             <>
               <View style={styles.counterRow}>
                 <Text style={styles.counterText}>
-                  {photos.length}/{MAX_PHOTOS} fotos
+                  {photos.length}/{limit} fotos
                 </Text>
-                {photos.length >= MAX_PHOTOS && (
+                {photos.length >= limit && (
                   <Text style={styles.counterLimitLabel}>Limite atingido</Text>
                 )}
               </View>
@@ -182,7 +190,9 @@ export function CameraSequenceModal({
                 <View
                   style={[
                     styles.progressFill,
-                    { width: `${(photos.length / MAX_PHOTOS) * 100}%` },
+                    {
+                      width: `${limit > 0 ? Math.min(100, (photos.length / limit) * 100) : 100}%`,
+                    },
                   ]}
                 />
               </View>

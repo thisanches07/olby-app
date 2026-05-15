@@ -38,24 +38,47 @@ function fmtDateBR(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+const MONTHS = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
+
+const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
 function fmtDateShort(iso: string): string {
   if (!iso) return "";
-  const months = [
-    "jan",
-    "fev",
-    "mar",
-    "abr",
-    "mai",
-    "jun",
-    "jul",
-    "ago",
-    "set",
-    "out",
-    "nov",
-    "dez",
-  ];
   const [, month, day] = iso.split("-");
-  return `${parseInt(day, 10)} ${months[parseInt(month, 10) - 1]}`;
+  return `${parseInt(day, 10)} ${MONTHS[parseInt(month, 10) - 1]}`;
+}
+
+function fmtRailDate(iso: string): { day: string; mon: string } {
+  if (!iso) return { day: "", mon: "" };
+  const [, month, day] = iso.split("-");
+  return {
+    day: String(parseInt(day, 10)).padStart(2, "0"),
+    mon: MONTHS[parseInt(month, 10) - 1] ?? "",
+  };
+}
+
+function fmtWeekdayLine(iso: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  const wd = new Date(
+    parseInt(y, 10),
+    parseInt(m, 10) - 1,
+    parseInt(d, 10),
+  ).getDay();
+  return `${WEEKDAYS[wd]}, ${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
 }
 
 function fmtPeriodLabel(period: ReportPeriod): string {
@@ -83,40 +106,6 @@ function pctClass(p: number): string {
   if (p >= 100) return "over";
   if (p >= 80) return "warn";
   return "";
-}
-
-// â”€â”€â”€ Photo grid section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function photoGridSection(data: ReportData): string {
-  const withPhotos = data.diaryEntries.filter((e) => e.photos.length > 0);
-  if (withPhotos.length === 0) return "";
-
-  const rows = withPhotos
-    .map((entry, index) => {
-      const imgs = entry.photos
-        .slice(0, 6)
-        .map(
-          (p) =>
-            `<div class="ph"><img src="${escHtml(p.thumbUrl)}" alt=""/></div>`,
-        )
-        .join("");
-      const sectionHeader =
-        index === 0
-          ? `<div class="s-head"><div class="s-bar"></div><span class="s-title">Registro Fotográfico</span></div>`
-          : "";
-      return `
-      <div class="photo-day">
-        ${sectionHeader}
-        <div class="photo-day-lbl">${fmtDateShort(entry.date)}</div>
-        <div class="pg">${imgs}</div>
-      </div>`;
-    })
-    .join("");
-
-  return `
-  <div class="section">
-    ${rows}
-  </div>`;
 }
 
 // â”€â”€â”€ Tasks section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -262,32 +251,71 @@ function financialSection(data: ReportData): string {
 function diarySection(data: ReportData): string {
   if (data.diaryEntries.length === 0) return "";
 
-  const items = data.diaryEntries
-    .map((entry) => {
+  // Ordem cronológica crescente (mais antigo → mais recente) em todos
+  // os tipos de relatório; numeração sequencial 01..N de cima pra baixo.
+  const ordered = [...data.diaryEntries].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+  );
+  const total = ordered.length;
+
+  const itemsArr = ordered
+    .map((entry, idx) => {
+      const num = String(idx + 1).padStart(2, "0");
+      const rail = fmtRailDate(entry.date);
+
       const duration = entry.durationMinutes
-        ? `<span class="di-dur">${fmtHours(entry.durationMinutes)}</span>`
+        ? `<span class="rdo-dur"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 1.5"/></svg>${fmtHours(entry.durationMinutes)}</span>`
         : "";
       const notes = entry.notes
-        ? `<div class="di-notes">${escHtml(entry.notes)}</div>`
+        ? `<p class="rdo-notes">${escHtml(entry.notes)}</p>`
         : "";
+
+      const shots =
+        entry.photos.length > 0
+          ? `
+      <div class="rdo-shots">
+        <div class="rdo-shots-cap">Registro fotográfico</div>
+        <div class="pg">${entry.photos
+          .map(
+            (p) =>
+              `<div class="ph"><img src="${escHtml(p.thumbUrl)}" alt=""/></div>`,
+          )
+          .join("")}</div>
+      </div>`
+          : "";
+
+      const lastClass = idx === total - 1 ? " rdo-last" : "";
+
       return `
-    <div class="di-item">
-      <div class="di-header">
-        <div class="di-date-badge">${fmtDateShort(entry.date)}</div>
-        <div class="di-meta">
-          <span class="di-title">${escHtml(entry.title ?? "Visita registrada")}</span>
-          ${duration}
-        </div>
+    <article class="rdo${lastClass}">
+      <div class="rdo-rail">
+        <span class="rdo-node"></span>
+        <div class="rdo-dt"><b>${rail.day}</b><span>${rail.mon}</span></div>
       </div>
-      ${notes}
-    </div>`;
-    })
-    .join("");
+      <div class="rdo-body">
+        <div class="rdo-keep">
+          <div class="rdo-tag">Registro Nº ${num} · ${escHtml(fmtWeekdayLine(entry.date))}</div>
+          <div class="rdo-head">
+            <h3 class="rdo-title">${escHtml(entry.title ?? "Visita registrada")}</h3>
+            ${duration}
+          </div>
+          ${notes}
+        </div>
+        ${shots}
+      </div>
+    </article>`;
+    });
+
+  const firstItem = itemsArr[0] ?? "";
+  const restItems = itemsArr.slice(1).join("");
 
   return `
-  <div class="section">
-    <div class="s-head"><div class="s-bar"></div><span class="s-title">Registros do Período</span></div>
-    ${items}
+  <div class="section diary">
+    <div class="rdo-start">
+      <div class="s-head"><div class="s-bar"></div><span class="s-title">Registros Diários</span></div>
+      ${firstItem}
+    </div>
+    ${restItems}
   </div>`;
 }
 
@@ -320,14 +348,24 @@ export function generateReportHtml(
 <title>Relatório - ${escHtml(data.projectName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 
+  /* Documento branco limpo. Margem em toda folha: respiro no topo e faixa
+     inferior reservada para o rodapé corrido fixo (que se repete em todas as
+     páginas, sem ser empurrado nem deixar página em branco no fim). */
+  /* Sem margens de página: a capa azul sangra no topo da 1ª folha. O rodapé
+     é reservado pelo <tfoot> (o motor repete o tfoot e guarda a altura dele
+     em cada folha), não por margem — assim não há faixa branca no topo nem
+     sobreposição do conteúdo. Respiro de topo das páginas de continuação vem
+     do padding-top do .rdo. */
+  @page { margin:0; }
+
+  html, body { background:#FFFFFF; }
+
   body {
     font-family:'Inter', -apple-system, 'Helvetica Neue', sans-serif;
-    background:#E2E8F0;
-    padding:32px 16px;
     color:#111827;
     -webkit-font-smoothing:antialiased;
   }
@@ -335,8 +373,7 @@ export function generateReportHtml(
   .page {
     max-width:794px;
     margin:0 auto;
-    background:#fff;
-    box-shadow:0 4px 48px rgba(0,0,0,0.13);
+    background:#FFFFFF;
   }
 
   /* â”€â”€ CAPA â”€â”€ */
@@ -350,7 +387,7 @@ export function generateReportHtml(
   .c-eyebrow { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.18em; color:#60A5FA; }
   .c-brand { display:flex; align-items:center; gap:7px; }
   .c-brand-text { font-size:11px; font-weight:800; letter-spacing:0.18em; text-transform:uppercase; color:#93C5FD; }
-  .c-title { font-size:40px; font-weight:800; color:#0F172A; line-height:1.05; letter-spacing:-0.03em; margin-bottom:6px; }
+  .c-title { font-family:'Archivo',sans-serif; font-size:40px; font-weight:800; color:#0F172A; line-height:1.05; letter-spacing:-0.03em; margin-bottom:6px; }
   .c-sub { font-size:14px; color:#475569; font-weight:400; }
   .cover-bottom { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; }
   .cover-fields { display:flex; gap:36px; flex-wrap:wrap; }
@@ -371,27 +408,51 @@ export function generateReportHtml(
   .stat:last-child { border-right:none; }
   .stat-icon { flex-shrink:0; color:#93C5FD; }
   .stat-body { min-width:0; }
-  .stat-val { font-size:20px; font-weight:800; color:#0F172A; letter-spacing:-0.02em; line-height:1; display:block; }
+  .stat-val { font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:700; color:#0F172A; letter-spacing:-0.02em; line-height:1; display:block; font-variant-numeric:tabular-nums; }
   .stat-lbl { font-size:11px; color:#64748B; font-weight:500; margin-top:3px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* â”€â”€ CONTEÚDO â”€â”€ */
-  .content { padding:32px 52px 52px; }
+  /* Sem padding-bottom: o respiro final vem do @page margin-bottom. Evita
+     sobra de espaço vazio que empurrava uma página em branco no fim. */
+  .content { padding:32px 52px 0; }
   .section { margin-top:30px; padding-top:30px; border-top:1px solid #F1F5F9; }
   .section:first-child { margin-top:0; padding-top:28px; border-top:none; }
   .keep-section { break-inside:avoid; page-break-inside:avoid; }
+  /* Diário: o divisor (borda + respiro) sai da .section e vai para o wrapper
+     .rdo-start, que agrupa o título "Registros Diários" + o 1º registro num
+     bloco break-inside:avoid — título e 1º registro nunca se separam. */
+  .section.diary { border-top:none; padding-top:0; }
+  .rdo-start {
+    break-inside:avoid; page-break-inside:avoid;
+    padding-top:30px; border-top:1px solid #F1F5F9;
+  }
+  .section:first-child.diary .rdo-start { border-top:none; padding-top:28px; }
   .s-head { display:flex; align-items:center; gap:10px; margin-bottom:20px; break-after:avoid; page-break-after:avoid; }
   .s-bar { width:3px; height:18px; background:#2563EB; border-radius:2px; flex-shrink:0; }
-  .s-title { font-size:14px; font-weight:700; color:#0F172A; letter-spacing:-0.01em; }
+  .s-title { font-family:'Archivo',sans-serif; font-size:12px; font-weight:700; color:#0F172A; text-transform:uppercase; letter-spacing:0.06em; }
 
-  /* â”€â”€ DIÁRIO â”€â”€ */
-  .di-item { margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid #F8FAFC; }
-  .di-item:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
-  .di-header { display:flex; align-items:center; gap:10px; margin-bottom:5px; }
-  .di-date-badge { background:#EFF6FF; color:#2563EB; font-size:11px; font-weight:700; padding:3px 9px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
-  .di-meta { flex:1; display:flex; align-items:center; gap:8px; min-width:0; }
-  .di-title { font-size:13px; font-weight:600; color:#1E293B; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .di-dur { font-size:11px; color:#64748B; white-space:nowrap; flex-shrink:0; }
-  .di-notes { font-size:12px; color:#64748B; padding-left:0; line-height:1.5; margin-top:2px; }
+  /* â”€â”€ RDO TIMELINE â”€â”€ */
+  /* Registro compacto e atômico: nunca parte no meio; ~≤330px com 1 linha de
+     fotos → 3 cabem por página. padding-top:14 dá o respiro do topo em
+     páginas de continuação (não há mais margem @page no topo). */
+  .rdo { display:flex; gap:18px; padding:14px 0 16px; break-inside:avoid; page-break-inside:avoid; }
+  .rdo.rdo-last { padding-bottom:0; }
+  .rdo-rail { position:relative; width:44px; flex-shrink:0; text-align:center; }
+  .rdo-rail::before { content:""; position:absolute; left:50%; top:8px; bottom:-16px; width:2px; background:#DBEAFE; transform:translateX(-50%); }
+  .rdo.rdo-last .rdo-rail::before { display:none; }
+  .rdo-node { position:relative; z-index:1; display:block; width:11px; height:11px; margin:8px auto 8px; border-radius:50%; background:#2563EB; box-shadow:0 0 0 4px #EFF6FF; }
+  .rdo-dt { font-family:'JetBrains Mono',monospace; }
+  .rdo-dt b { display:block; font-size:18px; font-weight:700; color:#0F172A; line-height:1; }
+  .rdo-dt span { font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#94A3B8; }
+  .rdo-body { flex:1; min-width:0; }
+  .rdo-keep { break-inside:avoid; page-break-inside:avoid; break-after:avoid; page-break-after:avoid; }
+  .rdo-tag { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:0.06em; color:#2563EB; text-transform:uppercase; margin-bottom:4px; }
+  .rdo-head { display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  .rdo-title { font-family:'Archivo',sans-serif; font-size:15px; font-weight:700; color:#0F172A; letter-spacing:-0.01em; line-height:1.2; flex:1; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+  .rdo-dur { display:inline-flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500; color:#475569; background:#F1F5F9; padding:3px 8px; border-radius:5px; white-space:nowrap; flex-shrink:0; }
+  .rdo-dur svg { flex-shrink:0; }
+  .rdo-notes { font-size:12px; color:#475569; line-height:1.45; margin-bottom:10px; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+  .rdo-shots-cap { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#94A3B8; margin:0 0 6px; break-after:avoid; page-break-after:avoid; }
 
   /* â”€â”€ TAREFAS â”€â”€ */
   .task-item { display:flex; align-items:center; gap:9px; padding:10px 0; border-bottom:1px solid #F8FAFC; }
@@ -434,22 +495,37 @@ export function generateReportHtml(
   .ci-val { font-size:13px; font-weight:600; color:#0F172A; }
 
   /* â”€â”€ FOTOS â”€â”€ */
-  .photo-day { margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
-  .photo-day-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#64748B; margin-bottom:8px; }
-  .pg { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; break-inside:avoid; page-break-inside:avoid; }
-  .ph { aspect-ratio:1; background:#F1F5F9; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; break-inside:avoid; page-break-inside:avoid; }
+  .pg { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .ph { aspect-ratio:3/2; background:#F1F5F9; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; break-inside:avoid; page-break-inside:avoid; }
   .ph img { width:100%; height:100%; object-fit:cover; }
 
-  /* â”€â”€ FOOTER â”€â”€ */
-  .footer { padding:20px 52px; border-top:1px solid #F1F5F9; display:flex; justify-content:space-between; align-items:center; }
-  .f-brand { display:flex; align-items:center; gap:6px; }
-  .f-brand-text { font-size:11px; font-weight:800; color:#64748B; letter-spacing:0.12em; text-transform:uppercase; }
-  .f-info { font-size:11px; color:#CBD5E1; }
+  /* â”€â”€ FOOTER · rodapé corrido via <tfoot> â”€â”€
+     O motor de impressão repete o <tfoot> no fim de cada folha E reserva a
+     altura dele, então o conteúdo nunca passa por cima (ao contrário de
+     position:fixed, que no WebKit do expo-print invadia a imagem). */
+  table.doc { width:100%; border-collapse:collapse; }
+  table.doc > tbody > tr > td,
+  table.doc > tfoot > tr > td { padding:0; border:0; vertical-align:top; }
+  .doc-foot td { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .footer { padding:0 0 14px; }
+  .f-inner {
+    width:100%; max-width:794px; margin:0 auto;
+    padding:10px 52px 0;
+    display:flex; align-items:center; justify-content:space-between; gap:18px;
+    border-top:1px solid rgba(15,23,42,0.10);
+  }
+  .f-brand { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .f-brand-text { font-size:11px; font-weight:800; color:#475569; letter-spacing:0.14em; text-transform:uppercase; }
+  .f-title {
+    flex:1; min-width:0; text-align:center;
+    font-size:10px; font-weight:700; color:#94A3B8;
+    letter-spacing:0.16em; text-transform:uppercase;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .f-info { font-size:11px; color:#94A3B8; flex-shrink:0; }
 
   /* â”€â”€ MOBILE â”€â”€ */
   @media (max-width:600px) {
-    body { padding:0; background:#fff; }
-    .page { box-shadow:none; }
     .cover { padding:36px 20px 28px; gap:20px; }
     .c-title { font-size:28px; }
     .stats { grid-template-columns:repeat(2,1fr); }
@@ -458,18 +534,38 @@ export function generateReportHtml(
     .ind-pair { grid-template-columns:1fr; }
     .fin-row { flex-direction:column; gap:10px; }
     .fb-val { font-size:20px; }
+    .rdo { gap:12px; }
+    .rdo-rail { width:34px; }
+    .rdo-dt b { font-size:16px; }
+    .rdo-title { font-size:15px; }
     .pg { grid-template-columns:repeat(2,1fr); }
-    .footer { padding:14px 20px; flex-direction:column; gap:6px; align-items:flex-start; }
+    /* Preview em tela: rodapé empilhado (o tfoot já fica após o conteúdo). */
+    .f-inner { padding:16px 20px; border-top:1px solid #E2E8F0; flex-direction:column; align-items:flex-start; gap:6px; }
+    .f-title { text-align:left; letter-spacing:0.12em; }
   }
 </style>
 </head>
 <body>
+<table class="doc">
+<tfoot class="doc-foot"><tr><td>
+  <div class="footer">
+    <div class="f-inner">
+      <div class="f-brand">
+        ${oblySvg(16, "#94A3B8")}
+        <span class="f-brand-text">Obly</span>
+      </div>
+      <span class="f-title">${escHtml(data.projectName)}</span>
+      <span class="f-info">oblyapp.com · Gerado em ${generatedDate}</span>
+    </div>
+  </div>
+</td></tr></tfoot>
+<tbody><tr><td>
 <div class="page">
 
   <!-- CAPA -->
   <div class="cover">
     <div class="cover-top">
-      <span class="c-eyebrow">Relatório de Obra · ${escHtml(fmtPeriodLabel(period))}</span>
+      <span class="c-eyebrow">Relatório Diário de Obra · ${escHtml(fmtPeriodLabel(period))}</span>
       <div class="c-brand">
         ${oblySvg(28, "#60A5FA")}
         <span class="c-brand-text">Obly</span>
@@ -503,8 +599,8 @@ export function generateReportHtml(
     </div>
     <div class="stat">
       <div class="stat-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 1.5"/>
         </svg>
       </div>
       <div class="stat-body">
@@ -538,23 +634,15 @@ export function generateReportHtml(
 
   <!-- CONTEÚDO -->
   <div class="content">
-    ${diarySection(data)}
     ${tasksSection(data)}
     ${indicatorsSection(data)}
     ${financialSection(data)}
-    ${photoGridSection(data)}
-  </div>
-
-  <!-- FOOTER -->
-  <div class="footer">
-    <div class="f-brand">
-      ${oblySvg(18, "#94A3B8")}
-      <span class="f-brand-text">Obly</span>
-    </div>
-    <span class="f-info">oblyapp.com · Gerado em ${generatedDate}</span>
+    ${diarySection(data)}
   </div>
 
 </div>
+</td></tr></tbody>
+</table>
 </body>
 </html>`;
 }

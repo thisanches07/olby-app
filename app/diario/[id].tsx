@@ -198,15 +198,17 @@ export default function DiarioScreen() {
     setShowFormModal(true);
   };
 
-  const handleEditEntry = (entryId: string) => {
+  const handleEditEntry = async (entryId: string) => {
     if (!isEng || isReadOnly) return;
     const entry = sections
       .flatMap((s) => s.entries)
       .find((e) => e.id === entryId);
-    if (entry) {
-      setEditingEntry(entry);
-      setShowFormModal(true);
-    }
+    if (!entry) return;
+    // O feed traz só 3 fotos de preview; busca todas sob demanda (mesmo
+    // padrão do lightbox) para o modal de edição enxergar o registro inteiro.
+    const fullPhotos = await resolveEntryPhotos(entryId);
+    setEditingEntry({ ...entry, photos: fullPhotos });
+    setShowFormModal(true);
   };
 
   const handleDeleteEntry = (entryId: string) => {

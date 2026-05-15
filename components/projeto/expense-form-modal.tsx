@@ -213,10 +213,11 @@ export function ExpenseFormModal({
   const { showToast } = useToast();
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [descricao, setDescricao] = useState("");
+  const [descricaoError, setDescricaoError] = useState(false);
   const [valor, setValor] = useState("");
+  const [valorError, setValorError] = useState(false);
   const [dateText, setDateText] = useState("");
-  const [dateTouched, setDateTouched] = useState(false);
-  const [saveAttempted, setSaveAttempted] = useState(false);
+  const [dataError, setDataError] = useState(false);
   const [categoria, setCategoria] = useState<ExpenseCategory>("MATERIAL");
   const [tarefaId, setTarefaId] = useState<string | undefined>(undefined);
   const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
@@ -239,10 +240,11 @@ export function ExpenseFormModal({
 
   const resetForm = useCallback(() => {
     setDescricao("");
+    setDescricaoError(false);
     setValor("");
+    setValorError(false);
     setDateText("");
-    setDateTouched(false);
-    setSaveAttempted(false);
+    setDataError(false);
     setCategoria("MATERIAL");
     setTarefaId(undefined);
     setPendingReceiptId(null);
@@ -332,8 +334,8 @@ export function ExpenseFormModal({
   ]);
 
   const handleDateChange = (t: string) => {
-    setDateTouched(true);
     setDateText(maskBRDate(t));
+    if (dataError) setDataError(false);
   };
 
   const parsedValor = useMemo(() => {
@@ -351,26 +353,6 @@ export function ExpenseFormModal({
     () => (dateDigitsLen === 8 ? parseBRDateToLocalDate(dateText) : null),
     [dateText, dateDigitsLen],
   );
-
-  const shouldShowDateValidation = useMemo(
-    () =>
-      dateDigitsLen === 8 || saveAttempted || (dateTouched && !dateText.trim()),
-    [dateDigitsLen, saveAttempted, dateTouched, dateText],
-  );
-
-  const dateError = useMemo(() => {
-    if (!shouldShowDateValidation) return null;
-    const raw = dateText.trim();
-    if (!raw) return "Informe a data do gasto.";
-    if (dateDigitsLen !== 8) return "Complete a data no formato DD/MM/AAAA.";
-    const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!m) return "Use o formato DD/MM/AAAA.";
-    const yyyy = Number(m[3]);
-    if (yyyy < 1900 || yyyy > 2100) return "Ano inválido.";
-    const parsed = parseBRDateToLocalDate(raw);
-    if (!parsed) return "Data inválida (dia/mês não existe).";
-    return null;
-  }, [shouldShowDateValidation, dateText, dateDigitsLen]);
 
   const handleReceiptSelected = async (
     asset: LocalDocumentAsset,
@@ -472,17 +454,34 @@ export function ExpenseFormModal({
   };
 
   const handleSave = () => {
-    setSaveAttempted(true);
     const trimmedDescricao = descricao.trim();
-    if (!trimmedDescricao) {
+    const rawDate = dateText.trim();
+
+    const descricaoVazia = !trimmedDescricao;
+    const valorVazio = !valor.trim();
+    const dataVazia = !rawDate;
+
+    const descricaoLonga = trimmedDescricao.length > MAX_EXPENSE_DESCRIPTION;
+    const valorInvalido = isNaN(parsedValor) || parsedValor <= 0;
+    const valorLongo = valor.length > MAX_EXPENSE_VALUE_DIGITS;
+    const dataInvalida = !rawDate || dateDigitsLen !== 8 || !parsedDate;
+
+    // Marca TODOS os campos antes de qualquer return
+    setDescricaoError(descricaoVazia || descricaoLonga);
+    setValorError(valorInvalido || valorLongo);
+    setDataError(dataInvalida);
+
+    // Campo(s) obrigatório(s) vazio(s): notificação genérica
+    if (descricaoVazia || valorVazio || dataVazia) {
       showToast({
-        title: "Descrição obrigatória",
-        message: "Informe uma descrição para o gasto.",
+        title: "Preencha os campos obrigatórios",
         tone: "error",
       });
       return;
     }
-    if (trimmedDescricao.length > MAX_EXPENSE_DESCRIPTION) {
+
+    // Erros de formato: mensagens específicas
+    if (descricaoLonga) {
       showToast({
         title: "Descrição muito longa",
         message: `Use até ${MAX_EXPENSE_DESCRIPTION} caracteres.`,
@@ -490,7 +489,7 @@ export function ExpenseFormModal({
       });
       return;
     }
-    if (isNaN(parsedValor) || parsedValor <= 0) {
+    if (valorInvalido) {
       showToast({
         title: "Valor inválido",
         message: "Informe um valor maior que zero.",
@@ -498,21 +497,18 @@ export function ExpenseFormModal({
       });
       return;
     }
-    if (valor.length > MAX_EXPENSE_VALUE_DIGITS) {
+    if (valorLongo) {
       showToast({
         title: "Valor acima do limite",
-        message: "Reduza a quantidade de dÃ­gitos do valor informado.",
+        message: "Reduza a quantidade de dígitos do valor informado.",
         tone: "error",
       });
       return;
     }
-    const rawDate = dateText.trim();
-    if (!rawDate || dateDigitsLen !== 8 || !parsedDate) {
-      const msg = !rawDate
-        ? "Informe a data do gasto."
-        : !parsedDate
-          ? "Data inválida (dia/mês não existe)."
-          : "Complete a data no formato DD/MM/AAAA.";
+    if (dataInvalida || !parsedDate) {
+      const msg = !parsedDate
+        ? "Data inválida (dia/mês não existe)."
+        : "Complete a data no formato DD/MM/AAAA.";
       showToast({ title: "Data inválida", message: msg, tone: "error" });
       return;
     }
@@ -589,17 +585,18 @@ export function ExpenseFormModal({
 
           {/* ── Descrição ── */}
           <View style={styles.field}>
-            <Text style={styles.label}>
+            <Text style={[styles.label, descricaoError && styles.labelError]}>
               Descrição <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, descricaoError && styles.inputError]}
               placeholder="Ex: Cimento Portland 50kg"
               placeholderTextColor="#9CA3AF"
               value={descricao}
-              onChangeText={(text) =>
-                setDescricao(text.slice(0, MAX_EXPENSE_DESCRIPTION))
-              }
+              onChangeText={(text) => {
+                setDescricao(text.slice(0, MAX_EXPENSE_DESCRIPTION));
+                if (descricaoError) setDescricaoError(false);
+              }}
               maxLength={MAX_EXPENSE_DESCRIPTION}
             />
             <CharacterLimitHint
@@ -611,15 +608,18 @@ export function ExpenseFormModal({
           {/* ── Valor + Data (linha) ── */}
           <View style={styles.row}>
             <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.label}>
+              <Text style={[styles.label, valorError && styles.labelError]}>
                 Valor (R$) <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, valorError && styles.inputError]}
                 placeholder="0,00"
                 placeholderTextColor="#9CA3AF"
                 value={formatBRLInput(valor)}
-                onChangeText={(t) => setValor(limitExpenseValueDigits(t))}
+                onChangeText={(t) => {
+                  setValor(limitExpenseValueDigits(t));
+                  if (valorError) setValorError(false);
+                }}
                 keyboardType="number-pad"
                 returnKeyType="done"
               />
@@ -637,19 +637,19 @@ export function ExpenseFormModal({
               )}
             </View>
             <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.label}>
+              <Text style={[styles.label, dataError && styles.labelError]}>
                 Data <Text style={styles.required}>*</Text>
               </Text>
               <View
                 style={[
                   styles.dateInputWrap,
-                  dateError ? styles.dateInputWrapError : null,
+                  dataError && styles.dateInputWrapError,
                 ]}
               >
                 <MaterialIcons
                   name="event"
                   size={16}
-                  color={dateError ? "#EF4444" : "#9CA3AF"}
+                  color={dataError ? "#EF4444" : "#9CA3AF"}
                 />
                 <TextInput
                   style={styles.dateInput}
@@ -664,8 +664,8 @@ export function ExpenseFormModal({
                 {!!dateText.trim() && (
                   <TouchableOpacity
                     onPress={() => {
-                      setDateTouched(true);
                       setDateText("");
+                      if (dataError) setDataError(false);
                     }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     activeOpacity={0.8}
@@ -674,11 +674,7 @@ export function ExpenseFormModal({
                   </TouchableOpacity>
                 )}
               </View>
-              {dateError ? (
-                <Text style={styles.dateErrorText}>{dateError}</Text>
-              ) : (
-                <Text style={styles.dateHelperText}>DD/MM/AAAA</Text>
-              )}
+              <Text style={styles.dateHelperText}>DD/MM/AAAA</Text>
             </View>
           </View>
 
@@ -1008,7 +1004,7 @@ const styles = StyleSheet.create({
   },
 
   field: { marginBottom: 20 },
-  row: { flexDirection: "row" },
+  row: { flexDirection: "row", gap: 12 },
   label: {
     fontSize: 13,
     fontWeight: "700",
@@ -1016,6 +1012,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   required: { color: "#EF4444" },
+  labelError: { color: "#EF4444" },
+  inputError: { borderColor: "#EF4444", backgroundColor: "#FFF1F2" },
   sublabel: {
     fontSize: 12,
     color: "#9CA3AF",
@@ -1059,10 +1057,11 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   dateInputWrapError: {
     borderColor: "#EF4444",
+    backgroundColor: "#FFF1F2",
   },
   dateInput: {
     flex: 1,
@@ -1070,12 +1069,6 @@ const styles = StyleSheet.create({
     color: "#111827",
     paddingHorizontal: 6,
     paddingVertical: 0,
-  },
-  dateErrorText: {
-    marginTop: 4,
-    fontSize: 11,
-    color: "#EF4444",
-    fontWeight: "500",
   },
   dateHelperText: {
     marginTop: 4,
