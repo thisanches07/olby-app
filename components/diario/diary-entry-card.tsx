@@ -1,5 +1,7 @@
 import { ExpandableDescription } from "@/components/diario/expandable-description";
+import { WEATHER_UI } from "@/constants/weather";
 import type { DiaryEntry, PhotoItem } from "@/hooks/use-diary-state";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import React, { useState } from "react";
@@ -34,6 +36,7 @@ export function DiaryEntryCard({
 }: DiaryEntryCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const durationLabel = formatDuration(entry.durationMinutes);
+  const weatherMeta = entry.weather ? WEATHER_UI[entry.weather] : null;
   const hasPhotos = entry.photoCount > 0;
   const isLast = index === totalInSection - 1;
 
@@ -83,6 +86,27 @@ export function DiaryEntryCard({
                   </Text>
                 </View>
               </>
+            )}
+
+            {/* Weather */}
+            {weatherMeta && (
+              <View
+                style={[
+                  styles.weatherBadge,
+                  { backgroundColor: weatherMeta.tint },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={weatherMeta.icon}
+                  size={12}
+                  color={weatherMeta.color}
+                />
+                <Text
+                  style={[styles.weatherBadgeText, { color: weatherMeta.color }]}
+                >
+                  {weatherMeta.label}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -283,6 +307,20 @@ const styles = StyleSheet.create({
   },
   clientDurationTextToday: {
     color: PRIMARY,
+    fontWeight: "700",
+  },
+
+  // Weather badge (cromático — único elemento colorido da linha)
+  weatherBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 99,
+  },
+  weatherBadgeText: {
+    fontSize: 11,
     fontWeight: "700",
   },
 

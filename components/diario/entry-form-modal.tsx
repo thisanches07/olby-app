@@ -1,10 +1,16 @@
 import { DiaryEntry } from "@/hooks/use-diary-state";
+import type { DiaryWeather } from "@/services/daily-log-entries.service";
 import { EntryFormData } from "@/hooks/use-diary-data";
 import { parseISODateToBR } from "@/hooks/use-diary-data";
 import { getErrorMessage } from "@/services/api";
 import type { LocalPhotoAsset } from "@/utils/photo-upload";
 import { brDateDigitsLen, maskBRDate, parseBRDateToLocalDate } from "@/utils/br-date";
 import { useToast } from "@/components/obra/toast";
+import { PressableScale } from "@/components/ui/pressable-scale";
+import { WEATHER_ORDER, WEATHER_UI } from "@/constants/weather";
+import { colors } from "@/theme/colors";
+import { radius } from "@/theme/radius";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppModal as Modal } from "@/components/ui/app-modal";
@@ -84,6 +90,7 @@ export function EntryFormModal({
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState(false);
   const [description, setDescription] = useState("");
+  const [weather, setWeather] = useState<DiaryWeather | null>(null);
   const [newPhotoAssets, setNewPhotoAssets] = useState<LocalPhotoAsset[]>([]);
   const [durationError, setDurationError] = useState(false);
 
@@ -153,6 +160,7 @@ export function EntryFormModal({
         setTime(editingEntry.time ?? "");
         setTitle(editingEntry.title ?? "");
         setDescription(editingEntry.description ?? "");
+        setWeather(editingEntry.weather ?? null);
         setNewPhotoAssets([]); // fotos existentes ficam no GalleryPicker via existingPhotos
 
         const dm = editingEntry.durationMinutes;
@@ -212,6 +220,7 @@ export function EntryFormModal({
     setTitle("");
     setTitleError(false);
     setDescription("");
+    setWeather(null);
     setNewPhotoAssets([]);
     setDurationError(false);
     setDurationMinutes(null);
@@ -268,6 +277,7 @@ export function EntryFormModal({
         title,
         description: description.slice(0, MAX_DIARY_DESCRIPTION),
         durationMinutes,
+        weather,
         newPhotoAssets,
       });
       resetForm();
@@ -316,6 +326,40 @@ export function EntryFormModal({
           {preset.label}
         </Text>
       </TouchableOpacity>
+    );
+  };
+
+  // ── Render tile de clima ───────────────────────────────────────────────────
+  const renderWeatherTile = (value: DiaryWeather) => {
+    const meta = WEATHER_UI[value];
+    const isActive = weather === value;
+    return (
+      <PressableScale
+        key={value}
+        scaleTo={0.96}
+        style={[
+          styles.weatherTile,
+          isActive && {
+            backgroundColor: meta.tint,
+            borderColor: meta.color,
+          },
+        ]}
+        onPress={() => setWeather(isActive ? null : value)}
+      >
+        <MaterialCommunityIcons
+          name={meta.icon}
+          size={26}
+          color={isActive ? meta.color : colors.textMuted}
+        />
+        <Text
+          style={[
+            styles.weatherTileText,
+            isActive && { color: meta.color, fontWeight: "800" },
+          ]}
+        >
+          {meta.label}
+        </Text>
+      </PressableScale>
     );
   };
 
@@ -545,6 +589,40 @@ export function EntryFormModal({
                     </TouchableOpacity>
                   </View>
                 )}
+              </View>
+            </View>
+
+            {/* ── Clima ── */}
+            <View style={styles.field}>
+              <View style={styles.weatherHeaderRow}>
+                <View style={styles.tempoLabelRow}>
+                  <MaterialCommunityIcons
+                    name="weather-partly-cloudy"
+                    size={16}
+                    color={PRIMARY}
+                  />
+                  <Text style={styles.label}>Clima</Text>
+                </View>
+                {weather !== null && (
+                  <TouchableOpacity
+                    onPress={() => setWeather(null)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.weatherClearText}>Limpar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={styles.sublabel}>
+                Condição do tempo durante a visita (opcional)
+              </Text>
+              <View style={styles.weatherGrid}>
+                <View style={styles.weatherRow}>
+                  {WEATHER_ORDER.slice(0, 3).map(renderWeatherTile)}
+                </View>
+                <View style={[styles.weatherRow, { marginTop: 8 }]}>
+                  {WEATHER_ORDER.slice(3).map(renderWeatherTile)}
+                </View>
               </View>
             </View>
 
@@ -830,6 +908,42 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: "row",
     gap: 8,
+  },
+
+  // ── Clima ──
+  weatherHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  weatherClearText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: PRIMARY,
+  },
+  weatherGrid: {
+    marginTop: 2,
+  },
+  weatherRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  weatherTile: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 12,
+    minHeight: 66,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.gray200,
+    backgroundColor: colors.surface,
+  },
+  weatherTileText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.title,
   },
   hourChip: {
     flex: 1,

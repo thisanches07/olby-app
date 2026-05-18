@@ -1,4 +1,42 @@
+import type { DiaryWeather } from "@/services/daily-log-entries.service";
 import type { ReportData, ReportPeriod } from "@/services/report.service";
+
+/**
+ * Espelha a linguagem visual de constants/weather.ts (mesmos label/cor), mas com
+ * SVG inline próprio: HTML/print não carrega fontes de ícone do React Native.
+ * Ícone usa stroke="currentColor" → herda a cor do texto do badge. Sempre
+ * ícone + label (cor é só reforço → legível também em P&B).
+ */
+const WEATHER_ICON_SVG: Record<DiaryWeather, string> = {
+  SUNNY:
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
+  PARTLY_CLOUDY:
+    '<circle cx="8" cy="8" r="3"/><path d="M8 2.5v1.4M2.5 8h1.4M4 4l1 1M12 4l-1 1"/><path d="M9 19h7a3 3 0 0 0 .4-5.96 4 4 0 0 0-7.7-1A3 3 0 0 0 9 19z"/>',
+  CLOUDY:
+    '<path d="M7 18h9a3.5 3.5 0 0 0 .5-6.96 5 5 0 0 0-9.6-1.04A3.5 3.5 0 0 0 7 18z"/>',
+  RAINY:
+    '<path d="M7 15h9a3.5 3.5 0 0 0 .5-6.96 5 5 0 0 0-9.6-1.04A3.5 3.5 0 0 0 7 15z"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/>',
+  STORM:
+    '<path d="M7 14h9a3.5 3.5 0 0 0 .5-6.96 5 5 0 0 0-9.6-1.04A3.5 3.5 0 0 0 7 14z"/><path d="M12.5 14l-2.5 4.5h3L10.5 23"/>',
+  FOG: '<path d="M7 12h9a3.5 3.5 0 0 0 .5-6.96 5 5 0 0 0-9.6-1.04A3.5 3.5 0 0 0 7 12z"/><path d="M5 16h14M7 19.5h12"/>',
+};
+
+const WEATHER_REPORT: Record<
+  DiaryWeather,
+  { label: string; color: string; tint: string }
+> = {
+  SUNNY: { label: "Sol", color: "#B45309", tint: "#FEF3C7" },
+  PARTLY_CLOUDY: { label: "Parc. nublado", color: "#0369A1", tint: "#E0F2FE" },
+  CLOUDY: { label: "Nublado", color: "#475569", tint: "#F1F5F9" },
+  RAINY: { label: "Chuva", color: "#1D4ED8", tint: "#EFF6FF" },
+  STORM: { label: "Tempestade", color: "#4338CA", tint: "#EEF2FF" },
+  FOG: { label: "Neblina", color: "#4B5563", tint: "#F3F4F6" },
+};
+
+function weatherBadgeHtml(w: DiaryWeather): string {
+  const m = WEATHER_REPORT[w];
+  return `<span class="rdo-weather" style="color:${m.color};background:${m.tint}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${WEATHER_ICON_SVG[w]}</svg>${escHtml(m.label)}</span>`;
+}
 
 // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -258,21 +296,21 @@ function diarySection(data: ReportData): string {
   );
   const total = ordered.length;
 
-  const itemsArr = ordered
-    .map((entry, idx) => {
-      const num = String(idx + 1).padStart(2, "0");
-      const rail = fmtRailDate(entry.date);
+  const itemsArr = ordered.map((entry, idx) => {
+    const num = String(idx + 1).padStart(2, "0");
+    const rail = fmtRailDate(entry.date);
 
-      const duration = entry.durationMinutes
-        ? `<span class="rdo-dur"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 1.5"/></svg>${fmtHours(entry.durationMinutes)}</span>`
-        : "";
-      const notes = entry.notes
-        ? `<p class="rdo-notes">${escHtml(entry.notes)}</p>`
-        : "";
+    const duration = entry.durationMinutes
+      ? `<span class="rdo-dur"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 1.5"/></svg>${fmtHours(entry.durationMinutes)}</span>`
+      : "";
+    const weather = entry.weather ? weatherBadgeHtml(entry.weather) : "";
+    const notes = entry.notes
+      ? `<p class="rdo-notes">${escHtml(entry.notes)}</p>`
+      : "";
 
-      const shots =
-        entry.photos.length > 0
-          ? `
+    const shots =
+      entry.photos.length > 0
+        ? `
       <div class="rdo-shots">
         <div class="rdo-shots-cap">Registro fotográfico</div>
         <div class="pg">${entry.photos
@@ -282,11 +320,11 @@ function diarySection(data: ReportData): string {
           )
           .join("")}</div>
       </div>`
-          : "";
+        : "";
 
-      const lastClass = idx === total - 1 ? " rdo-last" : "";
+    const lastClass = idx === total - 1 ? " rdo-last" : "";
 
-      return `
+    return `
     <article class="rdo${lastClass}">
       <div class="rdo-rail">
         <span class="rdo-node"></span>
@@ -298,13 +336,14 @@ function diarySection(data: ReportData): string {
           <div class="rdo-head">
             <h3 class="rdo-title">${escHtml(entry.title ?? "Visita registrada")}</h3>
             ${duration}
+            ${weather}
           </div>
           ${notes}
         </div>
         ${shots}
       </div>
     </article>`;
-    });
+  });
 
   const firstItem = itemsArr[0] ?? "";
   const restItems = itemsArr.slice(1).join("");
@@ -451,6 +490,8 @@ export function generateReportHtml(
   .rdo-title { font-family:'Archivo',sans-serif; font-size:15px; font-weight:700; color:#0F172A; letter-spacing:-0.01em; line-height:1.2; flex:1; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .rdo-dur { display:inline-flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500; color:#475569; background:#F1F5F9; padding:3px 8px; border-radius:5px; white-space:nowrap; flex-shrink:0; }
   .rdo-dur svg { flex-shrink:0; }
+  .rdo-weather { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:3px 8px; border-radius:5px; white-space:nowrap; flex-shrink:0; }
+  .rdo-weather svg { flex-shrink:0; }
   .rdo-notes { font-size:12px; color:#475569; line-height:1.45; margin-bottom:10px; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .rdo-shots-cap { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#94A3B8; margin:0 0 6px; break-after:avoid; page-break-after:avoid; }
 
@@ -547,18 +588,6 @@ export function generateReportHtml(
 </head>
 <body>
 <table class="doc">
-<tfoot class="doc-foot"><tr><td>
-  <div class="footer">
-    <div class="f-inner">
-      <div class="f-brand">
-        ${oblySvg(16, "#94A3B8")}
-        <span class="f-brand-text">Obly</span>
-      </div>
-      <span class="f-title">${escHtml(data.projectName)}</span>
-      <span class="f-info">oblyapp.com · Gerado em ${generatedDate}</span>
-    </div>
-  </div>
-</td></tr></tfoot>
 <tbody><tr><td>
 <div class="page">
 

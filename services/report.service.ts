@@ -4,6 +4,7 @@ import {
   dailyLogEntriesService,
   type DailyLogEntryFeedItemDto,
   type DailyLogEntryFeedPhotoPreviewDto,
+  type DiaryWeather,
 } from "./daily-log-entries.service";
 import { dailyLogPhotosService } from "./daily-log-photos.service";
 
@@ -20,6 +21,7 @@ export interface ReportDiaryEntry {
   title: string | null;
   notes: string | null;
   durationMinutes: number | null;
+  weather: DiaryWeather | null;
   photos: ReportPhoto[];
 }
 
@@ -206,6 +208,7 @@ export async function buildReportData(
       title: item.title,
       notes: item.notes,
       durationMinutes: item.durationMinutes,
+      weather: item.weather ?? null,
       photos: await getEntryReportPhotos(projectId, item),
     })),
   );

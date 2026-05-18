@@ -9,6 +9,7 @@ import {
   dailyLogEntriesService,
   type DailyLogEntryFeedItemDto,
   type DailyLogEntryResponseDto,
+  type DiaryWeather,
 } from "@/services/daily-log-entries.service";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
 import {
@@ -163,6 +164,7 @@ function toUIEntry(e: EntryWithPhotos, todayISO: string): DiaryEntry {
     title: e.title ?? "",
     description: e.notes ?? "",
     durationMinutes: e.durationMinutes ?? null,
+    weather: e.weather ?? null,
     photoCount: e.photoCount ?? e.photos.length,
     photos: e.photos,
     isToday: (e.date ?? "") === todayISO,
@@ -190,6 +192,7 @@ function mapFeedItemToEntry(feedItem: DailyLogEntryFeedItemDto): EntryWithPhotos
     durationMinutes: feedItem.durationMinutes ?? 0,
     title: feedItem.title ?? "",
     notes: feedItem.notes ?? null,
+    weather: feedItem.weather ?? null,
     createdByUserId: "",
     createdAt: feedItem.createdAt,
     updatedAt: feedItem.createdAt,
@@ -235,6 +238,7 @@ export interface EntryFormData {
   title: string;
   description: string;
   durationMinutes: number | null;
+  weather: DiaryWeather | null;
   newPhotoAssets: LocalPhotoAsset[];
 }
 
@@ -448,6 +452,7 @@ export function useDiaryData(
           durationMinutes: data.durationMinutes ?? 30,
           title: data.title,
           notes: normalizedDescription,
+          weather: data.weather ?? undefined,
           photos:
             prepared.length > 0
               ? prepared.map((photo) => ({
@@ -502,6 +507,7 @@ export function useDiaryData(
           notes:
             data.description.trim().slice(0, MAX_DIARY_DESCRIPTION) || null,
           durationMinutes: data.durationMinutes ?? undefined,
+          weather: data.weather ?? null,
         });
 
         if (data.newPhotoAssets.length > 0) {

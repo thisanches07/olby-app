@@ -1,5 +1,13 @@
 import { api } from "./api";
 
+export type DiaryWeather =
+  | "SUNNY"
+  | "PARTLY_CLOUDY"
+  | "CLOUDY"
+  | "RAINY"
+  | "STORM"
+  | "FOG";
+
 interface CreatePhotoDto {
   contentType: "image/jpeg" | "image/jpg" | "image/png" | "image/webp";
   sizeBytes: number;
@@ -24,6 +32,7 @@ export interface DailyLogEntryResponseDto {
   durationMinutes: number;
   title: string;
   notes: string | null;
+  weather: DiaryWeather | null;
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +47,7 @@ export interface CreateDailyLogEntryDto {
   durationMinutes: number; // required, min 30, multiple of 30
   title: string;
   notes?: string | null;
+  weather?: DiaryWeather | null;
   photos?: CreatePhotoDto[];
 }
 
@@ -47,6 +57,7 @@ export interface UpdateDailyLogEntryDto {
   durationMinutes?: number;
   title?: string;
   notes?: string | null;
+  weather?: DiaryWeather | null;
 }
 
 export interface DailyLogEntryFeedPhotoPreviewDto {
@@ -66,6 +77,7 @@ export interface DailyLogEntryFeedItemDto {
   title: string | null;
   notes: string | null;
   durationMinutes: number | null;
+  weather: DiaryWeather | null;
   photoCount: number;
   photosPreview: DailyLogEntryFeedPhotoPreviewDto[];
 }

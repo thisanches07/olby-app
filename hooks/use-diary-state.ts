@@ -3,6 +3,10 @@
  * O gerenciamento de estado real está em use-diary-data.ts.
  */
 
+import type { DiaryWeather } from "@/services/daily-log-entries.service";
+
+export type { DiaryWeather };
+
 /** Foto já confirmada no backend (status READY). */
 export interface PhotoItem {
   id: string;
@@ -22,6 +26,8 @@ export interface DiaryEntry {
   description: string;
   /** Duração em minutos (ex.: 90 = 1h30). null se não informado. */
   durationMinutes: number | null;
+  /** Condição climática da visita. null = não informado. */
+  weather: DiaryWeather | null;
   photoCount: number;
   photos: PhotoItem[];
   isToday: boolean;

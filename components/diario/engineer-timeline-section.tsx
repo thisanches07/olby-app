@@ -1,8 +1,10 @@
 import type { DiarySection, PhotoItem } from "@/hooks/use-diary-state";
 import { useToast } from "@/components/obra/toast";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
+import { WEATHER_UI } from "@/constants/weather";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
 import { saveAllPhotosToGallery } from "@/utils/photo-download";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import React, { useState } from "react";
@@ -160,6 +162,9 @@ export function EngineerTimelineSection({
 
           {section.entries.map((entry, eIdx) => {
             const durationLabel = formatDuration(entry.durationMinutes);
+            const weatherMeta = entry.weather
+              ? WEATHER_UI[entry.weather]
+              : null;
 
             return (
               <View key={entry.id}>
@@ -194,6 +199,28 @@ export function EngineerTimelineSection({
                             ]}
                           >
                             {durationLabel}
+                          </Text>
+                        </View>
+                      )}
+                      {weatherMeta && (
+                        <View
+                          style={[
+                            styles.weatherBadge,
+                            { backgroundColor: weatherMeta.tint },
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={weatherMeta.icon}
+                            size={13}
+                            color={weatherMeta.color}
+                          />
+                          <Text
+                            style={[
+                              styles.weatherBadgeText,
+                              { color: weatherMeta.color },
+                            ]}
+                          >
+                            {weatherMeta.label}
                           </Text>
                         </View>
                       )}
@@ -445,6 +472,19 @@ const styles = StyleSheet.create({
   },
   durationTextToday: {
     color: PRIMARY,
+  },
+  weatherBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  weatherBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   entryTitle: {
     fontSize: 19,
