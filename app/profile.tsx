@@ -34,6 +34,7 @@ import {
   requestPasswordReset,
   unlinkPhone,
 } from "@/services/auth.service";
+import { useResponsive } from "@/hooks/use-responsive";
 import { firebaseAuth } from "@/services/firebase";
 import { getStatusBadge } from "@/services/subscription.service";
 import { colors } from "@/theme/colors";
@@ -601,6 +602,8 @@ export default function ProfileScreen() {
   const { resetTours } = useOnboarding();
   const { showToast: showTopToast } = useTopToast();
   const accountDeletion = useAccountDeletion();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("default") : null;
 
   const hasGoogleProvider =
     user?.providerData?.some((p) => p.providerId === "google.com") ?? false;
@@ -1137,26 +1140,28 @@ export default function ProfileScreen() {
 
       {/* Nav */}
       <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="arrow-back" size={22} color={colors.white} />
-        </TouchableOpacity>
+        <View style={[styles.navBarInner, colStyle]}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="arrow-back" size={22} color={colors.white} />
+          </TouchableOpacity>
 
-        <Text style={styles.navTitle}>Perfil</Text>
+          <Text style={styles.navTitle}>Perfil</Text>
 
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={isEditing ? cancelEdit : enterEdit}
-          activeOpacity={0.7}
-          disabled={isSaving}
-        >
-          <Text style={styles.navAction}>
-            {isEditing ? "Cancelar" : "Editar"}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={isEditing ? cancelEdit : enterEdit}
+            activeOpacity={0.7}
+            disabled={isSaving}
+          >
+            <Text style={styles.navAction}>
+              {isEditing ? "Cancelar" : "Editar"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -1164,8 +1169,8 @@ export default function ProfileScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          style={[styles.scroll, isTablet && styles.scrollTablet]}
+          contentContainerStyle={[styles.scrollContent, colStyle]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -1850,12 +1855,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: spacing[16],
     paddingVertical: spacing[12],
     backgroundColor: colors.primary,
+  },
+  navBarInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   navButton: {
     minWidth: 64,
@@ -1875,6 +1882,10 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
     backgroundColor: colors.primary,
+  },
+  // No tablet o fundo lateral acompanha o conteúdo (coluna central).
+  scrollTablet: {
+    backgroundColor: colors.bg,
   },
   scrollContent: {
     flexGrow: 1,

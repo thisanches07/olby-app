@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -14,6 +15,8 @@ interface FadeSlideInProps {
   staggerMs?: number;
   /** Direção de entrada. Padrão: "bottom" */
   from?: "bottom" | "top";
+  /** Estilo extra no wrapper (ex.: flex:1 para altura uniforme em grade). */
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }
 
@@ -25,6 +28,7 @@ export function FadeSlideIn({
   index = 0,
   staggerMs = 55,
   from = "bottom",
+  style,
   children,
 }: FadeSlideInProps) {
   // Limita o delay em 8 itens para não atrasar cards fora do viewport
@@ -47,5 +51,5 @@ export function FadeSlideIn({
     transform: [{ translateY: translateY.value }],
   }));
 
-  return <Animated.View style={animStyle}>{children}</Animated.View>;
+  return <Animated.View style={[style, animStyle]}>{children}</Animated.View>;
 }

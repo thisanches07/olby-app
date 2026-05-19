@@ -16,6 +16,7 @@ import {
 import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useResponsive } from "@/hooks/use-responsive";
 import type { DocumentAttachment, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
 import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { colors } from "@/theme/colors";
@@ -234,6 +235,8 @@ export function ObraViewEng({
   onShareModalVisibilityChange,
 }: ObraViewEngProps) {
   const insets = useSafeAreaInsets();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("default") : null;
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<EngTabId>("projetos");
   const [headerBottom, setHeaderBottom] = useState(0);
@@ -434,7 +437,7 @@ export function ObraViewEng({
 
       {/* Tarefas tab rendered outside ScrollView — DraggableFlatList manages its own scroll */}
       {activeTab === "tarefas" && (
-        <View style={styles.scroll}>
+        <View style={[styles.scroll, colStyle]}>
           <EngTasksList
             tarefas={obra.tarefas}
             onToggle={onToggleTask}
@@ -452,7 +455,13 @@ export function ObraViewEng({
         </View>
       )}
 
-      <View style={[styles.scroll, activeTab !== "documentos" && { display: "none" }]}>
+      <View
+        style={[
+          styles.scroll,
+          colStyle,
+          activeTab !== "documentos" && { display: "none" },
+        ]}
+      >
         <ProjectDocumentsHub
           projectId={obra.id}
           projectRole={projectRole}
@@ -478,6 +487,7 @@ export function ObraViewEng({
         ]}
         contentContainerStyle={[
           styles.scrollContent,
+          colStyle,
           { paddingBottom: scrollPadBottom },
         ]}
         showsVerticalScrollIndicator={false}
@@ -642,6 +652,7 @@ export function ObraViewEng({
       </ScrollView>
 
       <View style={[styles.bottomArea, { backgroundColor: colors.white }]}>
+        <View style={colStyle}>
         {showCTA && (
           <EngCTARow
             activeTab={activeTab}
@@ -668,6 +679,7 @@ export function ObraViewEng({
             documentos: tourRefs.documentosTabRef,
           } : undefined}
         />
+        </View>
       </View>
 
       {/* Edge swipe zone — captures left-to-right swipe on secondary tabs */}

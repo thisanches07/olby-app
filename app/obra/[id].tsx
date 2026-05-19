@@ -35,6 +35,7 @@ import {
 import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
 import { useAuth } from "@/hooks/use-auth";
 import { useObraData } from "@/hooks/use-obra-data";
+import { useResponsive } from "@/hooks/use-responsive";
 import { api, getErrorMessage } from "@/services/api";
 import type { LocalDocumentAsset } from "@/utils/document-upload";
 import {
@@ -105,6 +106,7 @@ function ErrorScreen({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function ObraDetalheScreen() {
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsive();
   const bottomPad = useMemo(() => insets.bottom + spacing[16], [insets.bottom]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { backendUserId } = useAuth();
@@ -750,7 +752,10 @@ export default function ObraDetalheScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.safe, isTablet && styles.safeTablet]}
+      edges={["top"]}
+    >
       <Stack.Screen
         options={{
           headerShown: false,
@@ -967,6 +972,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  // No tablet a área lateral acompanha o fundo do conteúdo (coluna central).
+  safeTablet: {
+    backgroundColor: "#F5F5F5",
   },
 
   // ── Loading / Error ──

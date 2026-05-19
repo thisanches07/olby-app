@@ -15,6 +15,7 @@ import { useToast } from "@/components/obra/toast";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { QUOTE_STATUS_UI, formatCentsBRL } from "@/constants/quote-status";
 import { useQuoteGroup } from "@/hooks/use-quotes-data";
+import { useResponsive } from "@/hooks/use-responsive";
 import { getErrorMessage } from "@/services/api";
 import type { QuoteResponse } from "@/services/quotes.service";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -35,6 +36,8 @@ const SUCCESS = "#16A34A";
 
 export default function DemandDetailScreen() {
   const { id, ro } = useLocalSearchParams<{ id: string; ro?: string }>();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("default") : null;
   const canEdit = ro !== "1";
   const { showToast } = useToast();
   const {
@@ -91,6 +94,7 @@ export default function DemandDetailScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
+        <View style={[styles.headerInner, colStyle]}>
         <TouchableOpacity
           style={styles.headerBtn}
           onPress={() => router.back()}
@@ -112,10 +116,11 @@ export default function DemandDetailScreen() {
         ) : (
           <View style={styles.headerBtn} />
         )}
+        </View>
       </View>
 
       {isLoading ? (
-        <View style={styles.content}>
+        <View style={[styles.content, colStyle]}>
           {[0, 1, 2].map((i) => (
             <QuoteSkeletonCard key={i} />
           ))}
@@ -130,7 +135,7 @@ export default function DemandDetailScreen() {
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, colStyle]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.statusRow}>
@@ -411,14 +416,16 @@ export default function DemandDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F7F8FA" },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#F0F2F6",
+  },
+  headerInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerBtn: {
     width: 38,

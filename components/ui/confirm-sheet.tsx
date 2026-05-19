@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PressableScale } from "@/components/ui/pressable-scale";
+import { useSheetLayout } from "@/hooks/use-sheet-layout";
 
 interface ConfirmSheetProps {
   visible: boolean;
@@ -37,6 +38,7 @@ export function ConfirmSheet({
   onClose,
 }: ConfirmSheetProps) {
   const insets = useSafeAreaInsets();
+  const sheet = useSheetLayout();
 
   const handleConfirm = () => {
     onClose();
@@ -45,28 +47,26 @@ export function ConfirmSheet({
 
   const iconBgColor = confirmVariant === "destructive" ? "#FEF2F2" : "#EFF6FF";
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent
+  const sheetEl = (
+    <View
+      style={[
+        styles.sheet,
+        sheet.sheetStyle,
+        {
+          paddingBottom: sheet.centered
+            ? 24
+            : Math.max(insets.bottom, 24),
+        },
+      ]}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} />
-
-      <View
-        style={[
-          styles.sheet,
-          { paddingBottom: Math.max(insets.bottom, 24) },
-        ]}
-      >
-        {/* Handle indicator */}
+      {/* Handle indicator (só no formato bottom-sheet do phone) */}
+      {!sheet.centered && (
         <View style={styles.handleContainer}>
           <View style={styles.handle} />
         </View>
+      )}
 
-        <View style={styles.content}>
+      <View style={[styles.content, sheet.centered && styles.contentCentered]}>
           {/* Icon */}
           <View style={[styles.iconCircle, { backgroundColor: iconBgColor }]}>
             <MaterialIcons name={icon} size={28} color={iconColor} />
@@ -101,6 +101,24 @@ export function ConfirmSheet({
           </View>
         </View>
       </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType={sheet.centered ? "fade" : "slide"}
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      {sheet.centered ? (
+        <View style={sheet.containerStyle} pointerEvents="box-none">
+          {sheetEl}
+        </View>
+      ) : (
+        sheetEl
+      )}
     </Modal>
   );
 }
@@ -135,6 +153,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: Platform.OS === "ios" ? 12 : 8,
     alignItems: "center",
+  },
+  // Sem o "handle", o card centralizado precisa de respiro no topo.
+  contentCentered: {
+    paddingTop: 24,
   },
   iconCircle: {
     width: 64,

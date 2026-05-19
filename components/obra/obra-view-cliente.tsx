@@ -29,6 +29,7 @@ import { ClienteStatusCard } from "@/components/obra/cliente-status-card";
 import { ClienteTasksView } from "@/components/obra/cliente-tasks-view";
 import { ClienteTitleSection } from "@/components/obra/cliente-title-section";
 import { ObraHeader } from "@/components/obra/obra-header";
+import { useResponsive } from "@/hooks/use-responsive";
 import type { DocumentAttachment, ObraDetalhe } from "@/data/obras";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
@@ -88,6 +89,8 @@ export function ObraViewCliente({
   activeTabOverride,
 }: ObraViewClienteProps) {
   const insets = useSafeAreaInsets();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("default") : null;
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<ClienteTabId>("visao_geral");
   const [headerBottom, setHeaderBottom] = useState(0);
@@ -169,7 +172,7 @@ export function ObraViewCliente({
       {activeTab === "visao_geral" && (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{ paddingBottom: scrollPadBottom }}
+          contentContainerStyle={[colStyle, { paddingBottom: scrollPadBottom }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             onRefresh ? (
@@ -230,10 +233,10 @@ export function ObraViewCliente({
       {activeTab === "galeria" && (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{
-            paddingBottom: scrollPadBottom,
-            paddingTop: spacing[12],
-          }}
+          contentContainerStyle={[
+            colStyle,
+            { paddingBottom: scrollPadBottom, paddingTop: spacing[12] },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             onRefresh ? (
@@ -253,10 +256,10 @@ export function ObraViewCliente({
       {activeTab === "gastos" && (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{
-            paddingBottom: scrollPadBottom,
-            paddingTop: spacing[12],
-          }}
+          contentContainerStyle={[
+            colStyle,
+            { paddingBottom: scrollPadBottom, paddingTop: spacing[12] },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             onRefresh ? (
@@ -280,10 +283,10 @@ export function ObraViewCliente({
       {activeTab === "tarefas" && (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={{
-            paddingBottom: scrollPadBottom,
-            paddingTop: spacing[12],
-          }}
+          contentContainerStyle={[
+            colStyle,
+            { paddingBottom: scrollPadBottom, paddingTop: spacing[12] },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             onRefresh ? (
@@ -300,7 +303,13 @@ export function ObraViewCliente({
         </ScrollView>
       )}
 
-      <View style={[styles.scroll, activeTab !== "documentos" && { display: "none" }]}>
+      <View
+        style={[
+          styles.scroll,
+          colStyle,
+          activeTab !== "documentos" && { display: "none" },
+        ]}
+      >
         <ProjectDocumentsHub
           projectId={obra.id}
           projectRole={projectRole}
@@ -316,6 +325,7 @@ export function ObraViewCliente({
         collapsable={false}
         style={[styles.bottomArea, { backgroundColor: colors.white }]}
       >
+        <View style={colStyle}>
         <ClienteCTAButton
           onInicio={() => changeTab("visao_geral")}
           onGaleria={() => changeTab("galeria")}
@@ -330,6 +340,7 @@ export function ObraViewCliente({
             tarefas: tourRefs?.tasksTabRef,
           }}
         />
+        </View>
       </View>
 
       {activeTab !== "visao_geral" && (

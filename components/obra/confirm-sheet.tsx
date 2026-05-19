@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useResponsive } from "@/hooks/use-responsive";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -47,6 +48,7 @@ export function ConfirmSheet({
   onCancel,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { isTablet, dialogMaxWidth } = useResponsive();
   const danger = tone === "danger";
 
   if (!visible) return null;
@@ -67,10 +69,20 @@ export function ConfirmSheet({
         pointerEvents="box-none"
         style={[
           styles.wrap,
+          isTablet && styles.wrapCentered,
           { paddingBottom: Math.max(insets.bottom, spacing[16]) },
         ]}
       >
-        <View style={styles.sheet}>
+        <View
+          style={[
+            styles.sheet,
+            isTablet && {
+              width: "100%",
+              maxWidth: dialogMaxWidth,
+              alignSelf: "center",
+            },
+          ]}
+        >
           <View style={styles.headerRow}>
             <View
               style={[
@@ -146,6 +158,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     paddingHorizontal: spacing[16],
+  },
+  // No tablet o sheet vira card centralizado na tela.
+  wrapCentered: {
+    justifyContent: "center",
   },
 
   sheet: {

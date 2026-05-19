@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useResponsive } from "@/hooks/use-responsive";
 import { requestPasswordReset } from "@/services/auth.service";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
 
@@ -90,6 +91,8 @@ function InputField({
 // ─────────────────────────────────────────
 
 export default function ForgotPasswordScreen() {
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("auth") : null;
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +141,7 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, colStyle]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

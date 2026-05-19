@@ -30,6 +30,7 @@ import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatli
 import { CREATE_PROJECT_TASK_LIMIT } from "@/constants/creation-limits";
 import { ObraDetalhe } from "@/data/obras";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
+import { useResponsive } from "@/hooks/use-responsive";
 import { TaskProposalModal } from "@/components/projeto/task-proposal-modal";
 import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
@@ -278,6 +279,8 @@ export function CreateProjectModal({
 }: CreateProjectModalProps) {
   const { showToast } = useToast();
   const { height: windowHeight } = useWindowDimensions();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("narrow") : null;
   const [formState, actions] = useCreateProjectForm();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -546,7 +549,7 @@ export function CreateProjectModal({
       const tasks: CreateProjectTaskDto[] =
         trackActivities && formState.tarefas.length > 0
           ? formState.tarefas.map((t, index) => ({
-              title: t.titulo.slice(0, 30),
+              title: t.titulo.slice(0, 50),
               description: t.descricao?.trim() || undefined,
               priority: PRIORITY_MAP[t.prioridade],
               position: index,
@@ -687,14 +690,16 @@ export function CreateProjectModal({
     <Modal visible={visible} animationType="slide" transparent={false}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Criar Novo Projeto</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            disabled={isSaving}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialIcons name="close" size={24} color="#374151" />
-          </TouchableOpacity>
+          <View style={[styles.headerInner, colStyle]}>
+            <Text style={styles.headerTitle}>Criar Novo Projeto</Text>
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={isSaving}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons name="close" size={24} color="#374151" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {submitError && (
@@ -717,6 +722,7 @@ export function CreateProjectModal({
             style={styles.scroll}
             contentContainerStyle={[
               styles.scrollContent,
+              colStyle,
               { paddingBottom: dynamicScrollPaddingBottom },
             ]}
             showsVerticalScrollIndicator={false}
@@ -960,7 +966,7 @@ export function CreateProjectModal({
                       value={taskInput}
                       onChangeText={setTaskInput}
                       editable={!isSaving}
-                      maxLength={30}
+                      maxLength={50}
                       returnKeyType="done"
                       onSubmitEditing={handleAddTask}
                       onFocus={() => scrollToKeyboard(taskRef, 360)}
@@ -1274,6 +1280,7 @@ export function CreateProjectModal({
         </KeyboardAvoidingView>
 
         <View style={styles.footer}>
+          <View style={[styles.footerInner, colStyle]}>
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={onClose}
@@ -1299,6 +1306,7 @@ export function CreateProjectModal({
               </>
             )}
           </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -1317,14 +1325,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
 
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F3F4F6",
     backgroundColor: "#FFFFFF",
+  },
+  headerInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
 
@@ -1757,13 +1767,15 @@ const styles = StyleSheet.create({
   },
 
   footer: {
-    flexDirection: "row",
-    gap: 12,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "#F3F4F6",
     backgroundColor: "#FFFFFF",
+  },
+  footerInner: {
+    flexDirection: "row",
+    gap: 12,
   },
   cancelBtn: {
     flex: 1,

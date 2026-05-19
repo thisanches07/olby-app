@@ -16,7 +16,7 @@
       "icon": "./assets/images/logo.png",
       "bundleIdentifier": "com.tsanc.obraapp",
       "buildNumber": "4",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "usesAppleSignIn": true,
       "associatedDomains": ["applinks:oblyapp.com"],
       "infoPlist": {

@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/components/obra/toast";
+import { useResponsive } from "@/hooks/use-responsive";
 import * as AppleAuthentication from "expo-apple-authentication";
 
 import {
@@ -294,6 +295,8 @@ const InputField = React.forwardRef<TextInput, InputFieldProps>(
 
 export default function LoginScreen() {
   const { showToast } = useToast();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("auth") : null;
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -512,6 +515,7 @@ export default function LoginScreen() {
           ref={scrollRef}
           contentContainerStyle={[
             styles.scroll,
+            colStyle,
             isKeyboardVisible && styles.scrollKeyboardOpen,
           ]}
           automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}

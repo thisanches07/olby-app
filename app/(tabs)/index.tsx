@@ -41,7 +41,9 @@ import { useSubscription } from "@/contexts/subscription-context";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import type { ObraDetalhe } from "@/data/obras";
 import { useAuth } from "@/hooks/use-auth";
+import { useResponsive } from "@/hooks/use-responsive";
 import { shadow, spacing } from "@/theme";
+import { contentWidth } from "@/theme/breakpoints";
 import { colors } from "@/theme/colors";
 
 const FILTROS: { label: string; value: StatusType | "todas" }[] = [
@@ -53,6 +55,9 @@ const FILTROS: { label: string; value: StatusType | "todas" }[] = [
 
 export default function MinhasObrasScreen() {
   const { user, backendUserId, isLoading: authLoading } = useAuth();
+  const { isTablet, gridColumns } = useResponsive();
+  const numColumns = gridColumns({ minCardWidth: 360 });
+  const isGrid = numColumns > 1;
   const { role, managerTourStep, managerTourCompleted, startManagerTour } = useOnboarding();
   const [busca, setBusca] = useState("");
   const [filtroAtivo, setFiltroAtivo] = useState<StatusType | "todas">("todas");
@@ -227,17 +232,24 @@ export default function MinhasObrasScreen() {
   }));
 
   return (
-    <SafeAreaView style={styles.safeTop} edges={["top"]}>
-      <StatusBar style="light" />
+    <SafeAreaView
+      style={[styles.safeTop, isTablet && styles.safeTopTablet]}
+      edges={["top"]}
+    >
+      <StatusBar style={isTablet ? "dark" : "light"} />
 
       <View style={styles.content}>
+        <View style={[styles.column, isTablet && styles.columnTablet]}>
         <FlashList
+          key={`obras-${numColumns}`}
+          numColumns={numColumns}
           data={obrasFiltradas}
           keyExtractor={(item) => item.id}
           estimatedItemSize={185}
-          renderItem={({ item, index }) => (
-            <FadeSlideIn index={index}>
+          renderItem={({ item, index }) => {
+            const card = (
               <ObraCard
+                grid={isGrid}
                 obra={item}
                 onPress={() =>
                   router.push({
@@ -252,14 +264,27 @@ export default function MinhasObrasScreen() {
                   })
                 }
               />
-            </FadeSlideIn>
-          )}
+            );
+            return isGrid ? (
+              <FadeSlideIn index={index} style={styles.gridCell}>
+                {card}
+              </FadeSlideIn>
+            ) : (
+              <FadeSlideIn index={index}>{card}</FadeSlideIn>
+            );
+          }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
           overScrollMode="never"
-          style={styles.flatList}
-          contentContainerStyle={styles.listaContainer}
+          style={StyleSheet.flatten([
+            styles.flatList,
+            isTablet && styles.flatListTablet,
+          ])}
+          contentContainerStyle={[
+            styles.listaContainer,
+            isGrid && styles.listaContainerGrid,
+          ]}
           onScroll={(e) => {
             scrollY.value = e.nativeEvent.contentOffset.y;
           }}
@@ -326,6 +351,7 @@ export default function MinhasObrasScreen() {
             <MaterialIcons name="add" size={28} color={colors.white} />
           </PressableScale>
         </Animated.View>
+        </View>
 
         <CreateProjectModal
           visible={showCreateModal}
@@ -375,18 +401,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.primary,
   },
+  // No tablet o herói azul vira um painel central; a faixa superior fica clara.
+  safeTopTablet: {
+    backgroundColor: colors.bg,
+  },
   content: {
     flex: 1,
     backgroundColor: colors.bg,
   },
+  // Coluna central de conteúdo (transparente no phone).
+  column: {
+    flex: 1,
+    width: "100%",
+  },
+  columnTablet: {
+    maxWidth: contentWidth.wide,
+    alignSelf: "center",
+  },
   flatList: {
     backgroundColor: colors.primary,
+  },
+  flatListTablet: {
+    backgroundColor: colors.bg,
   },
   listaContainer: {
     flexGrow: 1,
     paddingTop: 0,
     paddingBottom: spacing[100],
     backgroundColor: colors.bg,
+  },
+  // Em grade: respiro lateral e topo entre o painel e os cards.
+  listaContainerGrid: {
+    paddingHorizontal: spacing[12],
+    paddingTop: spacing[16],
+  },
+  // Célula da grade: cria os medianizes (gutter) e altura uniforme.
+  gridCell: {
+    flex: 1,
+    paddingHorizontal: spacing[8],
+    paddingBottom: spacing[16],
   },
   filterWrapper: {
     marginBottom: spacing[4],

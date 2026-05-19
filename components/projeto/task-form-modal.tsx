@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const PRIMARY = "#2563EB";
-const TASK_TITLE_MAX = 30;
+const TASK_TITLE_MAX = 50;
 const TASK_DESCRIPTION_MAX = 120;
 
 interface TaskFormModalProps {

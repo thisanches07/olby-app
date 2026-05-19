@@ -22,6 +22,7 @@ import Animated, {
 
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { useAuth } from "@/hooks/use-auth";
+import { useSheetLayout } from "@/hooks/use-sheet-layout";
 import { colors } from "@/theme/colors";
 import { tapMedium } from "@/utils/haptics";
 
@@ -136,21 +137,12 @@ function MembersListModal({
   members,
   onClose,
 }: MembersListModalProps) {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={modal.overlay} />
-      </TouchableWithoutFeedback>
+  const sheet = useSheetLayout();
 
-      <View style={modal.sheet}>
-        {/* Handle */}
-        <View style={modal.handle} />
+  const sheetBody = (
+    <View style={[modal.sheet, sheet.sheetStyle]}>
+      {/* Handle (só no bottom-sheet do phone) */}
+      {!sheet.centered && <View style={modal.handle} />}
 
         {/* Header */}
         <View style={modal.header}>
@@ -233,7 +225,28 @@ function MembersListModal({
         >
           <Text style={modal.closeBtnText}>Fechar</Text>
         </TouchableOpacity>
-      </View>
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType={sheet.centered ? "fade" : "slide"}
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={modal.overlay} />
+      </TouchableWithoutFeedback>
+
+      {sheet.centered ? (
+        <View style={sheet.containerStyle} pointerEvents="box-none">
+          {sheetBody}
+        </View>
+      ) : (
+        sheetBody
+      )}
     </Modal>
   );
 }
@@ -244,9 +257,11 @@ interface ObraCardProps {
   obra: Obra;
   onPress?: () => void;
   onViewDiary?: () => void;
+  /** Em grade (tablet): sem swipe e com altura uniforme na linha. */
+  grid?: boolean;
 }
 
-export function ObraCard({ obra, onPress, onViewDiary }: ObraCardProps) {
+export function ObraCard({ obra, onPress, onViewDiary, grid = false }: ObraCardProps) {
   const { backendUserId } = useAuth();
   const [showMembersModal, setShowMembersModal] = useState(false);
 
@@ -313,17 +328,12 @@ export function ObraCard({ obra, onPress, onViewDiary }: ObraCardProps) {
     </View>
   );
 
-  return (
-    <>
-      <Swipeable
-        ref={swipeRef}
-        renderRightActions={renderRightActions}
-        onSwipeableWillOpen={() => tapMedium()}
-        friction={2}
-        overshootRight={false}
-        containerStyle={styles.swipeContainer}
-      >
-        <PressableScale style={styles.card} onPress={onPress} scaleTo={0.975}>
+  const cardEl = (
+    <PressableScale
+      style={[styles.card, grid && styles.cardGrid]}
+      onPress={onPress}
+      scaleTo={0.975}
+    >
           <View style={styles.cardHeader}>
             <View
               style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}
@@ -470,8 +480,25 @@ export function ObraCard({ obra, onPress, onViewDiary }: ObraCardProps) {
               </>
             )}
           </View>
-        </PressableScale>
-      </Swipeable>
+    </PressableScale>
+  );
+
+  return (
+    <>
+      {grid ? (
+        cardEl
+      ) : (
+        <Swipeable
+          ref={swipeRef}
+          renderRightActions={renderRightActions}
+          onSwipeableWillOpen={() => tapMedium()}
+          friction={2}
+          overshootRight={false}
+          containerStyle={styles.swipeContainer}
+        >
+          {cardEl}
+        </Swipeable>
+      )}
 
       <MembersListModal
         visible={showMembersModal}
@@ -519,6 +546,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+  },
+  // Em grade (tablet): preenche a célula para linhas com altura uniforme.
+  cardGrid: {
+    flex: 1,
   },
   cardHeader: {
     flexDirection: "row",

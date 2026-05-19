@@ -33,6 +33,7 @@ import {
 } from "@/constants/creation-limits";
 import { useProjects } from "@/contexts/projects-context";
 import { useAppSession } from "@/hooks/use-app-session";
+import { useResponsive } from "@/hooks/use-responsive";
 import { useDiaryData, type EntryFormData } from "@/hooks/use-diary-data";
 import type { DiaryEntry, PhotoItem } from "@/hooks/use-diary-state";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
@@ -47,6 +48,8 @@ import { spacing } from "@/theme/spacing";
 
 export default function DiarioScreen() {
   const insets = useSafeAreaInsets();
+  const { isTablet, contentColumn } = useResponsive();
+  const colStyle = isTablet ? contentColumn("default") : null;
   const { id } = useLocalSearchParams<{ id: string }>();
   const { role: sessionRole } = useAppSession();
   const { obras } = useProjects();
@@ -375,6 +378,7 @@ export default function DiarioScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <View style={styles.stickyHeader}>
+        <View style={colStyle}>
         <DiaryHeader title={projectName} mode={mode} onModeChange={() => {}} />
 
         <DiaryTabsSegmented activeTab={activeTab} onTabChange={setActiveTab} />
@@ -414,8 +418,10 @@ export default function DiarioScreen() {
             <View style={styles.actionsDivider} />
           </View>
         )}
+        </View>
       </View>
 
+      <View style={[styles.diaryBody, colStyle]}>
       {activeTab === "timeline" ? (
         mode === "cliente" ? (
           <ClientTimelineSection
@@ -477,6 +483,7 @@ export default function DiarioScreen() {
           <View style={{ height: spacing[12] + insets.bottom }} />
         </View>
       )}
+      </View>
 
       {/* Modal de form (engenheiro) */}
       {isEng && (
@@ -534,6 +541,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  // Coluna central do corpo do diário no tablet (transparente no phone).
+  diaryBody: {
+    flex: 1,
   },
 
   stickyHeader: {
