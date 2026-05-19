@@ -2,7 +2,7 @@
   "expo": {
     "name": "Obly",
     "slug": "obra-app",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "obraapp",
@@ -15,7 +15,7 @@
     "ios": {
       "icon": "./assets/images/logo.png",
       "bundleIdentifier": "com.tsanc.obraapp",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "associatedDomains": ["applinks:oblyapp.com"],
@@ -40,7 +40,7 @@
     "android": {
       "package": "com.tsanc.obraapp",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/logo.png"
