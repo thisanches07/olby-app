@@ -283,6 +283,10 @@ export default function RootLayout() {
                                 options={{ headerShown: false }}
                               />
                               <Stack.Screen
+                                name="orcamentos/[id]"
+                                options={{ headerShown: false }}
+                              />
+                              <Stack.Screen
                                 name="profile"
                                 options={{ headerShown: false }}
                               />

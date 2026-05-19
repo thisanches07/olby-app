@@ -31,16 +31,29 @@ interface ClienteStatusCardProps {
   obra: ObraDetalhe;
 }
 
-const isLongDesc = (desc: string) => desc.length > 70 || desc.includes("\n");
+// Linhas exibidas quando a descrição está colapsada
+const DESC_COLLAPSED_LINES = 2;
 
 export function ClienteStatusCard({ obra }: ClienteStatusCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [expandedDescs, setExpandedDescs] = useState<Set<string>>(new Set());
+  // Ids de tarefas cuja descrição realmente ultrapassa as linhas colapsadas
+  // (medido via onTextLayout — não por contagem de caracteres).
+  const [longDescs, setLongDescs] = useState<Set<string>>(new Set());
 
   const toggleDesc = useCallback((id: string) => {
     setExpandedDescs((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const markLong = useCallback((id: string) => {
+    setLongDescs((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
       return next;
     });
   }, []);
@@ -194,16 +207,32 @@ export function ClienteStatusCard({ obra }: ClienteStatusCardProps) {
 
                 {tarefa.descricao ? (() => {
                   const isDescExpanded = expandedDescs.has(tarefa.id);
-                  const hasLong = isLongDesc(tarefa.descricao);
+                  const canExpand = longDescs.has(tarefa.id);
                   return (
                     <>
+                      {/* Medição real (texto completo, sem numberOfLines) */}
                       <Text
-                        style={styles.mDesc}
-                        numberOfLines={isDescExpanded ? undefined : 2}
+                        style={[styles.mDesc, styles.descMeasure]}
+                        onTextLayout={(e) => {
+                          if (
+                            e.nativeEvent.lines.length >
+                            DESC_COLLAPSED_LINES
+                          ) {
+                            markLong(tarefa.id);
+                          }
+                        }}
                       >
                         {tarefa.descricao}
                       </Text>
-                      {hasLong && (
+                      <Text
+                        style={styles.mDesc}
+                        numberOfLines={
+                          isDescExpanded ? undefined : DESC_COLLAPSED_LINES
+                        }
+                      >
+                        {tarefa.descricao}
+                      </Text>
+                      {canExpand && (
                         <TouchableOpacity
                           onPress={() => toggleDesc(tarefa.id)}
                           hitSlop={{ top: 4, bottom: 8, left: 0, right: 16 }}
@@ -470,6 +499,14 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     lineHeight: 17,
     marginTop: 5,
+  },
+  // Texto invisível só para medir o nº real de linhas (não afeta layout)
+  descMeasure: {
+    position: "absolute",
+    opacity: 0,
+    zIndex: -1,
+    left: 0,
+    right: 0,
   },
   descExpandRow: {
     flexDirection: "row",

@@ -35,12 +35,14 @@ import { EngHeroSection } from "@/components/obra/eng-hero-section";
 import { EngHoursCompactCard } from "@/components/obra/eng-hours-compact-card";
 import { EngTasksList } from "@/components/obra/eng-tasks-list";
 import { ObraHeader } from "@/components/obra/obra-header";
+import { QuotesTab } from "@/components/orcamentos/quotes-tab";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 type EngTabId =
   | "projetos"
   | "tarefas"
   | "gastos"
+  | "orcamentos"
   | "documentos"
   | "financeiro";
 
@@ -48,6 +50,7 @@ const ENG_TABS: TabDefinition[] = [
   { id: "projetos", label: "PROJETO", icon: "folder" },
   { id: "tarefas", label: "TAREFAS", icon: "check-circle-outline" },
   { id: "gastos", label: "GASTOS", icon: "receipt" },
+  { id: "orcamentos", label: "ORÇAM.", icon: "request-quote" },
   { id: "documentos", label: "DOCUMENTOS", icon: "folder-open" },
   // { id: "financeiro", label: "FINANCEIRO", icon: "insights" },
 ];
@@ -236,6 +239,7 @@ export function ObraViewEng({
   const [headerBottom, setHeaderBottom] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [documentComposerSignal, setDocumentComposerSignal] = useState(0);
+  const [quotesComposerSignal, setQuotesComposerSignal] = useState(0);
   const [isDocumentUploading, setIsDocumentUploading] = useState(false);
   const cancelDocumentUploadRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -383,6 +387,7 @@ export function ObraViewEng({
   const showCTA =
     (activeTab === "tarefas" && !isReadOnly) ||
     (activeTab === "gastos" && !isReadOnly && obra.trackFinancial) ||
+    (activeTab === "orcamentos" && !isReadOnly) ||
     (activeTab === "documentos" && canManageDocuments);
   const activeLimitMessage =
     activeTab === "tarefas" && taskLimitReached
@@ -625,6 +630,14 @@ export function ObraViewEng({
           />
         )}
 
+        {activeTab === "orcamentos" && (
+          <QuotesTab
+            projectId={obra.id}
+            readOnly={isReadOnly}
+            openCreateSignal={quotesComposerSignal}
+          />
+        )}
+
         {activeTab === "financeiro" && <EngFinancialSummary obra={obra} />}
       </ScrollView>
 
@@ -634,6 +647,7 @@ export function ObraViewEng({
             activeTab={activeTab}
             onAddTask={taskLimitReached ? undefined : onAddTask}
             onAddExpense={expenseLimitReached ? undefined : onAddExpense}
+            onAddDemand={() => setQuotesComposerSignal((prev) => prev + 1)}
             onAddDocument={
               canManageDocuments
                 ? () => setDocumentComposerSignal((prev) => prev + 1)

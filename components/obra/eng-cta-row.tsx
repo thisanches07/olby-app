@@ -3,12 +3,19 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-type EngTabId = "projetos" | "tarefas" | "gastos" | "documentos" | "financeiro";
+type EngTabId =
+  | "projetos"
+  | "tarefas"
+  | "gastos"
+  | "orcamentos"
+  | "documentos"
+  | "financeiro";
 
 interface EngCTARowProps {
   activeTab: EngTabId;
   onAddTask?: () => void;
   onAddExpense?: () => void;
+  onAddDemand?: () => void;
   onAddDocument?: () => void;
   onDefault?: () => void;
   disabledMessage?: string | null;
@@ -18,16 +25,19 @@ export function EngCTARow({
   activeTab,
   onAddTask,
   onAddExpense,
+  onAddDemand,
   onAddDocument,
   onDefault,
   disabledMessage,
 }: EngCTARowProps) {
   const isTaskTab = activeTab === "tarefas";
   const isExpenseTab = activeTab === "gastos";
+  const isDemandTab = activeTab === "orcamentos";
   const isDocumentTab = activeTab === "documentos";
   const isDisabled =
     (isTaskTab && !onAddTask) ||
     (isExpenseTab && !onAddExpense) ||
+    (isDemandTab && !onAddDemand) ||
     (isDocumentTab && !onAddDocument);
 
   return (
@@ -51,6 +61,16 @@ export function EngCTARow({
         >
           <MaterialIcons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.ctaBtnText}>Adicionar Gasto</Text>
+        </TouchableOpacity>
+      ) : isDemandTab ? (
+        <TouchableOpacity
+          style={[styles.ctaBtn, isDisabled && styles.ctaBtnDisabled]}
+          onPress={onAddDemand}
+          activeOpacity={isDisabled ? 1 : 0.85}
+          disabled={isDisabled}
+        >
+          <MaterialIcons name="add" size={20} color="#FFFFFF" />
+          <Text style={styles.ctaBtnText}>Adicionar Demanda</Text>
         </TouchableOpacity>
       ) : isDocumentTab ? (
         <TouchableOpacity
