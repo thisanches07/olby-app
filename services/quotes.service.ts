@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { track } from "./analytics";
 
 export type QuoteGroupStatus = "OPEN" | "DECIDED";
 
@@ -69,7 +70,13 @@ export const quotesService = {
     api.get<QuoteGroupResponse>(`/quote-groups/${id}`),
 
   createGroup: (input: CreateQuoteGroupInput) =>
-    api.post<QuoteGroupResponse>("/quote-groups", input),
+    api.post<QuoteGroupResponse>("/quote-groups", input).then((group) => {
+      track("quote_created", {
+        project_id: group.projectId,
+        quote_id: group.id,
+      });
+      return group;
+    }),
 
   updateGroup: (id: string, input: UpdateQuoteGroupInput) =>
     api.patch<QuoteGroupResponse>(`/quote-groups/${id}`, input),

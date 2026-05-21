@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import { useAuth } from "@/hooks/use-auth";
+import { track } from "@/services/analytics";
 import {
   onboardingStorage,
   type ManagerTourState,
@@ -104,6 +105,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       ]);
       setRole(r);
       setIsRoleSelected(true);
+      track("role_selected", { role: r });
     },
     [uid],
   );

@@ -9,6 +9,7 @@ import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { PostHogProvider } from "posthog-react-native";
 import React, { useEffect, useRef } from "react";
 import { AppState, LogBox, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -17,7 +18,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // expo-router v6 already calls preventAutoHideAsync() internally
 
 import DevPanel from "@/app/dev/DevPanel";
+import { AnalyticsBridge } from "@/components/app/analytics-bridge";
 import { BootstrapLoadingScreen } from "@/components/app/bootstrap-loading-screen";
+import { ScreenTracker } from "@/components/app/screen-tracker";
 import {
   OnboardingRoleSheet,
   type OnboardingRoleSheetRef,
@@ -248,6 +251,28 @@ export default function RootLayout() {
       <BottomSheetModalProvider>
         <SafeAreaProvider>
           <ThemeProvider value={DefaultTheme}>
+            <PostHogProvider
+              apiKey={process.env.EXPO_PUBLIC_POSTHOG_KEY ?? ""}
+              options={{
+                host: process.env.EXPO_PUBLIC_POSTHOG_HOST,
+                captureAppLifecycleEvents: true,
+                enableSessionReplay: true,
+                sessionReplayConfig: {
+                  // Protege email/senha/telefone/valores monetários digitados.
+                  maskAllTextInputs: true,
+                  // Fotos de obra são conteúdo central pro replay fazer sentido.
+                  // Reavaliar antes de subir publicamente nas lojas.
+                  maskAllImages: false,
+                  throttleDelayMs: 1000,
+                },
+              }}
+              autocapture={{
+                // ScreenTracker faz isso manualmente com nomes canônicos.
+                captureScreens: false,
+                // Captura de toques é ruidosa em RN; ligar depois se precisar.
+                captureTouches: false,
+              }}
+            >
             <AuthProvider>
               <SubscriptionProvider>
                 <AppSessionProvider>
@@ -258,6 +283,8 @@ export default function RootLayout() {
                       <OnboardingProvider>
                         <PushNotificationsProvider>
                           <AuthGate>
+                            <AnalyticsBridge />
+                            <ScreenTracker />
                             <RolePickerGate />
                             <SubscriptionLoader />
                             <PlanErrorInterceptor />
@@ -338,6 +365,7 @@ export default function RootLayout() {
                 </AppSessionProvider>
               </SubscriptionProvider>
             </AuthProvider>
+            </PostHogProvider>
           </ThemeProvider>
         </SafeAreaProvider>
       </BottomSheetModalProvider>

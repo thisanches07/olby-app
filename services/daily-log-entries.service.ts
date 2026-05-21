@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { track } from "./analytics";
 
 export type DiaryWeather =
   | "SUNNY"
@@ -112,7 +113,14 @@ export const dailyLogEntriesService = {
   },
 
   create: (dto: CreateDailyLogEntryDto) =>
-    api.post<DailyLogEntryResponseDto>("/daily-log-entries", dto),
+    api.post<DailyLogEntryResponseDto>("/daily-log-entries", dto).then((entry) => {
+      track("daily_log_entry_created", {
+        project_id: entry.projectId,
+        entry_id: entry.id,
+        photo_count: dto.photos?.length ?? 0,
+      });
+      return entry;
+    }),
 
   getById: (id: string) =>
     api.get<DailyLogEntryResponseDto>(`/daily-log-entries/${id}`),

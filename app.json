@@ -18,7 +18,9 @@
       "buildNumber": "5",
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "associatedDomains": ["applinks:oblyapp.com"],
+      "associatedDomains": [
+        "applinks:oblyapp.com"
+      ],
       "infoPlist": {
         "CFBundleDisplayName": "Obly",
         "NSCameraUsageDescription": "O Obly usa a câmera para fotografar o andamento da obra no Diário de Obra. Exemplo: registrar a concretagem de uma laje ou a instalação de esquadrias.",
@@ -58,7 +60,10 @@
               "pathPrefix": "/invite"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -99,7 +104,8 @@
       "expo-iap",
       "expo-apple-authentication",
       "expo-document-picker",
-      "react-native-document-scanner-plugin"
+      "react-native-document-scanner-plugin",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

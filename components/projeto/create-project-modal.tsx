@@ -33,6 +33,7 @@ import { useCreateProjectForm } from "@/hooks/use-create-project-form";
 import { useResponsive } from "@/hooks/use-responsive";
 import { TaskProposalModal } from "@/components/projeto/task-proposal-modal";
 import { firebaseAuth } from "@/services/firebase";
+import { track } from "@/services/analytics";
 import { formatBRLInput } from "@/utils/obra-utils";
 
 const PRIMARY = "#2563EB";
@@ -572,6 +573,8 @@ export function CreateProjectModal({
       };
 
       const created = await createProject(dto);
+
+      track("project_created", { project_id: created.id ?? "unknown" });
 
       const previsaoEntregaFinalBR = created.expectedDeliveryAt
         ? new Date(created.expectedDeliveryAt).toLocaleDateString("pt-BR")

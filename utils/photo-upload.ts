@@ -1,6 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
 
+import { track } from "@/services/analytics";
 import { dailyLogPhotosService } from "@/services/daily-log-photos.service";
 import type { PhotoToUpload } from "@/services/daily-log-entries.service";
 
@@ -116,6 +117,8 @@ export async function uploadPhotoToEntry(
   ]);
 
   await dailyLogPhotosService.confirm({ projectId, photoId });
+
+  track("photo_uploaded", { project_id: projectId, entry_id: entryId });
 
   return photoId;
 }

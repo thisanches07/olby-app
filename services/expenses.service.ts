@@ -1,5 +1,6 @@
 import type { DocumentSource } from "@/data/obras";
 import { api } from "./api";
+import { track } from "./analytics";
 
 export type ExpenseCategory = string; // 'material' | 'labor' | 'service' | 'other'
 
@@ -74,7 +75,14 @@ export const expensesService = {
   getById: (id: string) => api.get<ExpenseResponseDto>(`/expenses/${id}`),
 
   create: (dto: CreateExpenseDto) =>
-    api.post<ExpenseResponseDto>("/expenses", dto),
+    api.post<ExpenseResponseDto>("/expenses", dto).then((expense) => {
+      track("expense_created", {
+        project_id: expense.projectId,
+        expense_id: expense.id,
+        amount_cents: expense.amountCents,
+      });
+      return expense;
+    }),
 
   update: (id: string, dto: UpdateExpenseDto) =>
     api.patch<ExpenseResponseDto>(`/expenses/${id}`, dto),

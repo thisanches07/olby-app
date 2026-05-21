@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { track } from "./analytics";
 
 export interface InviteResponseDto {
   inviteUrl: string;
@@ -21,7 +22,12 @@ export const invitesService = {
    * Requer role OWNER ou PRO.
    */
   create: async (projectId: string): Promise<InviteResponseDto> => {
-    return api.post<InviteResponseDto>(`/projects/${projectId}/invites`, {});
+    const result = await api.post<InviteResponseDto>(
+      `/projects/${projectId}/invites`,
+      {},
+    );
+    track("project_share_link_generated", { project_id: projectId });
+    return result;
   },
 
   /**
@@ -43,6 +49,11 @@ export const invitesService = {
    * Aceita convite e adiciona o usuário como CLIENT_VIEWER.
    */
   accept: async (token: string): Promise<AcceptInviteResponseDto> => {
-    return api.post<AcceptInviteResponseDto>("/invites/accept", { token });
+    const result = await api.post<AcceptInviteResponseDto>(
+      "/invites/accept",
+      { token },
+    );
+    track("invite_accepted", { project_id: result.projectId });
+    return result;
   },
 };

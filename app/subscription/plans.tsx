@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ToastRenderer, useToast } from "@/components/obra/toast";
 import { CanceledAccessCard } from "@/components/subscription/canceled-access-card";
 import { useSubscription } from "@/contexts/subscription-context";
+import { track } from "@/services/analytics";
 import { BillingApiError } from "@/services/billing.mappers";
 import {
   getSubscriptionStatusMessage,
@@ -670,6 +671,11 @@ function SubscriptionPlansIapEnabled() {
       setIsRequestingPurchase(true);
       const identity = await fetchBillingIdentity();
 
+      track("iap_purchase_started", {
+        sku: planItem.productId,
+        platform: Platform.OS === "ios" ? "ios" : "android",
+      });
+
       if (Platform.OS === "ios") {
         if (!identity.appleAppAccountToken) {
           throw new Error("Não foi possível preparar a compra para este usuário.");
@@ -711,6 +717,11 @@ function SubscriptionPlansIapEnabled() {
         requestError instanceof Error ? requestError.message : null;
       iapLog("handleSubscribe → requestPurchase error", {
         message: rawMessage,
+      });
+      track("iap_purchase_failed", {
+        sku: planItem.productId,
+        stage: "request",
+        error_message: rawMessage ?? "unknown",
       });
       const message =
         toFriendlyMessage(rawMessage, "Falha ao iniciar compra.") ??

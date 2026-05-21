@@ -35,6 +35,7 @@ import {
   registerWithEmail,
   sendCurrentUserEmailVerification,
 } from "@/services/auth.service";
+import { track } from "@/services/analytics";
 import { getAuthErrorMessage } from "@/utils/auth-errors";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
 import {
@@ -352,6 +353,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await loginWithEmail(email, senha);
+      track("login_completed", { method: "email" });
       router.replace("/(tabs)");
     } catch (err) {
       showError(getAuthErrorMessage(err));
@@ -384,6 +386,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await registerWithEmail(email, senha, nome, phoneRaw || undefined);
+      track("signup_completed", { method: "email" });
       await sendCurrentUserEmailVerification();
       showToast({
         title: "Confirme seu e-mail",
@@ -411,6 +414,7 @@ export default function LoginScreen() {
         return;
       }
       await loginWithGoogleIdToken(idToken);
+      track("login_completed", { method: "google" });
       router.replace("/(tabs)");
     } catch (err: any) {
       if (
@@ -457,6 +461,7 @@ export default function LoginScreen() {
         return;
       }
       await loginWithApple(credential.identityToken, credential.fullName);
+      track("login_completed", { method: "apple" });
       router.replace("/(tabs)");
     } catch (err) {
       // Cancel silencioso — usuário fechou o sheet intencionalmente

@@ -15,12 +15,14 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { updateProfile } from "firebase/auth";
+import { PostHogMaskView } from "posthog-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSubscription } from "@/contexts/subscription-context";
@@ -28,7 +30,9 @@ import { useOnboarding } from "@/contexts/onboarding-context";
 import { useToast as useTopToast } from "@/components/obra/toast";
 import { useAccountDeletion } from "@/hooks/use-account-deletion";
 import { useAuth } from "@/hooks/use-auth";
+import { ANALYTICS_OPT_OUT_STORAGE_KEY } from "@/components/app/analytics-bridge";
 import { api } from "@/services/api";
+import { optIn, optOut } from "@/services/analytics";
 import {
   requestCurrentUserEmailChange,
   requestPasswordReset,
@@ -593,6 +597,44 @@ function ActionRow({
   );
 }
 
+function ToggleRow({
+  icon,
+  iconBg,
+  iconColor,
+  label,
+  sublabel,
+  value,
+  onValueChange,
+  isLast = false,
+}: {
+  icon: React.ComponentProps<typeof MaterialIcons>["name"];
+  iconBg: string;
+  iconColor: string;
+  label: string;
+  sublabel?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+  isLast?: boolean;
+}) {
+  return (
+    <View style={[styles.actionRow, !isLast && styles.rowBorder]}>
+      <View style={[styles.actionIconWrap, { backgroundColor: iconBg }]}>
+        <MaterialIcons name={icon} size={18} color={iconColor} />
+      </View>
+      <View style={styles.rowContent}>
+        <Text style={styles.actionLabel}>{label}</Text>
+        {sublabel ? <Text style={styles.actionSublabel}>{sublabel}</Text> : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        thumbColor={Platform.OS === "android" ? "#FFFFFF" : undefined}
+        trackColor={{ false: "#E2E8F0", true: colors.primary }}
+      />
+    </View>
+  );
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
@@ -650,6 +692,33 @@ export default function ProfileScreen() {
     useState<number | null>(null);
   const [emailVerificationCooldownNow, setEmailVerificationCooldownNow] =
     useState(Date.now());
+
+  const [analyticsOptedOut, setAnalyticsOptedOut] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ANALYTICS_OPT_OUT_STORAGE_KEY)
+      .then((v) => setAnalyticsOptedOut(v === "true"))
+      .catch(() => {});
+  }, []);
+
+  const handleToggleAnalytics = useCallback(async (nextSharing: boolean) => {
+    // Switch mostra "compartilhar dados de uso"; opt-out persistido é o inverso.
+    const nextOptedOut = !nextSharing;
+    setAnalyticsOptedOut(nextOptedOut);
+    try {
+      await AsyncStorage.setItem(
+        ANALYTICS_OPT_OUT_STORAGE_KEY,
+        nextOptedOut ? "true" : "false",
+      );
+    } catch {
+      // se a persistência falhar, ainda aplicamos no client em memória.
+    }
+    if (nextOptedOut) {
+      optOut();
+    } else {
+      optIn();
+    }
+  }, []);
 
   const saveBarAnim = useRef(new Animated.Value(0)).current;
   const modalOverlayOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -1174,31 +1243,33 @@ export default function ProfileScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero */}
-          <View style={styles.heroSection}>
-            <View style={styles.avatarRing}>
-              <View style={styles.avatar}>
-                {photoUrl && !avatarImageError ? (
-                  <Image
-                    source={{ uri: photoUrl }}
-                    style={styles.avatarImage}
-                    onError={() => setAvatarImageError(true)}
-                  />
-                ) : (
-                  <Text style={styles.avatarText}>{initials}</Text>
+          {/* Hero — envolto em PostHogMaskView para esconder nome/email do replay. */}
+          <PostHogMaskView>
+            <View style={styles.heroSection}>
+              <View style={styles.avatarRing}>
+                <View style={styles.avatar}>
+                  {photoUrl && !avatarImageError ? (
+                    <Image
+                      source={{ uri: photoUrl }}
+                      style={styles.avatarImage}
+                      onError={() => setAvatarImageError(true)}
+                    />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials}</Text>
+                  )}
+                </View>
+                {isEditing && (
+                  <View style={styles.avatarEditBadge}>
+                    <MaterialIcons name="edit" size={12} color={colors.white} />
+                  </View>
                 )}
               </View>
-              {isEditing && (
-                <View style={styles.avatarEditBadge}>
-                  <MaterialIcons name="edit" size={12} color={colors.white} />
-                </View>
-              )}
+              <Text style={styles.heroName}>{name || "Usuário"}</Text>
+              {user?.email ? (
+                <Text style={styles.heroSub}>{user.email}</Text>
+              ) : null}
             </View>
-            <Text style={styles.heroName}>{name || "Usuário"}</Text>
-            {user?.email ? (
-              <Text style={styles.heroSub}>{user.email}</Text>
-            ) : null}
-          </View>
+          </PostHogMaskView>
 
           {shouldShowEmailVerificationCard ? (
             <View style={styles.emailVerifyCard}>
@@ -1511,6 +1582,23 @@ export default function ProfileScreen() {
               label="Ver tour novamente"
               sublabel="Reativa o guia ao abrir uma obra"
               onPress={handleRestartTour}
+              isLast
+            />
+          </View>
+
+          {/* Privacidade */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Privacidade</Text>
+          </View>
+          <View style={styles.card}>
+            <ToggleRow
+              icon="insights"
+              iconBg="#EEF2FF"
+              iconColor={colors.primary}
+              label="Compartilhar dados de uso"
+              sublabel="Ajuda a melhorar o app. Nenhum dado é vendido."
+              value={!analyticsOptedOut}
+              onValueChange={handleToggleAnalytics}
               isLast
             />
           </View>

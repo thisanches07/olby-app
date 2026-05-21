@@ -9,6 +9,7 @@ import React, {
 
 import { forceRefreshIdToken } from "@/services/token";
 
+import { track } from "@/services/analytics";
 import {
   BillingApiError,
   billingApi,
@@ -203,10 +204,18 @@ export function SubscriptionProvider({
           subLog("verifyApplePurchase → calling refresh()");
           await refresh({ retryOnUnauthorized: true });
           subLog("verifyApplePurchase → refresh() done");
+          track("iap_purchase_verified", {
+            effective_plan: String(result.effectivePlan),
+          });
         } catch (error: unknown) {
           subLog("verifyApplePurchase → error", {
             name: error instanceof Error ? error.name : typeof error,
             message: error instanceof Error ? error.message : String(error),
+          });
+          track("iap_purchase_failed", {
+            stage: "verify",
+            error_message:
+              error instanceof Error ? error.message : String(error),
           });
           throw await handleVerifyError(error);
         }
@@ -250,10 +259,18 @@ export function SubscriptionProvider({
           subLog("verifyGooglePurchase → calling refresh()");
           await refresh({ retryOnUnauthorized: true });
           subLog("verifyGooglePurchase → refresh() done");
+          track("iap_purchase_verified", {
+            effective_plan: String(result.effectivePlan),
+          });
         } catch (error: unknown) {
           subLog("verifyGooglePurchase → error", {
             name: error instanceof Error ? error.name : typeof error,
             message: error instanceof Error ? error.message : String(error),
+          });
+          track("iap_purchase_failed", {
+            stage: "verify",
+            error_message:
+              error instanceof Error ? error.message : String(error),
           });
           throw await handleVerifyError(error);
         }
