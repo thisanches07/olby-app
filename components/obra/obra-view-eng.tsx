@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useResponsive } from "@/hooks/use-responsive";
 import type { DocumentAttachment, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
 import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
+import { track } from "@/services/analytics";
+import { AnalyticsEvents } from "@/types/analytics-events";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -283,8 +285,12 @@ export function ObraViewEng({
     (tab: EngTabId) => {
       setActiveTab(tab);
       onTabChange?.(tab === "projetos");
+      track(AnalyticsEvents.OBRA_TAB_VIEWED, {
+        project_id: obra.id,
+        tab,
+      });
     },
-    [onTabChange],
+    [onTabChange, obra.id],
   );
 
   // Tour-driven tab override — keeps a stable ref so the effect doesn't re-run on changeTab identity changes

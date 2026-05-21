@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/obra/toast";
 import type { DocumentAttachment } from "@/data/obras";
 import { ApiError } from "@/services/api";
+import { track } from "@/services/analytics";
 import { documentsService } from "@/services/documents.service";
 import { expensesService } from "@/services/expenses.service";
+import { AnalyticsEvents } from "@/types/analytics-events";
 import {
   uploadProjectDocument,
   UploadCancelledError,
@@ -241,6 +243,12 @@ export function useProjectDocuments({
         });
 
         setDocuments((prev) => mergeDocuments([document], prev));
+
+        track(AnalyticsEvents.DOCUMENT_UPLOADED, {
+          project_id: projectId,
+          document_id: document.id,
+          kind: String(document.kind),
+        });
 
         showToast({
           title: "Documento enviado",

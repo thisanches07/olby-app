@@ -21,8 +21,10 @@ import { PressableScale } from "@/components/ui/pressable-scale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubscription } from "@/contexts/subscription-context";
 import { useObraData } from "@/hooks/use-obra-data";
+import { track } from "@/services/analytics";
 import { buildReportData, type ReportPeriod } from "@/services/report.service";
 import { colors } from "@/theme/colors";
+import { AnalyticsEvents } from "@/types/analytics-events";
 import { generateReportHtml } from "@/utils/report-html";
 import {
   checkReportAccess,
@@ -204,6 +206,10 @@ export default function ReportScreen() {
       const html = generateReportHtml(data, selectedPeriod);
       const fileName = buildReportFileName(obra.nome, selectedPeriod);
       setState({ kind: "preview", html, fileName });
+      track(AnalyticsEvents.REPORT_GENERATED, {
+        project_id: id!,
+        period: selectedPeriod,
+      });
     } catch {
       setState({
         kind: "error",
@@ -285,6 +291,10 @@ export default function ReportScreen() {
       } else {
         Alert.alert("Arquivo salvo", `PDF salvo em: ${namedUri}`);
       }
+      track(AnalyticsEvents.REPORT_EXPORTED, {
+        project_id: id!,
+        period: selectedPeriod,
+      });
       if (planCode === "BASIC") {
         await recordReportGeneration(id!);
       }
@@ -293,7 +303,7 @@ export default function ReportScreen() {
     } finally {
       setIsExporting(false);
     }
-  }, [id, plan, planCode, state, subscriptionLoading]);
+  }, [id, plan, planCode, selectedPeriod, state, subscriptionLoading]);
   if (obraLoading && !obra) {
     return (
       <>

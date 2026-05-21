@@ -27,6 +27,8 @@ import {
   type ProjectResponseDto,
 } from "@/services/projects.service";
 import { tasksService, type TaskResponseDto } from "@/services/tasks.service";
+import { track } from "@/services/analytics";
+import { AnalyticsEvents } from "@/types/analytics-events";
 import {
   getFileSize,
   putBinaryFile,
@@ -394,6 +396,14 @@ export function useObraData(projectId: string): UseObraDataReturn {
       try {
         const updated = await tasksService.update(id, { status: newStatus });
         setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+        // `task_completed` é disparado pelo service quando dto.status === 'done'.
+        // Aqui cobrimos o caminho simétrico: reabrir uma tarefa antes concluída.
+        if (newStatus === "OPEN") {
+          track(AnalyticsEvents.TASK_REOPENED, {
+            project_id: projectId,
+            task_id: id,
+          });
+        }
       } catch (e) {
         setTasks((prev) =>
           prev.map((t) => (t.id === id ? { ...t, status: task.status } : t)),
@@ -401,7 +411,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         throw e;
       }
     },
-    [tasks],
+    [tasks, projectId],
   );
 
   const addExpense = useCallback(

@@ -33,6 +33,17 @@ export const AnalyticsEvents = {
   IAP_PURCHASE_STARTED: "iap_purchase_started",
   IAP_PURCHASE_VERIFIED: "iap_purchase_verified",
   IAP_PURCHASE_FAILED: "iap_purchase_failed",
+
+  // Fase 2 — Navegação interna na tela de obra
+  OBRA_TAB_VIEWED: "obra_tab_viewed",
+  TASK_REOPENED: "task_reopened",
+  DOCUMENT_UPLOADED: "document_uploaded",
+
+  // Fase 3 — Compartilhar obra + Gerar relatório
+  PROJECT_SHARED: "project_shared",
+  PROJECT_MEMBER_REMOVED: "project_member_removed",
+  REPORT_GENERATED: "report_generated",
+  REPORT_EXPORTED: "report_exported",
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
@@ -42,6 +53,15 @@ export type AuthMethod = "email" | "google" | "apple";
 export type UserRole = "manager" | "viewer";
 export type IapPlatform = "ios" | "android";
 export type IapFailureStage = "request" | "verify";
+
+/** Tabs internas da tela /obra/[id] — mantém alinhado com EngTabId em components/obra/obra-view-eng.tsx. */
+export type ObraTabId =
+  | "projetos"
+  | "tarefas"
+  | "gastos"
+  | "orcamentos"
+  | "documentos"
+  | "financeiro";
 
 export type EventProps = {
   [AnalyticsEvents.SIGNUP_COMPLETED]: { method: AuthMethod };
@@ -80,5 +100,35 @@ export type EventProps = {
     sku?: string;
     stage: IapFailureStage;
     error_message: string;
+  };
+
+  [AnalyticsEvents.OBRA_TAB_VIEWED]: {
+    project_id: string;
+    tab: ObraTabId;
+  };
+  [AnalyticsEvents.TASK_REOPENED]: {
+    project_id: string;
+    task_id: string;
+  };
+  [AnalyticsEvents.DOCUMENT_UPLOADED]: {
+    project_id: string;
+    document_id: string;
+    kind: string;
+  };
+
+  [AnalyticsEvents.PROJECT_SHARED]: {
+    project_id: string;
+  };
+  [AnalyticsEvents.PROJECT_MEMBER_REMOVED]: {
+    project_id: string;
+  };
+  [AnalyticsEvents.REPORT_GENERATED]: {
+    project_id: string;
+    /** ReportPeriod em `services/report.service.ts`: 7 | 15 | 30 | "all". */
+    period: number | string;
+  };
+  [AnalyticsEvents.REPORT_EXPORTED]: {
+    project_id: string;
+    period: number | string;
   };
 };

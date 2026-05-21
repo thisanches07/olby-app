@@ -30,7 +30,9 @@ import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
+import { track } from "@/services/analytics";
 import { invitesService } from "@/services/invites.service";
+import { AnalyticsEvents } from "@/types/analytics-events";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
@@ -372,6 +374,10 @@ export function ShareProjectModal({
             setMembersState((prev) => prev.filter((m) => m.id !== member.id));
             setConfirm(null);
 
+            track(AnalyticsEvents.PROJECT_MEMBER_REMOVED, {
+              project_id: projectId,
+            });
+
             showToast({
               title: "Acesso removido",
               message: `${member.name} não tem mais acesso ao projeto.`,
@@ -437,17 +443,22 @@ export function ShareProjectModal({
   const handleShare = useCallback(async () => {
     if (!inviteResult) return;
     try {
-      await Share.share({
+      const result = await Share.share({
         message:
           `Você foi convidado para acompanhar a obra "${projectName}" no Obly App.\n\n` +
           `Toque no link para aceitar o convite:\n${inviteResult.inviteUrl}\n\n` +
           `Ainda não tem o app? Baixe grátis em oblyapp.com`,
         title: "Convite para obra",
       });
+      // Só registra quando o usuário realmente compartilhou — `dismissedAction`
+      // ocorre quando ele fecha o sheet sem escolher canal.
+      if (result.action === Share.sharedAction) {
+        track(AnalyticsEvents.PROJECT_SHARED, { project_id: projectId });
+      }
     } catch {
       // usuário cancelou o share sheet — não é erro
     }
-  }, [inviteResult, projectName]);
+  }, [inviteResult, projectId, projectName]);
 
   if (!mounted) return null;
 
