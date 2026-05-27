@@ -1,4 +1,5 @@
 import { billingApi } from "./billing.api";
+import type { SubscriptionProvider } from "./billing.mappers";
 
 export type PlanCode = "FREE" | "BASIC" | "PRO";
 export type SubscriptionStatus =
@@ -27,6 +28,7 @@ export interface SubscriptionInfo {
   canceledAt: string | null;
   ownedProjectCount: number;
   canCreateProject: boolean;
+  provider: SubscriptionProvider;
 }
 
 export function buildFreeSubscriptionInfo(): SubscriptionInfo {
@@ -45,6 +47,7 @@ export function buildFreeSubscriptionInfo(): SubscriptionInfo {
     canceledAt: null,
     ownedProjectCount: 0,
     canCreateProject: false,
+    provider: null,
   };
 }
 

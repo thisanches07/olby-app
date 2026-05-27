@@ -164,5 +164,6 @@ export {
 export type {
   EffectivePlanResponse,
   MySubscriptionResponse,
+  SubscriptionProvider,
   SubscriptionSnapshot,
 } from "./billing.mappers";

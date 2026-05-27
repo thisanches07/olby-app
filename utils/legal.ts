@@ -2,3 +2,4 @@
 
 export const PRIVACY_POLICY_URL = `${LEGAL_BASE_URL}/privacy`;
 export const TERMS_OF_USE_URL = `${LEGAL_BASE_URL}/terms`;
+export const OBLY_ACCOUNT_URL = `${LEGAL_BASE_URL}/perfil`;

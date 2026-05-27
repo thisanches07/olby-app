@@ -33,6 +33,7 @@ export const AnalyticsEvents = {
   IAP_PURCHASE_STARTED: "iap_purchase_started",
   IAP_PURCHASE_VERIFIED: "iap_purchase_verified",
   IAP_PURCHASE_FAILED: "iap_purchase_failed",
+  IAP_PURCHASE_BLOCKED_CROSS_PLATFORM: "iap_purchase_blocked_cross_platform",
 
   // Fase 2 — Navegação interna na tela de obra
   OBRA_TAB_VIEWED: "obra_tab_viewed",
@@ -100,6 +101,10 @@ export type EventProps = {
     sku?: string;
     stage: IapFailureStage;
     error_message: string;
+  };
+  [AnalyticsEvents.IAP_PURCHASE_BLOCKED_CROSS_PLATFORM]: {
+    provider: string;
+    platform: string;
   };
 
   [AnalyticsEvents.OBRA_TAB_VIEWED]: {

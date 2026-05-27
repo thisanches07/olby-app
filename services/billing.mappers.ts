@@ -9,6 +9,8 @@ export type SubscriptionStatus =
   | "PAST_DUE"
   | null;
 
+export type SubscriptionProvider = "APPLE" | "GOOGLE" | "STRIPE" | null;
+
 export interface EffectivePlanResponse {
   code: PlanCode;
   name: string;
@@ -22,6 +24,7 @@ export interface EffectivePlanResponse {
   willRenew?: boolean;
   isCanceled?: boolean;
   canceledAt?: string | null;
+  provider?: SubscriptionProvider;
 }
 
 export interface MySubscriptionResponse {
@@ -39,6 +42,7 @@ export interface MySubscriptionResponse {
   canceledAt: string | null;
   ownedProjectCount: number;
   canCreateProject: boolean;
+  provider: SubscriptionProvider;
 }
 
 export interface SubscriptionSnapshot {
@@ -51,6 +55,7 @@ export type BillingErrorCode =
   | "UNAUTHORIZED"
   | "NOT_FOUND"
   | "RATE_LIMITED"
+  | "SUBSCRIPTION_CONFLICT"
   | "TRANSIENT"
   | "UNKNOWN";
 
@@ -111,6 +116,16 @@ export function mapBillingError(error: unknown): BillingApiError {
       false,
     );
   }
+  if (status === 409) {
+    const backendMessage =
+      error instanceof Error && error.message ? error.message : null;
+    return new BillingApiError(
+      backendMessage ?? "Você já possui uma assinatura ativa em outra plataforma.",
+      409,
+      "SUBSCRIPTION_CONFLICT",
+      false,
+    );
+  }
   if (status !== null && status >= 500 && status <= 599) {
     return new BillingApiError(
       "Erro temporario no servidor. Tente novamente.",
@@ -160,5 +175,6 @@ export function mapEffectivePlanToSubscription(
     canceledAt: effectivePlan.canceledAt ?? null,
     ownedProjectCount: snapshot.ownedProjectCount,
     canCreateProject: snapshot.canCreateProject,
+    provider: effectivePlan.provider ?? null,
   };
 }

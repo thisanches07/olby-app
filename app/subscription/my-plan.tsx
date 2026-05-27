@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ToastRenderer } from "@/components/obra/toast";
 import { CanceledAccessCard } from "@/components/subscription/canceled-access-card";
+import { ManagedElsewhereCard } from "@/components/subscription/managed-elsewhere-card";
 import { NoSubscriptionSheet, type NoSubscriptionSheetRef } from "@/components/subscription/no-subscription-sheet";
 import { RoleQualificationSheet, type RoleQualificationSheetRef } from "@/components/subscription/role-qualification-sheet";
 import { useSubscription } from "@/contexts/subscription-context";
@@ -34,6 +35,7 @@ import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
+import { isManagedElsewhere } from "@/utils/subscription-cross-platform";
 
 const PLAN_FEATURES: Record<PlanCode, { ok: boolean; text: string }[]> = {
   FREE: [
@@ -178,6 +180,8 @@ export default function MyPlanScreen() {
   const hasEntitlement = hasSubscriptionEntitlement(status);
   const showCanceledAccessCard = hasCanceledAccess(plan);
   const usagePercent = limit > 0 ? Math.min(ownedCount / limit, 1) : 0;
+  const provider = plan?.provider ?? null;
+  const managedElsewhere = hasEntitlement && isManagedElsewhere(provider);
 
   return (
     <BottomSheetModalProvider>
@@ -351,7 +355,11 @@ export default function MyPlanScreen() {
           </View>
         </View>
 
-        {hasEntitlement && code !== "FREE" && !isAmbassador ? (
+        {managedElsewhere ? (
+          <ManagedElsewhereCard provider={provider} />
+        ) : null}
+
+        {hasEntitlement && code !== "FREE" && !isAmbassador && !managedElsewhere ? (
           <TouchableOpacity
             style={styles.manageButton}
             onPress={() => void openSubscriptionManagement(refresh)}
@@ -366,37 +374,39 @@ export default function MyPlanScreen() {
           </TouchableOpacity>
         ) : null}
 
-        <TouchableOpacity
-          style={[
-            styles.plansButton,
-            hasEntitlement && code !== "FREE" && styles.plansButtonSecondary,
-          ]}
-          onPress={() => {
-            if (!hasEntitlement) {
-              roleQualificationSheetRef.current?.open(
-                () => router.push("/subscription/plans?source=my-plan"),
-                () => noSubscriptionSheetRef.current?.open(),
-              );
-            } else {
-              router.push("/subscription/plans?source=my-plan");
-            }
-          }}
-          activeOpacity={0.85}
-        >
-          <MaterialIcons
-            name="workspace-premium"
-            size={18}
-            color={hasEntitlement && code !== "FREE" ? colors.primary : colors.white}
-          />
-          <Text
+        {!managedElsewhere ? (
+          <TouchableOpacity
             style={[
-              styles.plansButtonText,
-              hasEntitlement && code !== "FREE" && styles.plansButtonTextSecondary,
+              styles.plansButton,
+              hasEntitlement && code !== "FREE" && styles.plansButtonSecondary,
             ]}
+            onPress={() => {
+              if (!hasEntitlement) {
+                roleQualificationSheetRef.current?.open(
+                  () => router.push("/subscription/plans?source=my-plan"),
+                  () => noSubscriptionSheetRef.current?.open(),
+                );
+              } else {
+                router.push("/subscription/plans?source=my-plan");
+              }
+            }}
+            activeOpacity={0.85}
           >
-            {code === "FREE" ? "Assinar agora" : "Ver todos os planos"}
-          </Text>
-        </TouchableOpacity>
+            <MaterialIcons
+              name="workspace-premium"
+              size={18}
+              color={hasEntitlement && code !== "FREE" ? colors.primary : colors.white}
+            />
+            <Text
+              style={[
+                styles.plansButtonText,
+                hasEntitlement && code !== "FREE" && styles.plansButtonTextSecondary,
+              ]}
+            >
+              {code === "FREE" ? "Assinar agora" : "Ver todos os planos"}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         {isAmbassador ? (
           <Text style={styles.ambassadorNote}>Assine a qualquer momento</Text>

@@ -8,6 +8,7 @@ import * as WebBrowser from "expo-web-browser";
 import React from "react";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -32,6 +33,7 @@ import { radius } from "@/theme/radius";
 import { shadow } from "@/theme/shadows";
 import { spacing } from "@/theme/spacing";
 import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from "@/utils/legal";
+import { getManagedElsewhereCopy } from "@/utils/subscription-cross-platform";
 
 const PLANS = [
   {
@@ -643,6 +645,30 @@ function SubscriptionPlansIapEnabled() {
         message: "Não foi possível conectar na App Store/Google Play.",
         tone: "error",
       });
+      return;
+    }
+
+    const managedCopy = getManagedElsewhereCopy(plan?.provider ?? null);
+    if (managedCopy) {
+      iapLog("handleSubscribe → abort: subscription managed elsewhere", {
+        provider: plan?.provider,
+        platform: Platform.OS,
+      });
+      track("iap_purchase_blocked_cross_platform", {
+        provider: String(plan?.provider ?? "unknown"),
+        platform: Platform.OS,
+      });
+      const buttons = managedCopy.cta
+        ? [
+            { text: "Cancelar", style: "cancel" as const },
+            {
+              text: managedCopy.cta.label,
+              onPress: () =>
+                void WebBrowser.openBrowserAsync(managedCopy.cta!.url),
+            },
+          ]
+        : [{ text: "OK" }];
+      Alert.alert(managedCopy.title, managedCopy.body, buttons);
       return;
     }
 
