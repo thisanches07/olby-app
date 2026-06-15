@@ -8,10 +8,25 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    /** Código de erro do envelope `error.code` (ex.: "REPORT_LIMIT_REACHED"). */
+    public readonly code?: string,
+    /** Objeto `error` cru do backend, com campos extras (used/limit/resetsAt). */
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function extractErrorEnvelope(
+  body: unknown,
+): { code?: string; details?: Record<string, unknown> } {
+  if (!body || typeof body !== "object") return {};
+  const error = (body as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return {};
+  const details = error as Record<string, unknown>;
+  const code = typeof details.code === "string" ? details.code : undefined;
+  return { code, details };
 }
 
 // Global 403 plan-error handler.
@@ -160,7 +175,8 @@ async function authFetch(path: string, options: RequestInit = {}) {
       _planErrorHandler(message);
     }
 
-    throw new ApiError(message, response.status);
+    const { code, details } = extractErrorEnvelope(body);
+    throw new ApiError(message, response.status, code, details);
   }
 
   debugApiStatus(

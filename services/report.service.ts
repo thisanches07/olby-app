@@ -46,6 +46,11 @@ export interface ReportData {
 
   diaryEntries: ReportDiaryEntry[];
 
+  // true quando o feed do período excedeu o teto de páginas e foi cortado.
+  truncated: boolean;
+  // Quantos registros realmente entraram no relatório (= diaryEntries.length).
+  entriesShown: number;
+
   doneTasks: Tarefa[];
   nextPendingTask: Tarefa | null;
   pendingTaskCount: number;
@@ -81,7 +86,40 @@ const CATEGORY_COLORS: Record<string, string> = {
   OTHER: "#E2E8F0",
 };
 
+// Tier mais alto do cap adaptativo de fotos (ver photoCapForEntries).
 const MAX_REPORT_PHOTOS_PER_ENTRY = 10;
+
+// Cap de fotos por registro derivado do total de registros do período. Evita
+// gerar milhares de thumbs base64 num único HTML (crash do expo-print).
+function photoCapForEntries(entryCount: number): number {
+  if (entryCount <= 30) return MAX_REPORT_PHOTOS_PER_ENTRY;
+  if (entryCount <= 100) return 4;
+  return 2;
+}
+
+// Executa `fn` sobre `items` com no máximo `limit` chamadas simultâneas,
+// preservando a ordem (results[i] === fn(items[i])). Evita o fan-out ilimitado
+// de Promise.all, que satura a rede e derruba os downloads no catch.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const current = nextIndex++;
+      if (current >= items.length) return;
+      results[current] = await fn(items[current], current);
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
 
 function isoDate(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -97,18 +135,22 @@ function getPeriodDates(period: ReportPeriod): { dateFrom: string; dateTo: strin
   return { dateFrom: isoDate(from), dateTo: isoDate(to) };
 }
 
+const MAX_FEED_PAGES = 20;
+const FEED_PAGE_SIZE = 10;
+
 async function fetchFeedInPeriod(
   projectId: string,
   dateFrom: string,
-): Promise<DailyLogEntryFeedItemDto[]> {
+): Promise<{ items: DailyLogEntryFeedItemDto[]; truncated: boolean }> {
   const result: DailyLogEntryFeedItemDto[] = [];
   let cursor: string | undefined;
+  let truncated = false;
 
-  for (let page = 0; page < 20; page++) {
+  for (let page = 0; page < MAX_FEED_PAGES; page++) {
     const response = await dailyLogEntriesService.listFeedByProject(
       projectId,
       cursor,
-      10,
+      FEED_PAGE_SIZE,
     );
 
     let reachedBeforePeriod = false;
@@ -121,13 +163,25 @@ async function fetchFeedInPeriod(
       }
     }
 
-    if (!response.pageInfo.hasMore || reachedBeforePeriod || !response.pageInfo.nextCursor) {
+    const hasMore =
+      response.pageInfo.hasMore &&
+      !!response.pageInfo.nextCursor &&
+      !reachedBeforePeriod;
+
+    if (!hasMore) {
       break;
     }
-    cursor = response.pageInfo.nextCursor;
+
+    // Ainda há registros no período, mas esgotamos as páginas permitidas.
+    if (page === MAX_FEED_PAGES - 1) {
+      truncated = true;
+      break;
+    }
+
+    cursor = response.pageInfo.nextCursor ?? undefined;
   }
 
-  return result;
+  return { items: result, truncated };
 }
 
 async function inlineReportPhoto(
@@ -163,8 +217,9 @@ async function inlineReportPhoto(
 async function getEntryReportPhotos(
   projectId: string,
   item: DailyLogEntryFeedItemDto,
+  maxPhotos: number,
 ): Promise<ReportPhoto[]> {
-  const previewPhotos = item.photosPreview.slice(0, MAX_REPORT_PHOTOS_PER_ENTRY);
+  const previewPhotos = item.photosPreview.slice(0, maxPhotos);
 
   try {
     // listByEntry retorna TODAS as fotos READY (sem o cap de 3 do feed) com
@@ -175,7 +230,7 @@ async function getEntryReportPhotos(
     );
     const photos = allPhotos
       .filter((p) => p.status === "READY" && p.thumbUrl)
-      .slice(0, MAX_REPORT_PHOTOS_PER_ENTRY)
+      .slice(0, maxPhotos)
       .map((p) => ({
         id: p.id,
         thumbUrl: p.thumbUrl!,
@@ -183,13 +238,13 @@ async function getEntryReportPhotos(
       }));
 
     if (photos.length > 0) {
-      return Promise.all(photos.map(inlineReportPhoto));
+      return mapWithConcurrency(photos, 4, inlineReportPhoto);
     }
   } catch {
     // Falls back to the feed preview below.
   }
 
-  return Promise.all(previewPhotos.map(inlineReportPhoto));
+  return mapWithConcurrency(previewPhotos, 4, inlineReportPhoto);
 }
 
 export async function buildReportData(
@@ -199,18 +254,25 @@ export async function buildReportData(
 ): Promise<ReportData> {
   const { dateFrom, dateTo } = getPeriodDates(period);
 
-  const feedItems = await fetchFeedInPeriod(projectId, dateFrom);
+  const { items: feedItems, truncated } = await fetchFeedInPeriod(
+    projectId,
+    dateFrom,
+  );
 
-  const diaryEntries: ReportDiaryEntry[] = await Promise.all(
-    feedItems.map(async (item) => ({
+  const photoCap = photoCapForEntries(feedItems.length);
+
+  const diaryEntries: ReportDiaryEntry[] = await mapWithConcurrency(
+    feedItems,
+    5,
+    async (item) => ({
       id: item.id,
       date: item.date,
       title: item.title,
       notes: item.notes,
       durationMinutes: item.durationMinutes,
       weather: item.weather ?? null,
-      photos: await getEntryReportPhotos(projectId, item),
-    })),
+      photos: await getEntryReportPhotos(projectId, item, photoCap),
+    }),
   );
 
   const visitCount = diaryEntries.length;
@@ -264,6 +326,9 @@ export async function buildReportData(
     totalExpensesInPeriod,
 
     diaryEntries,
+
+    truncated,
+    entriesShown: diaryEntries.length,
 
     doneTasks,
     nextPendingTask,

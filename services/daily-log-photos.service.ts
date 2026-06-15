@@ -76,11 +76,6 @@ export const dailyLogPhotosService = {
       `/daily-log-photos/${photoId}/url`,
     ),
 
-  getSignedUrlsForEntry: (projectId: string, entryId: string) =>
-    api.get<Array<{ id: string; url: string; expiresInSeconds: number }>>(
-      `/daily-log-photos/by-entry/signed-urls?projectId=${encodeURIComponent(projectId)}&entryId=${encodeURIComponent(entryId)}`,
-    ),
-
   remove: (projectId: string, photoId: string) =>
     api.delete<void>(
       `/daily-log-photos/${photoId}?projectId=${encodeURIComponent(projectId)}`,

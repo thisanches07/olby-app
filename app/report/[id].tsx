@@ -1,9 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Crypto from "expo-crypto";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Sharing from "expo-sharing";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,13 +23,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSubscription } from "@/contexts/subscription-context";
 import { useObraData } from "@/hooks/use-obra-data";
 import { track } from "@/services/analytics";
+import { ApiError } from "@/services/api";
 import { buildReportData, type ReportPeriod } from "@/services/report.service";
 import { colors } from "@/theme/colors";
 import { AnalyticsEvents } from "@/types/analytics-events";
 import { generateReportHtml } from "@/utils/report-html";
 import {
   checkReportAccess,
+  getCachedReportUsage,
+  periodToDays,
   recordReportGeneration,
+  type ReportUsage,
 } from "@/utils/report-usage";
 
 type ScreenState =
@@ -139,12 +144,33 @@ export default function ReportScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>(7);
   const [state, setState] = useState<ScreenState>({ kind: "select" });
   const [isExporting, setIsExporting] = useState(false);
+  const [usage, setUsage] = useState<ReportUsage | null>(null);
   const [emptyReportResolver, setEmptyReportResolver] = useState<
     ((shouldContinue: boolean) => void) | null
   >(null);
 
+  // Uma idempotencyKey por preview gerado: retry do mesmo preview reusa a key
+  // (não reconsome); um novo preview gera outra.
+  const idempotencyKeyRef = useRef<string | null>(null);
+
   const planCode = plan?.code ?? "FREE";
   const isOnboardingPreview = fromOnboarding === "1";
+
+  // Carrega o uso/limite mensal: cache local primeiro (visual imediato), depois
+  // o valor autoritativo do backend.
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    getCachedReportUsage(id).then((cached) => {
+      if (active && cached) setUsage((prev) => prev ?? cached);
+    });
+    checkReportAccess(id).then((fresh) => {
+      if (active) setUsage(fresh);
+    });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   const confirmEmptyReport = useCallback(
     () =>
@@ -205,6 +231,8 @@ export default function ReportScreen() {
       }
       const html = generateReportHtml(data, selectedPeriod);
       const fileName = buildReportFileName(obra.nome, selectedPeriod);
+      // Nova geração → nova idempotencyKey (consumida no export).
+      idempotencyKeyRef.current = Crypto.randomUUID();
       setState({ kind: "preview", html, fileName });
       track(AnalyticsEvents.REPORT_GENERATED, {
         project_id: id!,
@@ -237,6 +265,7 @@ export default function ReportScreen() {
 
   const handleExport = useCallback(async () => {
     if (state.kind !== "preview") return;
+    if (isExporting) return; // evita duplo clique
     if (subscriptionLoading && !plan) {
       Alert.alert(
         "Aguarde um momento",
@@ -245,27 +274,14 @@ export default function ReportScreen() {
       return;
     }
 
-    const access = await checkReportAccess(id!, planCode);
-    if (!access.allowed) {
-      if (planCode === "FREE") {
-        Alert.alert(
-          "Recurso BASIC",
-          "Relatórios estão disponíveis a partir do plano BASIC. Quer conhecer os planos?",
-          [
-            { text: "Agora não", style: "cancel" },
-            {
-              text: "Ver planos",
-              onPress: () => router.push("/subscription/plans"),
-            },
-          ],
-        );
-        return;
-      }
+    // FREE não gera relatório — curto-circuito com UX melhor (o backend também
+    // bloquearia com 403 REPORT_LIMIT_REACHED).
+    if (planCode === "FREE") {
       Alert.alert(
-        "Limite mensal atingido",
-        `Você usou ${access.used} de ${access.limit} relatórios este mês (plano BASIC). Faça upgrade para PRO e gere relatórios ilimitados.`,
+        "Recurso BASIC",
+        "Relatórios estão disponíveis a partir do plano BASIC. Quer conhecer os planos?",
         [
-          { text: "Fechar", style: "cancel" },
+          { text: "Agora não", style: "cancel" },
           {
             text: "Ver planos",
             onPress: () => router.push("/subscription/plans"),
@@ -277,7 +293,21 @@ export default function ReportScreen() {
 
     try {
       setIsExporting(true);
+
       const { uri } = await Print.printToFileAsync({ html: state.html });
+
+      // Consome o limite no backend (idempotente). PRO não consome. Um 403
+      // REPORT_LIMIT_REACHED é lançado como ApiError e tratado no catch.
+      const idempotencyKey =
+        idempotencyKeyRef.current ?? Crypto.randomUUID();
+      idempotencyKeyRef.current = idempotencyKey;
+      const { usage: nextUsage } = await recordReportGeneration(
+        id!,
+        periodToDays(selectedPeriod),
+        idempotencyKey,
+      );
+      setUsage(nextUsage);
+
       const namedUri = `${FileSystem.cacheDirectory}${state.fileName}`;
       await FileSystem.deleteAsync(namedUri, { idempotent: true });
       await FileSystem.copyAsync({ from: uri, to: namedUri });
@@ -295,15 +325,33 @@ export default function ReportScreen() {
         project_id: id!,
         period: selectedPeriod,
       });
-      if (planCode === "BASIC") {
-        await recordReportGeneration(id!);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "REPORT_LIMIT_REACHED") {
+        // Limite atingido: refletir used/limit/resetsAt na UI. O
+        // PlanErrorInterceptor global já redireciona ao paywall (a mensagem
+        // contém "Limite"); fallback de alerta só se o handler não agir.
+        const details = err.details ?? {};
+        setUsage((prev) => ({
+          used: typeof details.used === "number" ? details.used : prev?.used ?? 0,
+          limit:
+            typeof details.limit === "number" || details.limit === null
+              ? (details.limit as number | null)
+              : prev?.limit ?? null,
+          remaining: 0,
+          allowed: false,
+          resetsAt:
+            typeof details.resetsAt === "string"
+              ? details.resetsAt
+              : prev?.resetsAt ?? null,
+          planCode: prev?.planCode,
+        }));
+      } else {
+        Alert.alert("Erro", "Não foi possível exportar o PDF.");
       }
-    } catch {
-      Alert.alert("Erro", "Não foi possível exportar o PDF.");
     } finally {
       setIsExporting(false);
     }
-  }, [id, plan, planCode, selectedPeriod, state, subscriptionLoading]);
+  }, [id, isExporting, plan, planCode, selectedPeriod, state, subscriptionLoading]);
   if (obraLoading && !obra) {
     return (
       <>
@@ -469,7 +517,7 @@ export default function ReportScreen() {
             </View>
           )}
 
-          {planCode === "BASIC" && <UsageNote projectId={id!} />}
+          {usage && usage.limit !== null && <UsageNote usage={usage} />}
 
           <Pressable
             style={({ pressed }) => [
@@ -557,22 +605,23 @@ function EmptyReportModal({
 
 // â”€â”€â”€ Usage note for BASIC users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function UsageNote({ projectId }: { projectId: string }) {
-  const [used, setUsed] = useState<number | null>(null);
+function formatResetDate(resetsAt: string | null): string | null {
+  if (!resetsAt) return null;
+  const d = new Date(resetsAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
+}
 
-  useEffect(() => {
-    import("@/utils/report-usage").then(({ getMonthlyUsage }) =>
-      getMonthlyUsage(projectId).then(setUsed),
-    );
-  }, [projectId]);
-
-  if (used === null) return null;
+function UsageNote({ usage }: { usage: ReportUsage }) {
+  const resetLabel = formatResetDate(usage.resetsAt);
+  const limitReached = usage.limit !== null && !usage.allowed;
 
   return (
     <View style={styles.usageNote}>
       <MaterialIcons name="info-outline" size={14} color="#94A3B8" />
       <Text style={styles.usageNoteText}>
-        {used}/1 relatório usado este mês nesta obra
+        {usage.used}/{usage.limit} relatório usado este mês nesta obra
+        {limitReached && resetLabel ? ` · renova em ${resetLabel}` : ""}
       </Text>
     </View>
   );

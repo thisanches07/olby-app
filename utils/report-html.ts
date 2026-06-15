@@ -454,6 +454,8 @@ export function generateReportHtml(
   /* Sem padding-bottom: o respiro final vem do @page margin-bottom. Evita
      sobra de espaço vazio que empurrava uma página em branco no fim. */
   .content { padding:32px 52px 0; }
+  .trunc-note { display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; padding:12px 14px; background:#FFF7ED; border:1px solid #FED7AA; border-radius:10px; color:#9A3412; font-size:12px; line-height:1.45; }
+  .trunc-note svg { flex:0 0 auto; margin-top:1px; }
   .section { margin-top:30px; padding-top:30px; border-top:1px solid #F1F5F9; }
   .section:first-child { margin-top:0; padding-top:28px; border-top:none; }
   .keep-section { break-inside:avoid; page-break-inside:avoid; }
@@ -663,6 +665,14 @@ export function generateReportHtml(
 
   <!-- CONTEÚDO -->
   <div class="content">
+    ${
+      data.truncated
+        ? `<div class="trunc-note">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>Relatório limitado aos ${escHtml(String(data.entriesShown))} registros mais recentes do período.</span>
+    </div>`
+        : ""
+    }
     ${tasksSection(data)}
     ${indicatorsSection(data)}
     ${financialSection(data)}
