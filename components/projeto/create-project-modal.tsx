@@ -24,22 +24,36 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 
-import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
+import DraggableFlatList, {
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
 
+import { TaskProposalModal } from "@/components/projeto/task-proposal-modal";
 import { CREATE_PROJECT_TASK_LIMIT } from "@/constants/creation-limits";
 import { ObraDetalhe } from "@/data/obras";
 import { useCreateProjectForm } from "@/hooks/use-create-project-form";
 import { useResponsive } from "@/hooks/use-responsive";
-import { TaskProposalModal } from "@/components/projeto/task-proposal-modal";
-import { firebaseAuth } from "@/services/firebase";
 import { track } from "@/services/analytics";
+import { firebaseAuth } from "@/services/firebase";
 import { formatBRLInput } from "@/utils/obra-utils";
 
 const PRIMARY = "#2563EB";
 const PROJECT_NAME_MAX = 30;
 const PROJECT_ADDRESS_MAX = 50;
 const MAX_BUDGET_VALUE_DIGITS = 9;
+
+// -----------------------------------------------------------------------------
+// Criação enxuta: as seções de "Acompanhar Tarefas" e "Acompanhar Financeiro"
+// ficam DESATIVADAS na criação do projeto. No fluxo novo (Obra -> Etapas ->
+// Atividades), as etapas são adicionadas depois (aba ETAPAS) e o financeiro é
+// ativado no detalhe da obra. Todo o estado/handlers/JSX dessas seções é
+// PRESERVADO abaixo - para reativar qualquer uma na criação, basta trocar o
+// respectivo flag para `true`.
+// -----------------------------------------------------------------------------
+const SHOW_TASKS_SECTION = false;
+const SHOW_FINANCIAL_SECTION = false;
 
 const PRIORITY_CONFIG = {
   ALTA: { color: "#DC2626", label: "Alta" },
@@ -79,7 +93,7 @@ interface CreateProjectModalProps {
   onSave: (obra: ObraDetalhe) => void;
 
   /**
-   * ✅ Quando a API bloquear a criação (ex: HTTP 403 por limite do plano),
+   *  Quando a API bloquear a criação (ex: HTTP 403 por limite do plano),
    * chamamos isso pra você abrir seu modal de upgrade.
    */
   onRequireUpgrade?: () => void;
@@ -221,7 +235,7 @@ async function createProject(
       (json && (json.message || json.error)) ||
       `Erro ao criar projeto (HTTP ${res.status})`;
 
-    // ✅ Importantíssimo: propagar status pra UI decidir (403 => upgrade)
+    //  Importantíssimo: propagar status pra UI decidir (403 => upgrade)
     const err: any = new Error(
       Array.isArray(msg) ? msg.join("\n") : String(msg),
     );
@@ -307,7 +321,10 @@ export function CreateProjectModal({
   const [deliveryForecastTouched, setDeliveryForecastTouched] = useState(false);
   const [deliverySaveAttempted, setDeliverySaveAttempted] = useState(false);
 
-  // Toggles de acompanhamento — desabilitados por padrão
+  // Divulgação progressiva: bloco de planejamento (data + horas) começa colapsado.
+  const [showPlanning, setShowPlanning] = useState(false);
+
+  // Toggles de acompanhamento - desabilitados por padrão
   const [trackActivities, setTrackActivities] = useState(false);
   const [trackFinancial, setTrackFinancial] = useState(false);
 
@@ -601,8 +618,8 @@ export function CreateProjectModal({
               ? Number.parseInt(formState.orcamento, 10) / 100
               : 0,
         proximoPagamento: { valor: 0, diasRestantes: 0 },
-        etapaAtual: formState.tarefas[0]?.titulo || "—",
-        proximaEtapa: formState.tarefas[1]?.titulo || "—",
+        etapaAtual: formState.tarefas[0]?.titulo || "-",
+        proximaEtapa: formState.tarefas[1]?.titulo || "-",
         tarefas: trackActivities ? formState.tarefas : [],
         etapas: [],
         progress: null,
@@ -691,6 +708,18 @@ export function CreateProjectModal({
   if (!visible) return null;
 
   const dynamicScrollPaddingBottom = 120 + keyboardHeight + 24;
+
+  const hasPlanningValues =
+    deliveryForecast.trim().length > 0 ||
+    formState.horasContratadas.trim().length > 0;
+  const planningSummary = [
+    deliveryForecast.trim() ? `Entrega ${deliveryForecast.trim()}` : null,
+    formState.horasContratadas.trim()
+      ? `${formState.horasContratadas.trim()}h`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const tasksListMaxHeight = trackFinancial
     ? Math.max(260, Math.min(windowHeight * 0.38, 420))
     : Math.max(320, Math.min(windowHeight * 0.52, 560));
@@ -700,7 +729,10 @@ export function CreateProjectModal({
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <View style={[styles.headerInner, colStyle]}>
-            <Text style={styles.headerTitle}>Criar Novo Projeto</Text>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle}>Novo projeto</Text>
+              <Text style={styles.headerSubtitle}>Comece com o essencial</Text>
+            </View>
             <TouchableOpacity
               onPress={onClose}
               disabled={isSaving}
@@ -741,10 +773,17 @@ export function CreateProjectModal({
             }
             nestedScrollEnabled
           >
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="info" size={20} color={PRIMARY} />
-                <Text style={styles.sectionTitle}>Informações Básicas</Text>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderIcon}>
+                  <MaterialIcons name="folder-open" size={20} color={PRIMARY} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>Detalhes do projeto</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Como a obra será identificada
+                  </Text>
+                </View>
               </View>
 
               <View style={styles.formGroup}>
@@ -756,6 +795,7 @@ export function CreateProjectModal({
                   ref={nomeRef}
                   style={[
                     styles.input,
+                    styles.inputHero,
                     formState.errors.nome && styles.inputError,
                   ]}
                   placeholder="Ex: Residência Alto Pinheiros"
@@ -777,7 +817,7 @@ export function CreateProjectModal({
               <View style={styles.formGroup}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>Endereço</Text>
-                  <Text style={styles.required}>*</Text>
+                  <Text style={styles.labelOptional}> (Opcional)</Text>
                 </View>
                 <TextInput
                   ref={enderecoRef}
@@ -792,17 +832,59 @@ export function CreateProjectModal({
                   editable={!isSaving}
                   maxLength={PROJECT_ADDRESS_MAX}
                   multiline
-                  returnKeyType="next"
+                  returnKeyType="done"
                   blurOnSubmit
-                  onSubmitEditing={() => previsaoEntregaRef.current?.focus()}
+                  onSubmitEditing={() => Keyboard.dismiss()}
                 />
                 <CharacterLimitHint
                   current={formState.endereco.length}
                   max={PROJECT_ADDRESS_MAX}
                 />
               </View>
+            </View>
 
-              <View style={styles.deliveryHorasRow}>
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.planningToggle}
+                activeOpacity={0.7}
+                disabled={isSaving}
+                onPress={() => {
+                  const next = !showPlanning;
+                  setShowPlanning(next);
+                  if (next) {
+                    setTimeout(
+                      () =>
+                        scrollRef.current?.scrollToEnd?.({ animated: true }),
+                      200,
+                    );
+                  }
+                }}
+              >
+                <View style={styles.cardHeaderIcon}>
+                  <MaterialIcons name="event-note" size={20} color={PRIMARY} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>Planejamento</Text>
+                  <Text style={styles.cardSubtitle} numberOfLines={1}>
+                    {!showPlanning && hasPlanningValues
+                      ? planningSummary
+                      : "Prazo e horas (opcional)"}
+                  </Text>
+                </View>
+                <MaterialIcons
+                  name={showPlanning ? "expand-less" : "expand-more"}
+                  size={24}
+                  color="#9CA3AF"
+                />
+              </TouchableOpacity>
+
+              {showPlanning && (
+                <Animated.View
+                  entering={FadeInDown.duration(220)}
+                  exiting={FadeOutUp.duration(160)}
+                  style={styles.planningContent}
+                >
+                  <View style={styles.deliveryHorasRow}>
                 <View style={[styles.formGroup, { flex: 1, marginBottom: 0 }]}>
                   <View style={styles.labelRow}>
                     <Text style={styles.label}>Previsão de entrega</Text>
@@ -920,369 +1002,385 @@ export function CreateProjectModal({
                   </View>
                 </View>
               </View>
+                </Animated.View>
+              )}
             </View>
 
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.trackingToggleRow}
-                onPress={() => setTrackActivities((v) => !v)}
-                activeOpacity={0.7}
-                disabled={isSaving}
-              >
-                <View style={styles.trackingToggleLeft}>
-                  <MaterialIcons
-                    name="check-circle-outline"
-                    size={22}
-                    color={trackActivities ? PRIMARY : "#9CA3AF"}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.trackingLabel,
-                        trackActivities && styles.trackingLabelOn,
-                      ]}
-                    >
-                      Acompanhar Tarefas
-                    </Text>
-                    <Text style={styles.trackingHint}>
-                      Crie tarefas iniciais para organizar a obra
-                    </Text>
-                  </View>
-                </View>
-                <View
-                  style={[
-                    styles.togglePill,
-                    trackActivities && styles.togglePillOn,
-                  ]}
+            {SHOW_TASKS_SECTION && (
+              <View style={styles.section}>
+                <TouchableOpacity
+                  style={styles.trackingToggleRow}
+                  onPress={() => setTrackActivities((v) => !v)}
+                  activeOpacity={0.7}
+                  disabled={isSaving}
                 >
+                  <View style={styles.trackingToggleLeft}>
+                    <MaterialIcons
+                      name="check-circle-outline"
+                      size={22}
+                      color={trackActivities ? PRIMARY : "#9CA3AF"}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.trackingLabel,
+                          trackActivities && styles.trackingLabelOn,
+                        ]}
+                      >
+                        Acompanhar Tarefas
+                      </Text>
+                      <Text style={styles.trackingHint}>
+                        Crie tarefas iniciais para organizar a obra
+                      </Text>
+                    </View>
+                  </View>
                   <View
                     style={[
-                      styles.toggleThumb,
-                      trackActivities && styles.toggleThumbOn,
+                      styles.togglePill,
+                      trackActivities && styles.togglePillOn,
                     ]}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {trackActivities && (
-                <View style={styles.trackingContent}>
-                  <View style={styles.taskInputContainer}>
-                    <TextInput
-                      ref={taskRef}
-                      style={styles.taskInput}
-                      placeholder="Nova tarefa..."
-                      placeholderTextColor="#9CA3AF"
-                      value={taskInput}
-                      onChangeText={setTaskInput}
-                      editable={!isSaving}
-                      maxLength={50}
-                      returnKeyType="done"
-                      onSubmitEditing={handleAddTask}
-                      onFocus={() => scrollToKeyboard(taskRef, 360)}
-                    />
-                    <View style={styles.priorityChip}>
-                      <TouchableOpacity
-                        style={styles.prioritySelector}
-                        onPress={() => {
-                          const priorities: ("ALTA" | "MEDIA" | "BAIXA")[] = [
-                            "ALTA",
-                            "MEDIA",
-                            "BAIXA",
-                          ];
-                          const current = priorities.indexOf(taskPriority);
-                          const next =
-                            priorities[(current + 1) % priorities.length];
-                          setTaskPriority(next);
-                        }}
-                        disabled={isSaving}
-                      >
-                        <View
-                          style={[
-                            styles.priorityDot,
-                            {
-                              backgroundColor:
-                                PRIORITY_CONFIG[taskPriority].color,
-                            },
-                          ]}
-                        />
-                        <Text style={styles.priorityLabel}>
-                          {PRIORITY_CONFIG[taskPriority].label}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.addBtn,
-                        (isSaving || createTaskLimitReached) &&
-                          styles.addBtnDisabled,
-                      ]}
-                      onPress={handleAddTask}
-                      disabled={isSaving || createTaskLimitReached}
-                    >
-                      <MaterialIcons name="add" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {!createTaskLimitReached && (
-                    <TouchableOpacity
-                      style={styles.proposeBtn}
-                      onPress={() => setProposalModalVisible(true)}
-                      disabled={isSaving}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.proposeBtnIcon}>✨</Text>
-                      <Text style={styles.proposeBtnText}>
-                        Propor tarefas com base no projeto
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {createTaskLimitReached && (
-                    <View style={styles.taskLimitBanner}>
-                      <MaterialIcons
-                        name="info-outline"
-                        size={15}
-                        color="#9A3412"
-                      />
-                      <Text style={styles.taskLimitBannerText}>
-                        Limite de {CREATE_PROJECT_TASK_LIMIT} tarefas iniciais
-                        atingido. Remova uma tarefa para adicionar outra.
-                      </Text>
-                    </View>
-                  )}
-
-                  {formState.tarefas.length > 0 && (
+                  >
                     <View
-                      style={[styles.tasksList, { maxHeight: tasksListMaxHeight }]}
-                    >
-                      <View style={styles.tasksListHeader}>
-                        <Text style={styles.tasksListTitle}>
-                          {formState.tarefas.length} tarefa
-                          {formState.tarefas.length !== 1 ? "s" : ""} adicionada
-                          {formState.tarefas.length !== 1 ? "s" : ""}
-                          {` (${formState.tarefas.length}/${CREATE_PROJECT_TASK_LIMIT})`}
-                        </Text>
+                      style={[
+                        styles.toggleThumb,
+                        trackActivities && styles.toggleThumbOn,
+                      ]}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {trackActivities && (
+                  <View style={styles.trackingContent}>
+                    <View style={styles.taskInputContainer}>
+                      <TextInput
+                        ref={taskRef}
+                        style={styles.taskInput}
+                        placeholder="Nova tarefa..."
+                        placeholderTextColor="#9CA3AF"
+                        value={taskInput}
+                        onChangeText={setTaskInput}
+                        editable={!isSaving}
+                        maxLength={50}
+                        returnKeyType="done"
+                        onSubmitEditing={handleAddTask}
+                        onFocus={() => scrollToKeyboard(taskRef, 360)}
+                      />
+                      <View style={styles.priorityChip}>
                         <TouchableOpacity
-                          style={styles.clearTasksButton}
-                          onPress={handleClearTasks}
+                          style={styles.prioritySelector}
+                          onPress={() => {
+                            const priorities: ("ALTA" | "MEDIA" | "BAIXA")[] = [
+                              "ALTA",
+                              "MEDIA",
+                              "BAIXA",
+                            ];
+                            const current = priorities.indexOf(taskPriority);
+                            const next =
+                              priorities[(current + 1) % priorities.length];
+                            setTaskPriority(next);
+                          }}
                           disabled={isSaving}
-                          activeOpacity={0.7}
                         >
-                          <Text style={styles.clearTasksButtonText}>
-                            Limpar tudo
+                          <View
+                            style={[
+                              styles.priorityDot,
+                              {
+                                backgroundColor:
+                                  PRIORITY_CONFIG[taskPriority].color,
+                              },
+                            ]}
+                          />
+                          <Text style={styles.priorityLabel}>
+                            {PRIORITY_CONFIG[taskPriority].label}
                           </Text>
                         </TouchableOpacity>
                       </View>
-                      {formState.tarefas.length >= 2 && (
-                        <Text style={styles.tasksReorderHint}>
-                          Segure ≡ para reordenar
+                      <TouchableOpacity
+                        style={[
+                          styles.addBtn,
+                          (isSaving || createTaskLimitReached) &&
+                            styles.addBtnDisabled,
+                        ]}
+                        onPress={handleAddTask}
+                        disabled={isSaving || createTaskLimitReached}
+                      >
+                        <MaterialIcons name="add" size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {!createTaskLimitReached && (
+                      <TouchableOpacity
+                        style={styles.proposeBtn}
+                        onPress={() => setProposalModalVisible(true)}
+                        disabled={isSaving}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcons
+                          name="auto-awesome"
+                          size={16}
+                          color="#2563EB"
+                        />
+                        <Text style={styles.proposeBtnText}>
+                          Propor tarefas com base no projeto
                         </Text>
-                      )}
+                      </TouchableOpacity>
+                    )}
 
-                      <DraggableFlatList
-                        data={formState.tarefas}
-                        keyExtractor={(item) => item.id}
-                        onDragEnd={({ data }) => actions.reorderTarefas(data)}
-                        scrollEnabled
-                        nestedScrollEnabled
-                        activationDistance={10}
-                        style={styles.tasksListScroll}
-                        contentContainerStyle={styles.tasksListContent}
-                        showsVerticalScrollIndicator={formState.tarefas.length > 5}
-                        renderItem={({ item: tarefa, drag, isActive }) => (
-                          <ScaleDecorator activeScale={1.02}>
-                            <View
-                              style={[
-                                styles.taskItem,
-                                isActive && styles.taskItemDragging,
-                              ]}
-                            >
-                              <TouchableOpacity
-                                onLongPress={drag}
-                                disabled={isActive || isSaving}
-                                style={styles.taskDragHandle}
-                                activeOpacity={0.6}
+                    {createTaskLimitReached && (
+                      <View style={styles.taskLimitBanner}>
+                        <MaterialIcons
+                          name="info-outline"
+                          size={15}
+                          color="#9A3412"
+                        />
+                        <Text style={styles.taskLimitBannerText}>
+                          Limite de {CREATE_PROJECT_TASK_LIMIT} tarefas iniciais
+                          atingido. Remova uma tarefa para adicionar outra.
+                        </Text>
+                      </View>
+                    )}
+
+                    {formState.tarefas.length > 0 && (
+                      <View
+                        style={[
+                          styles.tasksList,
+                          { maxHeight: tasksListMaxHeight },
+                        ]}
+                      >
+                        <View style={styles.tasksListHeader}>
+                          <Text style={styles.tasksListTitle}>
+                            {formState.tarefas.length} tarefa
+                            {formState.tarefas.length !== 1 ? "s" : ""}{" "}
+                            adicionada
+                            {formState.tarefas.length !== 1 ? "s" : ""}
+                            {` (${formState.tarefas.length}/${CREATE_PROJECT_TASK_LIMIT})`}
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.clearTasksButton}
+                            onPress={handleClearTasks}
+                            disabled={isSaving}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.clearTasksButtonText}>
+                              Limpar tudo
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        {formState.tarefas.length >= 2 && (
+                          <Text style={styles.tasksReorderHint}>
+                            Segure â‰¡ para reordenar
+                          </Text>
+                        )}
+
+                        <DraggableFlatList
+                          data={formState.tarefas}
+                          keyExtractor={(item) => item.id}
+                          onDragEnd={({ data }) => actions.reorderTarefas(data)}
+                          scrollEnabled
+                          nestedScrollEnabled
+                          activationDistance={10}
+                          style={styles.tasksListScroll}
+                          contentContainerStyle={styles.tasksListContent}
+                          showsVerticalScrollIndicator={
+                            formState.tarefas.length > 5
+                          }
+                          renderItem={({ item: tarefa, drag, isActive }) => (
+                            <ScaleDecorator activeScale={1.02}>
+                              <View
+                                style={[
+                                  styles.taskItem,
+                                  isActive && styles.taskItemDragging,
+                                ]}
                               >
-                                <MaterialIcons
-                                  name="drag-indicator"
-                                  size={20}
-                                  color="#D1D5DB"
-                                />
-                              </TouchableOpacity>
-
-                              <View style={styles.taskContent}>
-                                <MaterialIcons
-                                  name="check-circle-outline"
-                                  size={18}
-                                  color="#9CA3AF"
-                                />
-                                <Text
-                                  style={styles.taskTitle}
-                                  numberOfLines={1}
+                                <TouchableOpacity
+                                  onLongPress={drag}
+                                  disabled={isActive || isSaving}
+                                  style={styles.taskDragHandle}
+                                  activeOpacity={0.6}
                                 >
-                                  {tarefa.titulo}
-                                </Text>
-                              </View>
+                                  <MaterialIcons
+                                    name="drag-indicator"
+                                    size={20}
+                                    color="#D1D5DB"
+                                  />
+                                </TouchableOpacity>
 
-                              <View style={styles.taskMeta}>
-                                <View
-                                  style={[
-                                    styles.taskPriorityBadge,
-                                    {
-                                      borderLeftColor:
-                                        PRIORITY_CONFIG[tarefa.prioridade]
-                                          .color,
-                                    },
-                                  ]}
-                                >
+                                <View style={styles.taskContent}>
+                                  <MaterialIcons
+                                    name="check-circle-outline"
+                                    size={18}
+                                    color="#9CA3AF"
+                                  />
                                   <Text
+                                    style={styles.taskTitle}
+                                    numberOfLines={1}
+                                  >
+                                    {tarefa.titulo}
+                                  </Text>
+                                </View>
+
+                                <View style={styles.taskMeta}>
+                                  <View
                                     style={[
-                                      styles.taskPriorityText,
+                                      styles.taskPriorityBadge,
                                       {
-                                        color:
+                                        borderLeftColor:
                                           PRIORITY_CONFIG[tarefa.prioridade]
                                             .color,
                                       },
                                     ]}
                                   >
-                                    {PRIORITY_CONFIG[tarefa.prioridade].label}
-                                  </Text>
+                                    <Text
+                                      style={[
+                                        styles.taskPriorityText,
+                                        {
+                                          color:
+                                            PRIORITY_CONFIG[tarefa.prioridade]
+                                              .color,
+                                        },
+                                      ]}
+                                    >
+                                      {PRIORITY_CONFIG[tarefa.prioridade].label}
+                                    </Text>
+                                  </View>
+
+                                  <TouchableOpacity
+                                    onPress={() =>
+                                      actions.removeTarefa(tarefa.id)
+                                    }
+                                    disabled={isSaving || isActive}
+                                  >
+                                    <MaterialIcons
+                                      name="close"
+                                      size={18}
+                                      color="#9CA3AF"
+                                    />
+                                  </TouchableOpacity>
                                 </View>
-
-                                <TouchableOpacity
-                                  onPress={() =>
-                                    actions.removeTarefa(tarefa.id)
-                                  }
-                                  disabled={isSaving || isActive}
-                                >
-                                  <MaterialIcons
-                                    name="close"
-                                    size={18}
-                                    color="#9CA3AF"
-                                  />
-                                </TouchableOpacity>
                               </View>
-                            </View>
-                          </ScaleDecorator>
-                        )}
-                      />
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-
-            <View style={styles.section}>
-              <TouchableOpacity
-                style={styles.trackingToggleRow}
-                onPress={() => setTrackFinancial((v) => !v)}
-                activeOpacity={0.7}
-                disabled={isSaving}
-              >
-                <View style={styles.trackingToggleLeft}>
-                  <MaterialIcons
-                    name="account-balance-wallet"
-                    size={22}
-                    color={trackFinancial ? PRIMARY : "#9CA3AF"}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.trackingLabel,
-                        trackFinancial && styles.trackingLabelOn,
-                      ]}
-                    >
-                      Acompanhar Financeiro
-                    </Text>
-                    <Text style={styles.trackingHint}>
-                      Defina o orçamento e controle os gastos
-                    </Text>
-                  </View>
-                </View>
-                <View
-                  style={[
-                    styles.togglePill,
-                    trackFinancial && styles.togglePillOn,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.toggleThumb,
-                      trackFinancial && styles.toggleThumbOn,
-                    ]}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {trackFinancial && (
-                <View style={styles.trackingContent}>
-                  <View style={styles.formGroup}>
-                    <View style={styles.labelRow}>
-                      <Text style={styles.label}>Orçamento Total</Text>
-                      <Text style={styles.labelOptional}> (Opcional)</Text>
-                    </View>
-
-                    <View style={styles.inlineInputWrap}>
-                      <View style={styles.budgetInput}>
-                        <Text style={styles.currencyLabel}>R$</Text>
-                        <TextInput
-                          ref={orcamentoRef}
-                          style={styles.budgetField}
-                          placeholder="0,00"
-                          placeholderTextColor="#9CA3AF"
-                          value={formatBRLInput(formState.orcamento)}
-                          onChangeText={handleBudgetChange}
-                          keyboardType="number-pad"
-                          editable={!isSaving}
-                          onFocus={() => {
-                            setFocusedField("orcamento");
-                            scrollToKeyboard(orcamentoRef, 300);
-                          }}
-                          onBlur={() => setFocusedField(null)}
-                          onSubmitEditing={() => nextFor("orcamento")}
+                            </ScaleDecorator>
+                          )}
                         />
                       </View>
-
-                      {isAtBudgetLimit && (
-                        <View style={styles.valueLimitBanner}>
-                          <MaterialIcons
-                            name="warning-amber"
-                            size={14}
-                            color="#D97706"
-                          />
-                          <Text style={styles.valueLimitText}>
-                            Limite máximo de orçamento atingido.
-                          </Text>
-                        </View>
-                      )}
-
-                      {focusedField === "orcamento" && (
-                        <View style={styles.inlineActions}>
-                          <TouchableOpacity
-                            style={styles.inlinePrimary}
-                            onPress={() => nextFor("orcamento")}
-                          >
-                            <Text style={styles.inlinePrimaryText}>OK</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.inlineSecondary}
-                            onPress={() => Keyboard.dismiss()}
-                          >
-                            <Text style={styles.inlineSecondaryText}>
-                              Fechar
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-
-                    <Text style={styles.labelHint}>
-                      Teto de gastos para o projeto
-                    </Text>
+                    )}
                   </View>
-                </View>
-              )}
-            </View>
+                )}
+              </View>
+            )}
+
+            {SHOW_FINANCIAL_SECTION && (
+              <View style={styles.section}>
+                <TouchableOpacity
+                  style={styles.trackingToggleRow}
+                  onPress={() => setTrackFinancial((v) => !v)}
+                  activeOpacity={0.7}
+                  disabled={isSaving}
+                >
+                  <View style={styles.trackingToggleLeft}>
+                    <MaterialIcons
+                      name="account-balance-wallet"
+                      size={22}
+                      color={trackFinancial ? PRIMARY : "#9CA3AF"}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.trackingLabel,
+                          trackFinancial && styles.trackingLabelOn,
+                        ]}
+                      >
+                        Acompanhar Financeiro
+                      </Text>
+                      <Text style={styles.trackingHint}>
+                        Defina o orçamento e controle os gastos
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.togglePill,
+                      trackFinancial && styles.togglePillOn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        trackFinancial && styles.toggleThumbOn,
+                      ]}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {trackFinancial && (
+                  <View style={styles.trackingContent}>
+                    <View style={styles.formGroup}>
+                      <View style={styles.labelRow}>
+                        <Text style={styles.label}>Orçamento Total</Text>
+                        <Text style={styles.labelOptional}> (Opcional)</Text>
+                      </View>
+
+                      <View style={styles.inlineInputWrap}>
+                        <View style={styles.budgetInput}>
+                          <Text style={styles.currencyLabel}>R$</Text>
+                          <TextInput
+                            ref={orcamentoRef}
+                            style={styles.budgetField}
+                            placeholder="0,00"
+                            placeholderTextColor="#9CA3AF"
+                            value={formatBRLInput(formState.orcamento)}
+                            onChangeText={handleBudgetChange}
+                            keyboardType="number-pad"
+                            editable={!isSaving}
+                            onFocus={() => {
+                              setFocusedField("orcamento");
+                              scrollToKeyboard(orcamentoRef, 300);
+                            }}
+                            onBlur={() => setFocusedField(null)}
+                            onSubmitEditing={() => nextFor("orcamento")}
+                          />
+                        </View>
+
+                        {isAtBudgetLimit && (
+                          <View style={styles.valueLimitBanner}>
+                            <MaterialIcons
+                              name="warning-amber"
+                              size={14}
+                              color="#D97706"
+                            />
+                            <Text style={styles.valueLimitText}>
+                              Limite máximo de orçamento atingido.
+                            </Text>
+                          </View>
+                        )}
+
+                        {focusedField === "orcamento" && (
+                          <View style={styles.inlineActions}>
+                            <TouchableOpacity
+                              style={styles.inlinePrimary}
+                              onPress={() => nextFor("orcamento")}
+                            >
+                              <Text style={styles.inlinePrimaryText}>OK</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.inlineSecondary}
+                              onPress={() => Keyboard.dismiss()}
+                            >
+                              <Text style={styles.inlineSecondaryText}>
+                                Fechar
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={styles.labelHint}>
+                        Teto de gastos para o projeto
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
 
             <View style={{ height: 8 }} />
           </ScrollView>
@@ -1290,48 +1388,56 @@ export function CreateProjectModal({
 
         <View style={styles.footer}>
           <View style={[styles.footerInner, colStyle]}>
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={onClose}
-            disabled={isSaving}
-          >
-            <Text style={styles.cancelBtnText}>Cancelar</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={onClose}
+              disabled={isSaving}
+            >
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.saveBtn,
-              (isSaving || hasErrors) && styles.saveBtnDisabled,
-            ]}
-            onPress={handleSave}
-            disabled={isSaving || hasErrors}
-          >
-            {isSaving ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Text style={styles.saveBtnText}>Salvar Projeto</Text>
-                <MaterialIcons name="arrow-forward" size={18} color="#FFFFFF" />
-              </>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.saveBtn,
+                (isSaving || hasErrors) && styles.saveBtnDisabled,
+              ]}
+              onPress={handleSave}
+              disabled={isSaving || hasErrors}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.saveBtnText}>Criar projeto</Text>
+                  <MaterialIcons
+                    name="arrow-forward"
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>
 
-      <TaskProposalModal
-        visible={proposalModalVisible}
-        onClose={() => setProposalModalVisible(false)}
-        onConfirm={(tasks) => actions.addTarefasEmBulk(tasks, CREATE_PROJECT_TASK_LIMIT)}
-        existingCount={formState.tarefas.length}
-        taskLimit={CREATE_PROJECT_TASK_LIMIT}
-      />
+      {SHOW_TASKS_SECTION && (
+        <TaskProposalModal
+          visible={proposalModalVisible}
+          onClose={() => setProposalModalVisible(false)}
+          onConfirm={(tasks) =>
+            actions.addTarefasEmBulk(tasks, CREATE_PROJECT_TASK_LIMIT)
+          }
+          existingCount={formState.tarefas.length}
+          taskLimit={CREATE_PROJECT_TASK_LIMIT}
+        />
+      )}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+  safe: { flex: 1, backgroundColor: "#F5F6FA" },
 
   header: {
     paddingHorizontal: 20,
@@ -1345,7 +1451,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  headerTitleWrap: { flex: 1 },
   headerTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+
 
   bannerWrap: {
     marginHorizontal: 20,
@@ -1386,7 +1500,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 18,
+    paddingBottom: 20,
   },
 
   section: { marginBottom: 20 },
@@ -1398,6 +1513,58 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 15, fontWeight: "700", color: "#111827", flex: 1 },
   sectionSubtitle: { fontSize: 12, fontWeight: "500", color: "#9CA3AF" },
+
+  // -- Cards agrupados (criação enxuta) ---------------------------------------
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#F1F2F4",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 18,
+  },
+  cardHeaderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTitle: {
+    fontSize: 15.5,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: -0.2,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#9CA3AF",
+    marginTop: 1,
+  },
+  planningToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  planningContent: {
+    marginTop: 18,
+    paddingTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F2F4",
+  },
 
   helperText: {
     fontSize: 13,
@@ -1429,6 +1596,7 @@ const styles = StyleSheet.create({
     color: "#111827",
     maxHeight: 100,
   },
+  inputHero: { fontSize: 16, fontWeight: "600", paddingVertical: 14 },
   inputError: { borderColor: "#EF4444", backgroundColor: "#FFF1F2" },
 
   errorBox: {
@@ -1580,9 +1748,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 12,
-  },
-  proposeBtnIcon: {
-    fontSize: 16,
   },
   proposeBtnText: {
     flex: 1,
@@ -1810,3 +1975,4 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
 });
+

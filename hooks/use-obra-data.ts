@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { StatusType } from "@/components/obra-card";
 import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
+import { activitiesService } from "@/services/activities.service";
 import type {
   Atividade,
   DocumentAttachment,
@@ -31,6 +32,7 @@ import {
 } from "@/services/projects.service";
 import {
   stagesService,
+  type CreateStageBatchItemDto,
   type StageResponseDto,
 } from "@/services/stages.service";
 import { tasksService, type TaskResponseDto } from "@/services/tasks.service";
@@ -184,6 +186,7 @@ function buildObraDetalhe(
     valor: e.amountCents / 100,
     data: e.date,
     categoria: fromApiCategory(e.category),
+    stageId: e.stageId ?? undefined,
     tarefaId: e.taskId ?? undefined,
     receiptDocumentId: e.receiptDocumentId ?? e.receiptDocument?.id ?? null,
     receiptUrl: e.receiptUrl ?? null,
@@ -191,7 +194,7 @@ function buildObraDetalhe(
   }));
 
   // Progresso vem das atividades (novo modelo). Fallback para tarefas legadas
-  // só enquanto não há etapas — obras migradas têm etapas (talvez sem atividades).
+  // só enquanto não há etapas - obras migradas têm etapas (talvez sem atividades).
   const concluidasTarefas = tarefas.filter((t) => t.concluida).length;
   const progresso =
     obraProgress != null
@@ -268,8 +271,8 @@ export interface UseObraDataReturn {
     nome: string;
     descricao?: string;
     prioridade?: StageLocalPriority | null;
-    status?: Etapa["status"];
-  }) => Promise<void>;
+  }) => Promise<Etapa>;
+  addStagesBatch: (stages: CreateStageBatchItemDto[]) => Promise<Etapa[]>;
   updateStage: (
     id: string,
     updates: {
@@ -280,6 +283,7 @@ export interface UseObraDataReturn {
       order?: number;
     },
   ) => Promise<void>;
+  completeStageActivities: (stageId: string) => Promise<void>;
   deleteStage: (id: string) => Promise<void>;
   reorderStages: (orderedIds: string[]) => Promise<void>;
   addExpense: (
@@ -524,6 +528,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
 
         const created = await expensesService.create({
           projectId,
+          stageId: expenseData.stageId ?? null,
           taskId: expenseData.tarefaId ?? null,
           category: toApiCategory(expenseData.categoria),
           description: trimmedDescription || undefined,
@@ -612,6 +617,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         if (updates.valor !== undefined)
           dto.amountCents = Math.round(updates.valor * 100);
         if (updates.data !== undefined) dto.date = updates.data;
+        if ("stageId" in updates) dto.stageId = updates.stageId ?? null;
         if ("tarefaId" in updates) dto.taskId = updates.tarefaId ?? null;
         if ("receiptDocumentId" in updates)
           dto.receiptDocumentId = updates.receiptDocumentId ?? null;
@@ -799,7 +805,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
     [tasks],
   );
 
-  // ─── Etapas (stages) ────────────────────────────────────────────────────────
+  // --- Etapas (stages) --------------------------------------------------------
 
   const refreshStages = useCallback(async () => {
     const [stageList, progress] = await Promise.all([
@@ -817,22 +823,37 @@ export function useObraData(projectId: string): UseObraDataReturn {
       nome: string;
       descricao?: string;
       prioridade?: StageLocalPriority | null;
-      status?: Etapa["status"];
     }) => {
       if (stages.length >= PROJECT_ITEM_LIMIT) {
         throw new Error(getProjectItemLimitMessage("etapas"));
       }
+      // Toda etapa nasce "Não iniciada"; o status passa a ser derivado das
+      // atividades (ou ajustado manualmente) depois de criada.
       const created = await stagesService.create(projectId, {
         name: input.nome,
         description: input.descricao || undefined,
         priority: stagePriorityToApi(input.prioridade),
-        status: input.status,
+        status: "NOT_STARTED",
         position: stages.length,
       });
       setStages((prev) => [...prev, created]);
       void refreshStages();
+      return mapStage(created);
     },
     [projectId, stages.length, refreshStages],
+  );
+
+  const addStagesBatch = useCallback(
+    async (batch: CreateStageBatchItemDto[]) => {
+      // Etapas + atividades são criadas em uma única chamada; a quota total é
+      // validada no backend. Sem estado otimista: revalidamos após o batch.
+      const created = await stagesService.batchCreate(projectId, {
+        stages: batch,
+      });
+      await refreshStages();
+      return created.map(mapStage);
+    },
+    [projectId, refreshStages],
   );
 
   const updateStage = useCallback(
@@ -859,6 +880,22 @@ export function useObraData(projectId: string): UseObraDataReturn {
       setStages((prev) => prev.map((s) => (s.id === id ? updated : s)));
     },
     [],
+  );
+
+  // Conclui a etapa marcando todas as atividades pendentes como DONE e
+  // setando a etapa como COMPLETED. Não há endpoint de bulk no backend, então
+  // listamos + atualizamos cada pendente (mesma regra de completeAllActivities).
+  const completeStageActivities = useCallback(
+    async (stageId: string) => {
+      const list = await activitiesService.listByStage(stageId);
+      const pending = list.filter((a) => a.status !== "DONE");
+      await Promise.all(
+        pending.map((a) => activitiesService.updateStatus(a.id, "DONE")),
+      );
+      await stagesService.update(stageId, { status: "COMPLETED" });
+      await refreshStages();
+    },
+    [refreshStages],
   );
 
   const deleteStage = useCallback(
@@ -966,7 +1003,9 @@ export function useObraData(projectId: string): UseObraDataReturn {
     reorderTasks,
     refreshStages,
     addStage,
+    addStagesBatch,
     updateStage,
+    completeStageActivities,
     deleteStage,
     reorderStages,
     addExpense,
@@ -979,3 +1018,4 @@ export function useObraData(projectId: string): UseObraDataReturn {
     updateTrackFinancial,
   };
 }
+

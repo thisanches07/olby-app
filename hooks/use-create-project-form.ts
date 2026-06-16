@@ -1,4 +1,4 @@
-import { Gasto, Tarefa } from "@/data/obras";
+﻿import { Gasto, Tarefa } from "@/data/obras";
 import { useState } from "react";
 
 const PROJECT_NAME_MAX = 30;
@@ -181,9 +181,7 @@ export function useCreateProjectForm(): [
       errors.nome = "Nome do projeto é obrigatório";
     }
 
-    if (!state.endereco.trim()) {
-      errors.endereco = "Endereço é obrigatório";
-    }
+    // Endereço agora é opcional na criação enxuta (só o nome é obrigatório).
 
     setState((prev) => ({
       ...prev,
@@ -235,3 +233,4 @@ export function useCreateProjectForm(): [
 
   return [state, actions];
 }
+

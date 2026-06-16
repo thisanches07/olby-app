@@ -1,8 +1,7 @@
 import { useToast } from "@/components/obra/toast";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
-import type { Etapa, StageStatus } from "@/data/obras";
-import { STAGE_STATUS_CONFIG } from "@/utils/stage-ui";
+import type { Etapa } from "@/data/obras";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
 import {
@@ -22,27 +21,17 @@ const STAGE_DESCRIPTION_MAX = 160;
 
 type LocalPriority = "ALTA" | "MEDIA" | "BAIXA";
 
-const PRIORITIES: { value: LocalPriority | null; label: string; color: string }[] =
-  [
-    { value: null, label: "Nenhuma", color: "#9CA3AF" },
-    { value: "ALTA", label: "Alta", color: "#DC2626" },
-    { value: "MEDIA", label: "Média", color: "#EA580C" },
-    { value: "BAIXA", label: "Baixa", color: "#22C55E" },
-  ];
-
-const STATUSES: StageStatus[] = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"];
-
 export interface StageFormValues {
   nome: string;
   descricao: string;
   prioridade: LocalPriority | null;
-  status: StageStatus;
 }
 
 interface StageFormModalProps {
   visible: boolean;
   stage?: Etapa;
   onSave: (values: StageFormValues) => Promise<void>;
+  onSaveAndAddActivities?: (values: StageFormValues) => Promise<void>;
   onClose: () => void;
 }
 
@@ -50,22 +39,19 @@ export function StageFormModal({
   visible,
   stage,
   onSave,
+  onSaveAndAddActivities,
   onClose,
 }: StageFormModalProps) {
   const { showToast } = useToast();
   const [nome, setNome] = useState("");
   const [nomeError, setNomeError] = useState(false);
   const [descricao, setDescricao] = useState("");
-  const [prioridade, setPrioridade] = useState<LocalPriority | null>(null);
-  const [status, setStatus] = useState<StageStatus>("NOT_STARTED");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (stage) {
       setNome(stage.nome);
       setDescricao(stage.descricao);
-      setPrioridade(stage.prioridade);
-      setStatus(stage.status);
       setNomeError(false);
       setIsSaving(false);
     } else {
@@ -77,8 +63,6 @@ export function StageFormModal({
     setNome("");
     setNomeError(false);
     setDescricao("");
-    setPrioridade(null);
-    setStatus("NOT_STARTED");
     setIsSaving(false);
   };
 
@@ -92,12 +76,16 @@ export function StageFormModal({
     setNomeError(false);
     setIsSaving(true);
     try {
-      await onSave({
+      const values = {
         nome: trimmedNome,
         descricao: descricao.trim().slice(0, STAGE_DESCRIPTION_MAX),
-        prioridade,
-        status,
-      });
+        prioridade: null,
+      };
+      if (!stage && onSaveAndAddActivities) {
+        await onSaveAndAddActivities(values);
+      } else {
+        await onSave(values);
+      }
       reset();
     } catch {
       setIsSaving(false);
@@ -176,84 +164,6 @@ export function StageFormModal({
               max={STAGE_DESCRIPTION_MAX}
             />
           </View>
-
-          {/* Status */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Status</Text>
-            <View style={styles.segmented}>
-              {STATUSES.map((s) => {
-                const cfg = STAGE_STATUS_CONFIG[s];
-                const selected = status === s;
-                return (
-                  <TouchableOpacity
-                    key={s}
-                    style={[
-                      styles.segment,
-                      selected && {
-                        backgroundColor: cfg.bg,
-                        borderColor: cfg.dot,
-                      },
-                    ]}
-                    onPress={() => setStatus(s)}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[styles.segmentDot, { backgroundColor: cfg.dot }]}
-                    />
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        selected && { color: cfg.color, fontWeight: "700" },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {cfg.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Text style={styles.hint}>
-              O progresso é calculado pelas atividades; o status é definido por
-              você.
-            </Text>
-          </View>
-
-          {/* Prioridade */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Prioridade</Text>
-            <View style={styles.prioRow}>
-              {PRIORITIES.map((p) => {
-                const selected = prioridade === p.value;
-                return (
-                  <TouchableOpacity
-                    key={p.label}
-                    style={[
-                      styles.prioChip,
-                      selected && {
-                        borderColor: p.color,
-                        backgroundColor: p.color + "12",
-                      },
-                    ]}
-                    onPress={() => setPrioridade(p.value)}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[styles.prioDot, { backgroundColor: p.color }]}
-                    />
-                    <Text
-                      style={[
-                        styles.prioChipText,
-                        selected && { color: p.color, fontWeight: "700" },
-                      ]}
-                    >
-                      {p.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -328,38 +238,6 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 84, paddingTop: 12 },
   hint: { fontSize: 11.5, color: "#9CA3AF", lineHeight: 16 },
 
-  segmented: { flexDirection: "row", gap: 8 },
-  segment: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-  },
-  segmentDot: { width: 8, height: 8, borderRadius: 4 },
-  segmentText: { fontSize: 12, color: "#6B7280", fontWeight: "500" },
-
-  prioRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  prioChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 10,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-  },
-  prioDot: { width: 10, height: 10, borderRadius: 5 },
-  prioChipText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
-
   footer: {
     flexDirection: "row",
     gap: 12,
@@ -383,3 +261,4 @@ const styles = StyleSheet.create({
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
 });
+

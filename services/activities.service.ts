@@ -1,4 +1,4 @@
-import { api } from "./api";
+﻿import { api } from "./api";
 import { track } from "./analytics";
 import { AnalyticsEvents } from "@/types/analytics-events";
 
@@ -30,6 +30,10 @@ export interface CreateActivityDto {
   assignedUserId?: string | null;
 }
 
+export interface BatchCreateActivitiesDto {
+  names: string[];
+}
+
 export interface UpdateActivityDto {
   name?: string;
   description?: string | null;
@@ -58,6 +62,12 @@ export const activitiesService = {
         return activity;
       }),
 
+  batchCreate: (stageId: string, dto: BatchCreateActivitiesDto) =>
+    api.post<ActivityResponseDto[]>(
+      `/stages/${stageId}/activities/batch`,
+      dto,
+    ),
+
   update: (id: string, dto: UpdateActivityDto) =>
     api.patch<ActivityResponseDto>(`/activities/${id}`, dto),
 
@@ -77,3 +87,4 @@ export const activitiesService = {
 
   delete: (id: string) => api.delete<void>(`/activities/${id}`),
 };
+

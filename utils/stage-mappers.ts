@@ -1,4 +1,4 @@
-import type { Atividade, Etapa } from "@/data/obras";
+﻿import type { ActivityStatus, Atividade, Etapa, StageStatus } from "@/data/obras";
 import type { ActivityResponseDto } from "@/services/activities.service";
 import type { StagePriority, StageResponseDto } from "@/services/stages.service";
 
@@ -26,6 +26,14 @@ export function stagePriorityToApi(
  * diferenças de contrato (0..1 vs 0..100): sempre derivamos das contagens. */
 export function progressRatio(completed: number, total: number): number | null {
   return total > 0 ? Math.min(Math.max(completed / total, 0), 1) : null;
+}
+
+export function stageCompletionProgress(
+  etapas: readonly { status: StageStatus }[],
+): number | null {
+  if (etapas.length === 0) return null;
+  const completed = etapas.filter((e) => e.status === "COMPLETED").length;
+  return progressRatio(completed, etapas.length);
 }
 
 export function mapStage(dto: StageResponseDto): Etapa {
@@ -61,10 +69,25 @@ export function mapActivity(dto: ActivityResponseDto): Atividade {
   };
 }
 
+/** Deriva o status da etapa a partir das atividades:
+ * - sem atividades ou todas PENDING -> NOT_STARTED
+ * - todas DONE -> COMPLETED
+ * - qualquer progresso (alguma IN_PROGRESS ou DONE, mas não todas) -> IN_PROGRESS */
+export function deriveStageStatus(
+  atividades: readonly { status: ActivityStatus }[],
+): StageStatus {
+  if (atividades.length === 0) return "NOT_STARTED";
+  if (atividades.every((a) => a.status === "DONE")) return "COMPLETED";
+  const anyProgress = atividades.some(
+    (a) => a.status === "DONE" || a.status === "IN_PROGRESS",
+  );
+  return anyProgress ? "IN_PROGRESS" : "NOT_STARTED";
+}
+
 /** Etapa "em foco" da obra: primeira em andamento, senão primeira não iniciada,
  * senão "Concluída" quando todas concluídas. */
 export function currentStageLabel(etapas: Etapa[]): string {
-  if (etapas.length === 0) return "—";
+  if (etapas.length === 0) return "-";
   const ordered = [...etapas].sort((a, b) => a.order - b.order);
   const inProgress = ordered.find((e) => e.status === "IN_PROGRESS");
   if (inProgress) return inProgress.nome;
@@ -72,3 +95,4 @@ export function currentStageLabel(etapas: Etapa[]): string {
   if (notStarted) return notStarted.nome;
   return "Concluída";
 }
+

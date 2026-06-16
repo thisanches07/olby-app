@@ -43,7 +43,9 @@
       "WebFetch(domain:www.oblyapp.com)",
       "PowerShell($p = \"C:\\\\Users\\\\tsanc\\\\Desktop\\\\novo app\\\\skills-anthropic\"; Get-ChildItem $p -Directory | ForEach-Object { $_.Name })",
       "Bash(Select-Object -First 20)",
-      "Bash(Format-Table FullName)"
+      "Bash(Format-Table FullName)",
+      "PowerShell(npx eslint \"components/projeto/create-stages-chooser-sheet.tsx\" \"components/projeto/stage-flow-batch-modal.tsx\" \"services/stages.service.ts\" \"hooks/use-obra-data.ts\" \"app/obra/[id].tsx\")",
+      "PowerShell(npx eslint \"components/obra/stage-action-sheets.tsx\" \"components/obra/eng-stages-list.tsx\" \"components/obra/obra-view-eng.tsx\" \"hooks/use-obra-data.ts\" \"app/obra/[id].tsx\")"
     ]
   }
 }

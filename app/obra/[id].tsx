@@ -32,7 +32,12 @@ import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
-import type { DocumentSource, Etapa, Gasto } from "@/data/obras";
+import type {
+  DocumentSource,
+  Etapa,
+  Gasto,
+  StageStatus,
+} from "@/data/obras";
 import type { StageFormValues } from "@/components/projeto/stage-form-modal";
 import { useAuth } from "@/hooks/use-auth";
 import { useObraData } from "@/hooks/use-obra-data";
@@ -54,6 +59,9 @@ import { ExpenseDocumentSheet } from "@/components/projeto/expense-document-shee
 import { ExpenseFormModal } from "@/components/projeto/expense-form-modal";
 import { HoursAdjustmentModal } from "@/components/projeto/hours-adjustment-modal";
 import { ProjectSettingsModal } from "@/components/projeto/project-settings-modal";
+import { CreateStagesChooserSheet } from "@/components/projeto/create-stages-chooser-sheet";
+import { StageActivitiesBatchModal } from "@/components/projeto/stage-activities-batch-modal";
+import { StageFlowBatchModal } from "@/components/projeto/stage-flow-batch-modal";
 import { StageFormModal } from "@/components/projeto/stage-form-modal";
 
 import {
@@ -71,8 +79,11 @@ import {
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
+import { activitiesService } from "@/services/activities.service";
+import type { CreateStageBatchItemDto } from "@/services/stages.service";
+import { useToast } from "@/components/obra/toast";
 
-// ─── Error screen ─────────────────────────────────────────────────────────────
+// --- Error screen -------------------------------------------------------------
 function ErrorScreen({
   message,
   onRetry,
@@ -104,9 +115,10 @@ function ErrorScreen({
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// --- Main ---------------------------------------------------------------------
 export default function ObraDetalheScreen() {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const { isTablet } = useResponsive();
   const bottomPad = useMemo(() => insets.bottom + spacing[16], [insets.bottom]);
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -121,7 +133,7 @@ export default function ObraDetalheScreen() {
     completeViewerTour,
   } = useOnboarding();
 
-  // Tour refs — created here so ManagerTour and ObraViewEng share the same instances
+  // Tour refs - created here so ManagerTour and ObraViewEng share the same instances
   const heroRef = useRef<View>(null);
   const diaryButtonRef = useRef<View>(null);
   const tasksTabRef = useRef<View>(null);
@@ -151,10 +163,10 @@ export default function ObraDetalheScreen() {
     bottomTabsRef: viewerBottomTabsRef,
   };
 
-  // Programmatic share modal control (tour opens/closes it during step 5→6)
+  // Programmatic share modal control (tour opens/closes it during step 5->6)
   const shareControlRef = useRef<{ open: () => void; close: () => void } | null>(null);
 
-  // Tour-driven tab override: ManagerTour calls onSwitchTab → sets this → ObraViewEng reacts
+  // Tour-driven tab override: ManagerTour calls onSwitchTab -> sets this -> ObraViewEng reacts
   const [tourTabOverride, setTourTabOverride] = useState<string | null>(null);
   const [viewerTourTabOverride, setViewerTourTabOverride] = useState<string | null>(null);
   const [viewerTourStep, setViewerTourStep] = useState(-1);
@@ -211,11 +223,15 @@ export default function ObraDetalheScreen() {
   // Modals state
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showStageModal, setShowStageModal] = useState(false);
+  const [showStageChooser, setShowStageChooser] = useState(false);
+  const [showStageFlow, setShowStageFlow] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
 
   const [editingStage, setEditingStage] = useState<Etapa | undefined>(undefined);
+  const [stageForInitialActivities, setStageForInitialActivities] =
+    useState<Etapa | null>(null);
   const [editingExpense, setEditingExpense] = useState<Gasto | undefined>(
     undefined,
   );
@@ -247,8 +263,11 @@ export default function ObraDetalheScreen() {
     error,
     refresh,
     addStage,
+    addStagesBatch,
     updateStage,
+    completeStageActivities,
     deleteStage,
+    reorderStages,
     addExpense,
     updateExpense,
     setExpenseReceiptState,
@@ -403,7 +422,7 @@ export default function ObraDetalheScreen() {
   }, [docSheetExpense, editingExpense, obraView?.gastos]);
 
   // Sincroniza qualquer mudança do detalhe (tarefas, gastos, settings)
-  // de volta ao contexto global — a lista reflete sem precisar de GET
+  // de volta ao contexto global - a lista reflete sem precisar de GET
   useEffect(() => {
     if (!obra) return;
     updateObra(obra.id, obra);
@@ -507,8 +526,36 @@ export default function ObraDetalheScreen() {
       Alert.alert("Limite atingido", getProjectItemLimitMessage("etapas"));
       return;
     }
+    setShowStageChooser(true);
+  };
+
+  const handlePickSingleStage = () => {
+    setShowStageChooser(false);
     setEditingStage(undefined);
     setShowStageModal(true);
+  };
+
+  const handlePickStageFlow = () => {
+    setShowStageChooser(false);
+    setShowStageFlow(true);
+  };
+
+  const handleSaveStageFlow = async (stages: CreateStageBatchItemDto[]) => {
+    try {
+      const created = await addStagesBatch(stages);
+      setShowStageFlow(false);
+      await refresh();
+      showToast({
+        title: `${created.length} etapa${created.length !== 1 ? "s" : ""} criada${created.length !== 1 ? "s" : ""}`,
+        tone: "success",
+      });
+    } catch (e: unknown) {
+      Alert.alert(
+        "Erro",
+        getErrorMessage(e, "Não foi possível criar as etapas."),
+      );
+      throw e;
+    }
   };
 
   const handleEditStage = (etapa: Etapa) => {
@@ -523,7 +570,6 @@ export default function ObraDetalheScreen() {
           nome: values.nome,
           descricao: values.descricao,
           prioridade: values.prioridade,
-          status: values.status,
         });
       } else {
         if (stageLimitReached) {
@@ -534,7 +580,6 @@ export default function ObraDetalheScreen() {
           nome: values.nome,
           descricao: values.descricao,
           prioridade: values.prioridade,
-          status: values.status,
         });
       }
       setShowStageModal(false);
@@ -543,6 +588,56 @@ export default function ObraDetalheScreen() {
       Alert.alert("Erro", getErrorMessage(e, "Não foi possível salvar a etapa."));
       throw e;
     }
+  };
+
+  const handleSaveStageAndAddActivities = async (values: StageFormValues) => {
+    try {
+      if (stageLimitReached) {
+        Alert.alert("Limite atingido", getProjectItemLimitMessage("etapas"));
+        return;
+      }
+      const created = await addStage({
+        nome: values.nome,
+        descricao: values.descricao,
+        prioridade: values.prioridade,
+      });
+      setShowStageModal(false);
+      setEditingStage(undefined);
+      setStageForInitialActivities(created);
+    } catch (e: unknown) {
+      Alert.alert(
+        "Erro",
+        getErrorMessage(e, "Não foi possível salvar a etapa."),
+      );
+      throw e;
+    }
+  };
+
+  const handleSaveInitialActivities = async (names: string[]) => {
+    if (!stageForInitialActivities) return;
+    try {
+      const created = await activitiesService.batchCreate(
+        stageForInitialActivities.id,
+        { names },
+      );
+      setStageForInitialActivities(null);
+      await refresh();
+      showToast({
+        title: `${created.length} atividade${created.length !== 1 ? "s" : ""} criada${created.length !== 1 ? "s" : ""}`,
+        tone: "success",
+      });
+    } catch (e: unknown) {
+      Alert.alert(
+        "Erro",
+        getErrorMessage(e, "Não foi possível criar as atividades."),
+      );
+      throw e;
+    }
+  };
+
+  const handleCloseInitialActivities = () => {
+    setStageForInitialActivities(null);
+    void refresh();
   };
 
   const handleDeleteStage = (stageId: string) => {
@@ -561,6 +656,34 @@ export default function ObraDetalheScreen() {
         canEdit: canEdit ? "1" : "0",
       },
     });
+  };
+
+  const handleSetStageStatus = (etapa: Etapa, status: StageStatus) => {
+    const wasCompleted = etapa.status === "COMPLETED";
+    updateStage(etapa.id, { status })
+      .then(() => {
+        if (status === "COMPLETED" && !wasCompleted) {
+          showToast({ title: "Etapa concluída", tone: "success" });
+        }
+      })
+      .catch((e: unknown) => {
+        Alert.alert(
+          "Erro",
+          getErrorMessage(e, "Não foi possível alterar o status da etapa."),
+        );
+      });
+  };
+
+  const handleCompleteStageActivities = async (etapa: Etapa) => {
+    try {
+      await completeStageActivities(etapa.id);
+      showToast({ title: "Etapa concluída", tone: "success" });
+    } catch (e: unknown) {
+      Alert.alert(
+        "Erro",
+        getErrorMessage(e, "Não foi possível concluir as atividades."),
+      );
+    }
   };
 
   // Expenses
@@ -625,7 +748,7 @@ export default function ObraDetalheScreen() {
   const handleEditBudget = () => setShowBudgetModal(true);
   const handleEditHours = () => setShowHoursModal(true);
 
-  // Track financial — ativa flag via PATCH e abre modal de orçamento
+  // Track financial - ativa flag via PATCH e abre modal de orçamento
   const handleEnableFinancial = async () => {
     try {
       await updateTrackFinancial(true);
@@ -787,6 +910,9 @@ export default function ObraDetalheScreen() {
           onAddStage={handleAddStage}
           onEditStage={handleEditStage}
           onDeleteStage={handleDeleteStage}
+          onSetStageStatus={handleSetStageStatus}
+          onCompleteStageActivities={handleCompleteStageActivities}
+          onReorderStages={reorderStages}
           onAddExpense={handleAddExpense}
           onEditExpense={handleEditExpense}
           onDeleteExpense={handleDeleteExpense}
@@ -830,22 +956,43 @@ export default function ObraDetalheScreen() {
         </View>
       )}
 
-      {/* ─── Modals ─────────────────────────────────────────────────────────── */}
+      {/* --- Modals ----------------------------------------------------------- */}
 
       <StageFormModal
         visible={showStageModal}
         stage={editingStage}
         onSave={handleSaveStage}
+        onSaveAndAddActivities={handleSaveStageAndAddActivities}
         onClose={() => {
           setShowStageModal(false);
           setEditingStage(undefined);
         }}
       />
 
+      <StageActivitiesBatchModal
+        visible={stageForInitialActivities !== null}
+        stageName={stageForInitialActivities?.nome ?? ""}
+        onSave={handleSaveInitialActivities}
+        onSkip={handleCloseInitialActivities}
+        onClose={handleCloseInitialActivities}
+      />
+
+      <CreateStagesChooserSheet
+        visible={showStageChooser}
+        onPickSingle={handlePickSingleStage}
+        onPickFlow={handlePickStageFlow}
+        onClose={() => setShowStageChooser(false)}
+      />
+
+      <StageFlowBatchModal
+        visible={showStageFlow}
+        onSave={handleSaveStageFlow}
+        onClose={() => setShowStageFlow(false)}
+      />
+
       <ExpenseFormModal
         visible={showExpenseModal}
         expense={editingExpense}
-        tarefas={obraView.tarefas}
         projectId={obraView.id}
         onReceiptStateChange={handleExpenseReceiptStateChange}
         onSave={handleSaveExpense}
@@ -967,7 +1114,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
   },
 
-  // ── Loading / Error ──
+  // -- Loading / Error --
   centerContainer: {
     flex: 1,
     alignItems: "center",
@@ -1008,3 +1155,4 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
 });
+

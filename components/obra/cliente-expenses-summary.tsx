@@ -1,4 +1,4 @@
-import type { DocumentAttachment, Gasto, Tarefa } from "@/data/obras";
+import type { DocumentAttachment, Etapa, Gasto } from "@/data/obras";
 import { documentsService } from "@/services/documents.service";
 import { ExpenseItem } from "@/components/projeto/expense-item";
 import { DocumentViewerModal } from "@/components/projeto/document-viewer-modal";
@@ -41,7 +41,7 @@ function toDisplayDate(data: string): string {
 
 interface ClienteExpensesSummaryProps {
   gastos: Gasto[];
-  tarefas: Tarefa[];
+  etapas: Etapa[];
   projectId?: string;
 }
 
@@ -66,7 +66,7 @@ const CATEGORIES = [
 
 export function ClienteExpensesSummary({
   gastos,
-  tarefas,
+  etapas,
   projectId,
 }: ClienteExpensesSummaryProps) {
   const insets = useSafeAreaInsets();
@@ -146,7 +146,7 @@ export function ClienteExpensesSummary({
 
   return (
     <>
-      {/* ── Distribuição por categoria ──────────────────────── */}
+      {/* -- Distribuição por categoria ------------------------ */}
       <Text style={styles.sectionLabel}>DISTRIBUIÇÃO DE GASTOS</Text>
       <View style={styles.card}>
         {/* Total */}
@@ -201,7 +201,7 @@ export function ClienteExpensesSummary({
         </View>
       </View>
 
-      {/* ── Extrato de gastos ───────────────────────────────── */}
+      {/* -- Extrato de gastos --------------------------------- */}
       <View style={styles.extratoHeader}>
         <Text style={styles.sectionLabel}>EXTRATO DE GASTOS</Text>
         <View style={styles.ativasBadge}>
@@ -249,7 +249,7 @@ export function ClienteExpensesSummary({
             <FadeSlideIn key={expense.id} index={index}>
               <ExpenseItem
                 expense={expense}
-                tarefas={tarefas}
+                etapas={etapas}
                 readOnly
                 onReceiptPress={
                   expense.receiptDocumentId ? handleReceiptPress : undefined
@@ -321,7 +321,7 @@ export function ClienteExpensesSummary({
 }
 
 const styles = StyleSheet.create({
-  // ── Empty ───────────────────────────────────────────────
+  // -- Empty -----------------------------------------------
   emptyWrap: {
     flex: 1,
     alignItems: "center",
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ── Section label ───────────────────────────────────────
+  // -- Section label ---------------------------------------
   sectionLabel: {
     fontSize: 11,
     fontWeight: "700",
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  // ── Distribuição card ───────────────────────────────────
+  // -- Distribuição card -----------------------------------
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // ── Rodapé ──────────────────────────────────────────────
+  // -- Rodapé ----------------------------------------------
   footer: {
     flexDirection: "row",
     alignItems: "center",
@@ -558,3 +558,4 @@ const sheetStyles = StyleSheet.create({
     color: "#6B7280",
   },
 });
+

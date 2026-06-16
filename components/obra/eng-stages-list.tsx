@@ -2,17 +2,19 @@ import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { FadeSlideIn } from "@/components/ui/fade-slide-in";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Etapa } from "@/data/obras";
-import { PRIMARY, getPriorityConfig } from "@/utils/obra-utils";
 import {
-  STAGE_STATUS_CONFIG,
-  progressBarColor,
-  progressLabel,
-} from "@/utils/stage-ui";
+  StageCompletePendingSheet,
+  StageStatusPickerSheet,
+} from "@/components/obra/stage-action-sheets";
+import type { Etapa, StageStatus } from "@/data/obras";
+import { PRIMARY } from "@/utils/obra-utils";
+import { STAGE_STATUS_CONFIG, progressBarColor } from "@/utils/stage-ui";
+import { stageCompletionProgress } from "@/utils/stage-mappers";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,10 +26,16 @@ import { Swipeable } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from "react-native-draggable-flatlist";
+import { tapMedium } from "@/utils/haptics";
 
-// ─── Animated progress bar ────────────────────────────────────────────────────
+// --- Animated progress bar ----------------------------------------------------
 function ProgressBar({
   progress,
   color,
@@ -55,117 +63,182 @@ function ProgressBar({
   );
 }
 
-// ─── Stage card ───────────────────────────────────────────────────────────────
+// --- Stage status checkbox ----------------------------------------------------
+function StageStatusCheck({
+  status,
+  onPress,
+}: {
+  status: StageStatus;
+  onPress?: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  const cfg = STAGE_STATUS_CONFIG[status];
+
+  const handlePress = () => {
+    scale.value = withSpring(1.25, { damping: 8, stiffness: 400 }, () => {
+      scale.value = withSpring(1, { damping: 12, stiffness: 300 });
+    });
+    onPress?.();
+  };
+
+  return (
+    <Pressable onPress={handlePress} disabled={!onPress} hitSlop={10}>
+      <Animated.View
+        style={[
+          styles.check,
+          status === "COMPLETED" && {
+            backgroundColor: cfg.dot,
+            borderColor: cfg.dot,
+          },
+          status === "IN_PROGRESS" && { borderColor: cfg.dot },
+          !onPress && status === "NOT_STARTED" && styles.checkDisabled,
+          animStyle,
+        ]}
+      >
+        {status === "COMPLETED" && (
+          <MaterialIcons name="check" size={16} color="#FFFFFF" />
+        )}
+        {status === "IN_PROGRESS" && (
+          <View style={[styles.checkHalfDot, { backgroundColor: cfg.dot }]} />
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// --- Stage card ---------------------------------------------------------------
 interface StageCardProps {
   etapa: Etapa;
   index: number;
   readOnly: boolean;
   onPress: () => void;
   onMorePress?: (etapa: Etapa) => void;
+  onToggleStatus?: () => void;
+  onOpenStatusPicker?: () => void;
+  drag?: () => void;
+  isActive?: boolean;
 }
 
-function StageCard({ etapa, index, readOnly, onPress, onMorePress }: StageCardProps) {
+function StageCard({
+  etapa,
+  index,
+  readOnly,
+  onPress,
+  onMorePress,
+  onToggleStatus,
+  onOpenStatusPicker,
+  drag,
+  isActive,
+}: StageCardProps) {
   const status = STAGE_STATUS_CONFIG[etapa.status];
-  const prio = etapa.prioridade ? getPriorityConfig(etapa.prioridade) : null;
   const barColor = progressBarColor(etapa.progress);
   const hasActivities = etapa.totalActivities > 0;
+  const done = etapa.status === "COMPLETED";
+  const pct = Math.round((etapa.progress ?? 0) * 100);
 
   return (
     <FadeSlideIn index={index}>
-      <PressableScale style={styles.card} onPress={onPress} scaleTo={0.985}>
-        <View style={[styles.statusAccent, { backgroundColor: status.dot }]} />
+      <PressableScale
+        style={[styles.card, isActive && styles.cardDragging]}
+        onPress={onPress}
+        scaleTo={0.99}
+      >
+        <StageStatusCheck status={etapa.status} onPress={onToggleStatus} />
 
-        <View style={styles.cardBody}>
-          {/* Top row: status + priority + overflow */}
-          <View style={styles.cardTopRow}>
-            <View style={[styles.statusChip, { backgroundColor: status.bg }]}>
-              <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
-              <Text style={[styles.statusChipText, { color: status.color }]}>
-                {status.label}
-              </Text>
-            </View>
-
-            <View style={styles.cardTopRight}>
-              {prio && (
-                <View style={styles.prioWrap}>
-                  <View
-                    style={[styles.prioDot, { backgroundColor: prio.color }]}
-                  />
-                  <Text style={[styles.prioText, { color: prio.color }]}>
-                    {prio.label}
-                  </Text>
-                </View>
-              )}
-              {!readOnly && onMorePress && (
-                <TouchableOpacity
-                  onPress={() => onMorePress(etapa)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
-                  activeOpacity={0.6}
-                >
-                  <MaterialIcons name="more-vert" size={20} color="#C4C9D4" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Title */}
-          <Text style={styles.cardTitle} numberOfLines={2}>
+        <View style={styles.cardMain}>
+          <Text
+            style={[styles.cardTitle, done && styles.cardTitleDone]}
+            numberOfLines={1}
+          >
             {etapa.nome}
           </Text>
-          {!!etapa.descricao && (
-            <Text style={styles.cardDesc} numberOfLines={1}>
-              {etapa.descricao}
-            </Text>
-          )}
 
-          {/* Progress */}
-          <View style={styles.progressRow}>
-            <ProgressBar progress={etapa.progress} color={barColor} />
-            <Text
-              style={[
-                styles.progressLabel,
-                !hasActivities && styles.progressLabelMuted,
-              ]}
+          <View style={styles.metaRow}>
+            <TouchableOpacity
+              style={[styles.statusPill, { backgroundColor: status.bg }]}
+              onPress={onOpenStatusPicker}
+              disabled={!onOpenStatusPicker}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+              activeOpacity={0.7}
             >
-              {progressLabel(
-                etapa.progress,
-                etapa.completedActivities,
-                etapa.totalActivities,
+              <View
+                style={[styles.statusPillDot, { backgroundColor: status.dot }]}
+              />
+              <Text style={[styles.statusPillText, { color: status.color }]}>
+                {status.label}
+              </Text>
+              {!readOnly && onOpenStatusPicker && (
+                <MaterialIcons
+                  name="expand-more"
+                  size={14}
+                  color={status.color}
+                />
               )}
-            </Text>
-          </View>
+            </TouchableOpacity>
 
-          {/* Footer: open hint */}
-          <View style={styles.cardFooter}>
-            <MaterialIcons
-              name="playlist-add-check"
-              size={15}
-              color="#9CA3AF"
-            />
-            <Text style={styles.cardFooterText}>
-              {hasActivities
-                ? `${etapa.totalActivities} atividade${etapa.totalActivities !== 1 ? "s" : ""}`
-                : "Toque para adicionar atividades"}
-            </Text>
-            <View style={{ flex: 1 }} />
-            <MaterialIcons name="chevron-right" size={20} color="#C4C9D4" />
+            {hasActivities && (
+              <View style={styles.progressInline}>
+                <View style={styles.miniTrack}>
+                  <View
+                    style={[
+                      styles.miniFill,
+                      { width: `${pct}%` as any, backgroundColor: barColor },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.miniCount}>
+                  {etapa.completedActivities}/{etapa.totalActivities}
+                </Text>
+              </View>
+            )}
           </View>
+        </View>
+
+        <View style={styles.cardTrailing}>
+          {!readOnly && onMorePress && (
+            <TouchableOpacity
+              onPress={() => onMorePress(etapa)}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 4 }}
+              activeOpacity={0.6}
+            >
+              <MaterialIcons name="more-vert" size={20} color="#C4C9D4" />
+            </TouchableOpacity>
+          )}
+          {drag && (
+            <TouchableOpacity
+              onLongPress={() => {
+                tapMedium();
+                drag();
+              }}
+              delayLongPress={150}
+              hitSlop={{ top: 10, bottom: 10, left: 4, right: 6 }}
+              activeOpacity={0.4}
+            >
+              <MaterialIcons name="drag-indicator" size={20} color="#C4C9D4" />
+            </TouchableOpacity>
+          )}
+          <MaterialIcons name="chevron-right" size={20} color="#D1D5DB" />
         </View>
       </PressableScale>
     </FadeSlideIn>
   );
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// --- Props --------------------------------------------------------------------
 interface EngStagesListProps {
   etapas: Etapa[];
-  obraProgress: number | null;
   totalActivities: number;
   completedActivities: number;
   onOpenStage: (etapa: Etapa) => void;
   onAddStage?: () => void;
   onEditStage?: (etapa: Etapa) => void;
   onDeleteStage?: (id: string) => void;
+  onSetStageStatus?: (etapa: Etapa, status: StageStatus) => void;
+  onCompleteStageActivities?: (etapa: Etapa) => Promise<void> | void;
+  onReorder?: (orderedIds: string[]) => void;
   readOnly?: boolean;
   readOnlyReason?: "concluida" | "pausada";
   limitReached?: boolean;
@@ -174,13 +247,15 @@ interface EngStagesListProps {
 
 export function EngStagesList({
   etapas,
-  obraProgress,
   totalActivities,
   completedActivities,
   onOpenStage,
   onAddStage,
   onEditStage,
   onDeleteStage,
+  onSetStageStatus,
+  onCompleteStageActivities,
+  onReorder,
   readOnly = false,
   readOnlyReason,
   limitReached = false,
@@ -189,7 +264,56 @@ export function EngStagesList({
   const [query, setQuery] = useState("");
   const [actionStage, setActionStage] = useState<Etapa | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [statusPickerStage, setStatusPickerStage] = useState<Etapa | null>(null);
+  const [pendingCompleteStage, setPendingCompleteStage] =
+    useState<Etapa | null>(null);
+  const [availableHeight, setAvailableHeight] = useState(0);
   const openRowRef = useRef<Swipeable | null>(null);
+
+  const canChangeStatus = !readOnly && !!onSetStageStatus;
+
+  // Conclui a etapa: direto quando não há atividades pendentes; senão pergunta
+  // (concluir todas as atividades x concluir só a etapa).
+  const requestComplete = useCallback(
+    (etapa: Etapa) => {
+      const hasPending =
+        etapa.totalActivities > 0 &&
+        etapa.completedActivities < etapa.totalActivities;
+      if (hasPending) {
+        setPendingCompleteStage(etapa);
+      } else {
+        onSetStageStatus?.(etapa, "COMPLETED");
+      }
+    },
+    [onSetStageStatus],
+  );
+
+  const handleToggleStatus = useCallback(
+    (etapa: Etapa) => {
+      if (!canChangeStatus) return;
+      tapMedium();
+      if (etapa.status === "COMPLETED") {
+        onSetStageStatus?.(etapa, "IN_PROGRESS"); // reabrir
+      } else {
+        requestComplete(etapa);
+      }
+    },
+    [canChangeStatus, onSetStageStatus, requestComplete],
+  );
+
+  const handlePickStatus = useCallback(
+    (status: StageStatus) => {
+      const etapa = statusPickerStage;
+      setStatusPickerStage(null);
+      if (!etapa) return;
+      if (status === "COMPLETED") {
+        requestComplete(etapa);
+      } else {
+        onSetStageStatus?.(etapa, status);
+      }
+    },
+    [statusPickerStage, onSetStageStatus, requestComplete],
+  );
 
   const ordered = useMemo(
     () => [...etapas].sort((a, b) => a.order - b.order),
@@ -207,11 +331,44 @@ export function EngStagesList({
   }, [ordered, query]);
 
   const concluidas = ordered.filter((e) => e.status === "COMPLETED").length;
+  // Progresso da obra = etapas concluídas / total de etapas (não atividades -
+  // uma etapa pode estar concluída mesmo sem atividades).
+  const stageProgress = stageCompletionProgress(ordered);
   const pendingDeleteStage = etapas.find((e) => e.id === pendingDeleteId);
 
   const readOnlyLabel =
     readOnlyReason === "concluida" ? "Projeto concluído" : "Projeto arquivado";
-  const enableSwipe = !readOnly && !!onDeleteStage && !query;
+  const dragEnabled = Boolean(onReorder && !readOnly && !query);
+  // Swipe-delete só quando o drag está desabilitado (mesma lógica das tarefas).
+  const enableSwipe = !readOnly && !!onDeleteStage && !query && !dragEnabled;
+
+  const renderDraggableItem = useCallback(
+    ({ item, drag, isActive, getIndex }: RenderItemParams<Etapa>) => {
+      const idx = typeof getIndex === "function" ? (getIndex() ?? 0) : 0;
+      return (
+        <ScaleDecorator activeScale={1.02}>
+          <StageCard
+            etapa={item}
+            index={idx}
+            readOnly={readOnly}
+            onPress={() => onOpenStage(item)}
+            onMorePress={
+              onEditStage || onDeleteStage ? setActionStage : undefined
+            }
+            onToggleStatus={
+              canChangeStatus ? () => handleToggleStatus(item) : undefined
+            }
+            onOpenStatusPicker={
+              canChangeStatus ? () => setStatusPickerStage(item) : undefined
+            }
+            drag={drag}
+            isActive={isActive}
+          />
+        </ScaleDecorator>
+      );
+    },
+    [readOnly, onEditStage, onDeleteStage, onOpenStage, canChangeStatus, handleToggleStatus],
+  );
 
   const renderRightActions = (etapa: Etapa) => (
     <View style={styles.rightActionsWrap}>
@@ -256,14 +413,14 @@ export function EngStagesList({
           <View style={styles.summaryTopRow}>
             <Text style={styles.summaryLabel}>Progresso da obra</Text>
             <Text style={styles.summaryPct}>
-              {obraProgress != null
-                ? `${Math.round(obraProgress * 100)}%`
-                : "Sem atividades"}
+              {stageProgress != null
+                ? `${Math.round(stageProgress * 100)}%`
+                : "Sem etapas"}
             </Text>
           </View>
           <ProgressBar
-            progress={obraProgress}
-            color={progressBarColor(obraProgress)}
+            progress={stageProgress}
+            color={progressBarColor(stageProgress)}
           />
           <View style={styles.summaryChipsRow}>
             <View style={styles.summaryChip}>
@@ -313,7 +470,7 @@ export function EngStagesList({
             color="#6B7280"
           />
           <Text style={styles.readOnlyBannerText}>
-            {readOnlyLabel} — etapas somente leitura
+            {readOnlyLabel} - etapas somente leitura
           </Text>
         </View>
       )}
@@ -324,6 +481,15 @@ export function EngStagesList({
           <Text style={styles.limitBannerText}>
             Limite de 500 etapas atingido. Exclua uma etapa para adicionar
             outra.
+          </Text>
+        </View>
+      )}
+
+      {dragEnabled && filtered.length > 1 && (
+        <View style={styles.dragHint}>
+          <MaterialIcons name="drag-indicator" size={14} color="#9CA3AF" />
+          <Text style={styles.dragHintText}>
+            Segure e arraste para reordenar as etapas
           </Text>
         </View>
       )}
@@ -364,6 +530,12 @@ export function EngStagesList({
         readOnly={readOnly}
         onPress={() => onOpenStage(etapa)}
         onMorePress={onEditStage || onDeleteStage ? setActionStage : undefined}
+        onToggleStatus={
+          canChangeStatus ? () => handleToggleStatus(etapa) : undefined
+        }
+        onOpenStatusPicker={
+          canChangeStatus ? () => setStatusPickerStage(etapa) : undefined
+        }
       />
     );
 
@@ -390,18 +562,44 @@ export function EngStagesList({
 
   return (
     <>
-      <ScrollView
+      <View
         style={styles.list}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: scrollPadBottom },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        onLayout={(e) => setAvailableHeight(e.nativeEvent.layout.height)}
       >
-        {header}
-        {filtered.length === 0 ? emptyNode : cards}
-      </ScrollView>
+        {dragEnabled ? (
+          <DraggableFlatList
+            data={filtered}
+            keyExtractor={(item) => item.id}
+            renderItem={renderDraggableItem}
+            onDragEnd={({ data }) => onReorder!(data.map((e) => e.id))}
+            activationDistance={12}
+            style={
+              availableHeight > 0 ? { height: availableHeight } : styles.list
+            }
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: scrollPadBottom },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={<View>{header}</View>}
+            ListEmptyComponent={emptyNode}
+          />
+        ) : (
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: scrollPadBottom },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {header}
+            {filtered.length === 0 ? emptyNode : cards}
+          </ScrollView>
+        )}
+      </View>
 
       {/* Action sheet */}
       <Modal
@@ -481,6 +679,35 @@ export function EngStagesList({
         }}
         onClose={() => setPendingDeleteId(null)}
       />
+
+      <StageStatusPickerSheet
+        visible={statusPickerStage !== null}
+        current={statusPickerStage?.status ?? "NOT_STARTED"}
+        onSelect={handlePickStatus}
+        onClose={() => setStatusPickerStage(null)}
+      />
+
+      <StageCompletePendingSheet
+        visible={pendingCompleteStage !== null}
+        stageName={pendingCompleteStage?.nome}
+        pendingCount={
+          pendingCompleteStage
+            ? pendingCompleteStage.totalActivities -
+              pendingCompleteStage.completedActivities
+            : 0
+        }
+        onCompleteAll={() => {
+          const etapa = pendingCompleteStage;
+          setPendingCompleteStage(null);
+          if (etapa) void onCompleteStageActivities?.(etapa);
+        }}
+        onCompleteStageOnly={() => {
+          const etapa = pendingCompleteStage;
+          setPendingCompleteStage(null);
+          if (etapa) onSetStageStatus?.(etapa, "COMPLETED");
+        }}
+        onClose={() => setPendingCompleteStage(null)}
+      />
     </>
   );
 }
@@ -548,51 +775,96 @@ const styles = StyleSheet.create({
   },
   summaryChipText: { fontSize: 12, fontWeight: "600", color: "#6B7280" },
 
-  // Card
+  // Card (minimalista)
   card: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: "hidden",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
     elevation: 2,
   },
-  statusAccent: { width: 5 },
-  cardBody: { flex: 1, padding: 16 },
-  cardTopRow: {
+  cardDragging: {
+    borderWidth: 1.5,
+    borderColor: PRIMARY + "40",
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 7,
+  },
+  dragHint: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
+    gap: 4,
+    marginBottom: 10,
   },
-  cardTopRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  statusChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 7,
-  },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusChipText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.2 },
-  prioWrap: { flexDirection: "row", alignItems: "center", gap: 4 },
-  prioDot: { width: 8, height: 8, borderRadius: 4 },
-  prioText: { fontSize: 11, fontWeight: "700" },
+  dragHintText: { fontSize: 11, color: "#9CA3AF", fontWeight: "500" },
 
+  // Status checkbox
+  check: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  checkDisabled: { backgroundColor: "#F3F4F6", borderColor: "#E5E7EB" },
+  checkHalfDot: { width: 11, height: 11, borderRadius: 3.5 },
+
+  cardMain: { flex: 1, gap: 7 },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: "700",
     color: "#111827",
     letterSpacing: -0.2,
   },
-  cardDesc: { fontSize: 12.5, color: "#9CA3AF", marginTop: 3 },
+  cardTitleDone: {
+    color: "#9CA3AF",
+    textDecorationLine: "line-through",
+  },
 
-  progressRow: { marginTop: 12, gap: 6 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+  },
+  statusPillDot: { width: 7, height: 7, borderRadius: 4 },
+  statusPillText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.1 },
+
+  progressInline: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    justifyContent: "flex-end",
+  },
+  miniTrack: {
+    flex: 1,
+    maxWidth: 90,
+    height: 3,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  miniFill: { height: 3, borderRadius: 2 },
+  miniCount: { fontSize: 11, fontWeight: "700", color: "#6B7280" },
+
+  cardTrailing: { flexDirection: "row", alignItems: "center", gap: 6 },
+
+  // Progress bar (summary)
   progressTrack: {
     height: 6,
     backgroundColor: "#E5E7EB",
@@ -600,19 +872,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: 6, borderRadius: 3 },
-  progressLabel: { fontSize: 11.5, fontWeight: "600", color: "#374151" },
-  progressLabelMuted: { color: "#9CA3AF", fontWeight: "500" },
-
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  cardFooterText: { fontSize: 12, fontWeight: "500", color: "#9CA3AF" },
 
   // Swipe delete
   rightActionsWrap: {
@@ -753,25 +1012,14 @@ const styles = StyleSheet.create({
   dangerText: { color: "#EF4444" },
 });
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
+// --- Skeleton -----------------------------------------------------------------
 export function StageSkeletonCard() {
   return (
     <View style={skeletonStyles.card}>
-      <View style={skeletonStyles.accent} />
+      <Skeleton width={26} height={26} borderRadius={8} />
       <View style={skeletonStyles.body}>
-        <Skeleton width={110} height={20} borderRadius={7} />
-        <Skeleton
-          width="65%"
-          height={16}
-          borderRadius={5}
-          style={skeletonStyles.mt10}
-        />
-        <Skeleton
-          width="100%"
-          height={6}
-          borderRadius={3}
-          style={skeletonStyles.mt12}
-        />
+        <Skeleton width="60%" height={16} borderRadius={5} />
+        <Skeleton width={120} height={18} borderRadius={7} />
       </View>
     </View>
   );
@@ -780,14 +1028,15 @@ export function StageSkeletonCard() {
 const skeletonStyles = StyleSheet.create({
   card: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: "hidden",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 10,
     elevation: 2,
   },
-  accent: { width: 5, backgroundColor: "#E5E7EB" },
-  body: { flex: 1, padding: 16 },
-  mt10: { marginTop: 10 },
-  mt12: { marginTop: 12 },
+  body: { flex: 1, gap: 8 },
 });
+

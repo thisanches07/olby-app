@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { PressableScale } from "@/components/ui/pressable-scale";
-import { Gasto, Tarefa } from "@/data/obras";
+import { Etapa, Gasto } from "@/data/obras";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -15,7 +15,7 @@ const PRIMARY = "#2563EB";
 
 interface ExpenseItemProps {
   expense: Gasto;
-  tarefas?: Tarefa[];
+  etapas?: Etapa[];
   onEdit?: (expense: Gasto) => void;
   onMorePress?: () => void;
   onDocumentsPress?: (expense: Gasto) => void;
@@ -50,7 +50,7 @@ function isoToBR(iso: string): string {
 
 export function ExpenseItem({
   expense,
-  tarefas,
+  etapas,
   onEdit,
   onMorePress,
   onDocumentsPress,
@@ -59,7 +59,7 @@ export function ExpenseItem({
   readOnly = false,
   isLoading = false,
 }: ExpenseItemProps) {
-  const [taskExpanded, setTaskExpanded] = useState(false);
+  const [stageExpanded, setStageExpanded] = useState(false);
 
   const categoryConfig = useMemo(
     () => CATEGORY_CONFIG[expense.categoria] ?? CATEGORY_CONFIG.OTHER,
@@ -75,9 +75,9 @@ export function ExpenseItem({
     [expense.valor],
   );
 
-  const tarefaVinculada = useMemo(
-    () => tarefas?.find((t) => t.id === expense.tarefaId),
-    [tarefas, expense.tarefaId],
+  const etapaVinculada = useMemo(
+    () => etapas?.find((stage) => stage.id === expense.stageId),
+    [etapas, expense.stageId],
   );
   const hasDocuments =
     Boolean(expense.receiptDocumentId) || (expense.documentCount ?? 0) > 0;
@@ -112,7 +112,7 @@ export function ExpenseItem({
       haptic={canTap ? "light" : "none"}
     >
       <Animated.View style={[styles.content, loadingStyle]}>
-        {/* ── Header: amount + menu ─────────────────────────── */}
+        {/* -- Header: amount + menu --------------------------- */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.value}>{formattedValue}</Text>
@@ -133,10 +133,10 @@ export function ExpenseItem({
           )}
         </View>
 
-        {/* ── Thin divider ─────────────────────────────────── */}
+        {/* -- Thin divider ----------------------------------- */}
         <View style={styles.divider} />
 
-        {/* ── Footer: date | category dot | attachment ─────── */}
+        {/* -- Footer: date | category dot | attachment ------- */}
         <View style={styles.footer}>
           <Text style={styles.date}>{isoToBR(expense.data)}</Text>
           <View style={styles.footerRight}>
@@ -165,12 +165,12 @@ export function ExpenseItem({
           </View>
         </View>
 
-        {/* ── Linked task: compact row ─────────────────────── */}
-        {tarefaVinculada && (
+        {/* -- Linked stage: compact row ---------------------- */}
+        {etapaVinculada && (
           <TouchableOpacity
-            onPress={() => setTaskExpanded((v) => !v)}
-            activeOpacity={tarefaVinculada.descricao ? 0.7 : 1}
-            disabled={!tarefaVinculada.descricao}
+            onPress={() => setStageExpanded((v) => !v)}
+            activeOpacity={etapaVinculada.descricao ? 0.7 : 1}
+            disabled={!etapaVinculada.descricao}
           >
             <View style={styles.taskRow}>
               <MaterialIcons
@@ -181,20 +181,20 @@ export function ExpenseItem({
               />
               <Text
                 style={styles.taskTitle}
-                numberOfLines={taskExpanded ? undefined : 1}
+                numberOfLines={stageExpanded ? undefined : 1}
               >
-                {tarefaVinculada.titulo}
+                {etapaVinculada.nome}
               </Text>
-              {tarefaVinculada.descricao ? (
+              {etapaVinculada.descricao ? (
                 <MaterialIcons
-                  name={taskExpanded ? "expand-less" : "expand-more"}
+                  name={stageExpanded ? "expand-less" : "expand-more"}
                   size={14}
                   color={PRIMARY}
                 />
               ) : null}
             </View>
-            {taskExpanded && tarefaVinculada.descricao ? (
-              <Text style={styles.taskDesc}>{tarefaVinculada.descricao}</Text>
+            {stageExpanded && etapaVinculada.descricao ? (
+              <Text style={styles.taskDesc}>{etapaVinculada.descricao}</Text>
             ) : null}
           </TouchableOpacity>
         )}
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
 });
 
-// ─── Skeleton card (mirrors real card layout) ──────────────────────────────
+// --- Skeleton card (mirrors real card layout) ------------------------------
 
 export function ExpenseSkeletonCard() {
   return (
@@ -362,3 +362,4 @@ const skeletonStyles = StyleSheet.create({
     gap: 8,
   },
 });
+

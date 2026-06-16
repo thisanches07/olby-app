@@ -274,7 +274,7 @@ export function ObraViewCliente({
         >
           <ClienteExpensesSummary
             gastos={obra.gastos}
-            tarefas={obra.tarefas}
+            etapas={obra.etapas}
             projectId={obra.id}
           />
         </ScrollView>
@@ -429,3 +429,4 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
 });
+

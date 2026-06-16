@@ -1,6 +1,6 @@
 import { ExpenseItem } from "@/components/projeto/expense-item";
 import { FadeSlideIn } from "@/components/ui/fade-slide-in";
-import type { Gasto, Tarefa } from "@/data/obras";
+import type { Etapa, Gasto } from "@/data/obras";
 import { PRIMARY } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 interface ProjectExpensesSectionProps {
   gastos: Gasto[];
-  tarefas: Tarefa[];
+  etapas: Etapa[];
   onEdit?: (expense: Gasto) => void;
   onDelete?: (id: string) => void;
   isExpenseLoading?: (expenseId: string) => boolean;
@@ -16,7 +16,7 @@ interface ProjectExpensesSectionProps {
 
 export function ProjectExpensesSection({
   gastos,
-  tarefas,
+  etapas,
   onEdit,
   isExpenseLoading,
 }: ProjectExpensesSectionProps) {
@@ -39,7 +39,7 @@ export function ProjectExpensesSection({
           <FadeSlideIn key={expense.id} index={index}>
             <ExpenseItem
               expense={expense}
-              tarefas={tarefas}
+              etapas={etapas}
               onEdit={onEdit}
               isLoading={isExpenseLoading?.(expense.id) ?? false}
             />
@@ -81,3 +81,4 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 });
+

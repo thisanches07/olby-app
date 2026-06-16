@@ -1,4 +1,4 @@
-import { Obra, ObraMember, StatusType } from "@/components/obra-card";
+﻿import { Obra, ObraMember, StatusType } from "@/components/obra-card";
 
 export type { Obra, ObraMember, StatusType };
 
@@ -11,7 +11,7 @@ export interface Tarefa {
   order: number;
 }
 
-// ─── Modelo Obra → Etapas → Atividades ───────────────────────────────────────
+// --- Modelo Obra -> Etapas -> Atividades ---------------------------------------
 
 export type StageStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 export type ActivityStatus = "PENDING" | "IN_PROGRESS" | "DONE";
@@ -57,6 +57,8 @@ export interface Gasto {
     | "FEES"
     | "CONTINGENCY"
     | "OTHER";
+  stageId?: string;
+  /** @deprecated Use stageId. */
   tarefaId?: string;
   documentCount?: number;
   receiptDocumentId?: string | null;
@@ -115,7 +117,7 @@ export interface ObraDetalhe extends Obra {
   etapaAtual: string;
   proximaEtapa: string;
   tarefas: Tarefa[];
-  // Novo modelo Obra → Etapas → Atividades
+  // Novo modelo Obra -> Etapas -> Atividades
   etapas: Etapa[];
   /** Progresso agregado da obra (razão 0..1) ou null quando não há atividades. */
   progress: number | null;
@@ -132,3 +134,4 @@ export interface ObraDetalhe extends Obra {
   myRole?: "OWNER" | "PRO" | "CLIENT_VIEWER" | null;
   members?: ObraMember[];
 }
+

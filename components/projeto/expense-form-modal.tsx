@@ -3,10 +3,13 @@ import { AppModal as Modal } from "@/components/ui/app-modal";
 import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import type { DocumentSource } from "@/data/obras";
-import { Gasto, Tarefa } from "@/data/obras";
+import { Etapa, Gasto } from "@/data/obras";
 import { ApiError } from "@/services/api";
 import { documentsService } from "@/services/documents.service";
 import { expensesService } from "@/services/expenses.service";
+import { stagesService } from "@/services/stages.service";
+import { mapStage } from "@/utils/stage-mappers";
+import { STAGE_STATUS_CONFIG } from "@/utils/stage-ui";
 import {
   validateDocumentAssetSize,
   uploadDocumentToExpense,
@@ -174,19 +177,10 @@ function renameAssetForExpense(
   };
 }
 
-const PRIORITY_CONFIG: Record<
-  string,
-  { label: string; color: string; bg: string }
-> = {
-  ALTA: { label: "Alta", color: "#DC2626", bg: "#FEE2E2" },
-  MEDIA: { label: "Média", color: "#EA580C", bg: "#FFEDD5" },
-  BAIXA: { label: "Baixa", color: "#16A34A", bg: "#DCFCE7" },
-};
 
 interface ExpenseFormModalProps {
   visible: boolean;
   expense?: Gasto;
-  tarefas: Tarefa[];
   projectId: string;
   onReceiptStateChange?: (
     expenseId: string,
@@ -203,7 +197,6 @@ interface ExpenseFormModalProps {
 export function ExpenseFormModal({
   visible,
   expense,
-  tarefas,
   projectId,
   onReceiptStateChange,
   onSave,
@@ -219,7 +212,9 @@ export function ExpenseFormModal({
   const [dateText, setDateText] = useState("");
   const [dataError, setDataError] = useState(false);
   const [categoria, setCategoria] = useState<ExpenseCategory>("MATERIAL");
-  const [tarefaId, setTarefaId] = useState<string | undefined>(undefined);
+  const [stageId, setStageId] = useState<string | undefined>(undefined);
+  const [stages, setStages] = useState<Etapa[]>([]);
+  const [loadingStages, setLoadingStages] = useState(false);
   const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
   const [pendingReceiptName, setPendingReceiptName] = useState<string | null>(
     null,
@@ -246,7 +241,7 @@ export function ExpenseFormModal({
     setDateText("");
     setDataError(false);
     setCategoria("MATERIAL");
-    setTarefaId(undefined);
+    setStageId(undefined);
     setPendingReceiptId(null);
     setPendingReceiptName(null);
     setPendingDocAsset(null);
@@ -258,7 +253,7 @@ export function ExpenseFormModal({
       setValor(Math.round(expense.valor * 100).toString());
       setDateText(isoToBRDate(expense.data));
       setCategoria(expense.categoria as ExpenseCategory);
-      setTarefaId(expense.tarefaId);
+      setStageId(expense.stageId);
       setPendingReceiptId(expense.receiptDocumentId ?? null);
       setPendingReceiptName(
         expense.receiptDocumentId ? "Comprovante anexado" : null,
@@ -268,7 +263,7 @@ export function ExpenseFormModal({
     }
   }, [expense, resetForm]);
 
-  // ✅ Inicializa apenas quando abre OU quando troca o expense (id).
+  //  Inicializa apenas quando abre OU quando troca o expense (id).
   useEffect(() => {
     if (!visible) return;
 
@@ -279,14 +274,36 @@ export function ExpenseFormModal({
     initFromExpense();
   }, [visible, expense?.id, initFromExpense]);
 
-  // ✅ Limpa quando fecha (pra próxima abertura vir limpinho).
+  useEffect(() => {
+    if (!visible) return;
+    let active = true;
+    setLoadingStages(true);
+    stagesService
+      .listByProject(projectId)
+      .then((items) => {
+        if (!active) return;
+        setStages(items.map(mapStage).sort((a, b) => a.order - b.order));
+      })
+      .catch(() => {
+        if (!active) return;
+        setStages([]);
+      })
+      .finally(() => {
+        if (active) setLoadingStages(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [visible, projectId]);
+
+  //  Limpa quando fecha (pra próxima abertura vir limpinho).
   useEffect(() => {
     if (visible) return;
     lastInitKeyRef.current = null;
     resetForm();
   }, [visible, resetForm]);
 
-  // ✅ Fallback: se expense não tem receiptDocumentId mas pode ter um
+  //  Fallback: se expense não tem receiptDocumentId mas pode ter um
   // documento RECEIPT vinculado via tela Documentos
   useEffect(() => {
     if (!visible) return;
@@ -305,7 +322,7 @@ export function ExpenseFormModal({
         }
       })
       .catch(() => {
-        // falha silenciosa — campo fica como "Adicionar comprovante"
+        // falha silenciosa - campo fica como "Adicionar comprovante"
       });
 
     return () => {
@@ -381,7 +398,7 @@ export function ExpenseFormModal({
       return;
     }
 
-    // Edit mode: presign → upload → confirm → immediate PATCH.
+    // Edit mode: presign -> upload -> confirm -> immediate PATCH.
     setUploadingReceipt(true);
     try {
       await validateDocumentAssetSize(normalizedAsset, "RECEIPT");
@@ -519,7 +536,7 @@ export function ExpenseFormModal({
         valor: parsedValor,
         data: `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`,
         categoria,
-        tarefaId,
+        stageId,
         receiptDocumentId: pendingReceiptId,
       },
       pendingDocAsset
@@ -549,7 +566,7 @@ export function ExpenseFormModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <SafeAreaView style={styles.safe}>
-        {/* ── Header (limpo + premium): fechar + título centralizado ── */}
+        {/* -- Header (limpo + premium): fechar + título centralizado -- */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeBtn}
@@ -583,7 +600,7 @@ export function ExpenseFormModal({
             </View>
           )}
 
-          {/* ── Descrição ── */}
+          {/* -- Descrição -- */}
           <View style={styles.field}>
             <Text style={[styles.label, descricaoError && styles.labelError]}>
               Descrição <Text style={styles.required}>*</Text>
@@ -605,7 +622,7 @@ export function ExpenseFormModal({
             />
           </View>
 
-          {/* ── Valor + Data (linha) ── */}
+          {/* -- Valor + Data (linha) -- */}
           <View style={styles.row}>
             <View style={[styles.field, { flex: 1 }]}>
               <Text style={[styles.label, valorError && styles.labelError]}>
@@ -678,7 +695,7 @@ export function ExpenseFormModal({
             </View>
           </View>
 
-          {/* ── Categoria — chips ── */}
+          {/* -- Categoria - chips -- */}
           <View style={styles.field}>
             <Text style={styles.label}>
               Categoria <Text style={styles.required}>*</Text>
@@ -714,55 +731,71 @@ export function ExpenseFormModal({
             </View>
           </View>
 
-          {/* ── Tarefa Vinculada ── */}
+          {/* Etapa vinculada */}
           <View style={styles.field}>
-            <Text style={styles.label}>Tarefa Vinculada</Text>
+            <Text style={styles.label}>Etapa vinculada</Text>
             <Text style={styles.sublabel}>
-              Opcional — associe este gasto a uma tarefa da obra
+              Opcional - associe este gasto a uma etapa da obra
             </Text>
 
             <View style={styles.taskList}>
               <TouchableOpacity
                 style={[
                   styles.taskRow,
-                  tarefaId === undefined && styles.taskRowActive,
+                  stageId === undefined && styles.taskRowActive,
                 ]}
-                onPress={() => setTarefaId(undefined)}
+                onPress={() => setStageId(undefined)}
                 activeOpacity={0.7}
               >
                 <View
                   style={[
                     styles.radio,
-                    tarefaId === undefined && styles.radioActive,
+                    stageId === undefined && styles.radioActive,
                   ]}
                 >
-                  {tarefaId === undefined && <View style={styles.radioDot} />}
+                  {stageId === undefined && <View style={styles.radioDot} />}
                 </View>
                 <MaterialIcons
                   name="block"
                   size={16}
-                  color={tarefaId === undefined ? PRIMARY : "#9CA3AF"}
+                  color={stageId === undefined ? PRIMARY : "#9CA3AF"}
                 />
                 <Text
                   style={[
                     styles.taskName,
-                    tarefaId === undefined && styles.taskNameActive,
+                    stageId === undefined && styles.taskNameActive,
                   ]}
                 >
                   Sem vínculo
                 </Text>
               </TouchableOpacity>
 
-              {tarefas.length > 0 && <View style={styles.taskDivider} />}
+              {loadingStages && (
+                <>
+                  <View style={styles.taskDivider} />
+                  <View style={styles.taskRow}>
+                    <MaterialIcons
+                      name="hourglass-empty"
+                      size={16}
+                      color="#9CA3AF"
+                    />
+                    <Text style={styles.taskName}>Carregando etapas...</Text>
+                  </View>
+                </>
+              )}
 
-              {tarefas.map((tarefa, idx) => {
-                const selected = tarefaId === tarefa.id;
-                const prio = PRIORITY_CONFIG[tarefa.prioridade];
+              {!loadingStages && stages.length > 0 && (
+                <View style={styles.taskDivider} />
+              )}
+
+              {!loadingStages && stages.map((stage, idx) => {
+                const selected = stageId === stage.id;
+                const status = STAGE_STATUS_CONFIG[stage.status];
                 return (
-                  <React.Fragment key={tarefa.id}>
+                  <React.Fragment key={stage.id}>
                     <TouchableOpacity
                       style={[styles.taskRow, selected && styles.taskRowActive]}
-                      onPress={() => setTarefaId(tarefa.id)}
+                      onPress={() => setStageId(stage.id)}
                       activeOpacity={0.7}
                     >
                       <View
@@ -779,23 +812,28 @@ export function ExpenseFormModal({
                           ]}
                           numberOfLines={1}
                         >
-                          {tarefa.titulo}
+                          {stage.nome}
                         </Text>
-                        {tarefa.concluida && (
-                          <Text style={styles.taskConcluida}>Concluída</Text>
+                        {stage.totalActivities > 0 && (
+                          <Text style={styles.taskConcluida}>
+                            {stage.completedActivities}/{stage.totalActivities} atividades
+                          </Text>
                         )}
                       </View>
 
                       <View
-                        style={[styles.prioBadge, { backgroundColor: prio.bg }]}
+                        style={[
+                          styles.prioBadge,
+                          { backgroundColor: status.bg },
+                        ]}
                       >
-                        <Text style={[styles.prioText, { color: prio.color }]}>
-                          {prio.label}
+                        <Text style={[styles.prioText, { color: status.color }]}>
+                          {status.label}
                         </Text>
                       </View>
                     </TouchableOpacity>
 
-                    {idx < tarefas.length - 1 && (
+                    {idx < stages.length - 1 && (
                       <View style={styles.taskDivider} />
                     )}
                   </React.Fragment>
@@ -803,7 +841,7 @@ export function ExpenseFormModal({
               })}
             </View>
           </View>
-          {/* ── Comprovante ── */}
+          {/* -- Comprovante -- */}
           <View style={styles.field}>
             <Text style={styles.label}>Comprovante</Text>
             {pendingReceiptId || pendingDocAsset ? (
@@ -862,7 +900,7 @@ export function ExpenseFormModal({
           </View>
         </ScrollView>
 
-        {/* ── Footer (onde faz mais sentido UX): Delete sempre visível quando editando ── */}
+        {/* -- Footer (onde faz mais sentido UX): Delete sempre visível quando editando -- */}
         <View style={styles.footer}>
           {showDelete && (
             <TouchableOpacity
@@ -1246,3 +1284,4 @@ const styles = StyleSheet.create({
     marginLeft: 7,
   },
 });
+

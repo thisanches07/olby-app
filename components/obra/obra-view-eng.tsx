@@ -22,6 +22,7 @@ import type {
   Etapa,
   Gasto,
   ObraDetalhe,
+  StageStatus,
 } from "@/data/obras";
 import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { track } from "@/services/analytics";
@@ -29,6 +30,7 @@ import { AnalyticsEvents } from "@/types/analytics-events";
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
+import { stageCompletionProgress } from "@/utils/stage-mappers";
 import type { ProjectAccessMember } from "@/utils/project-members";
 import { canManageMembers, type ProjectApiRole } from "@/utils/project-role";
 
@@ -45,7 +47,7 @@ import { EngStagesList } from "@/components/obra/eng-stages-list";
 import { ObraHeader } from "@/components/obra/obra-header";
 import { QuotesTab } from "@/components/orcamentos/quotes-tab";
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
+// --- Tabs ---------------------------------------------------------------------
 type EngTabId =
   | "projetos"
   | "etapas"
@@ -63,7 +65,7 @@ const ENG_TABS: TabDefinition[] = [
   // { id: "financeiro", label: "FINANCEIRO", icon: "insights" },
 ];
 
-// ─── Utils: parse robusto para timestamptz do Postgres ─────────────────────────
+// --- Utils: parse robusto para timestamptz do Postgres -------------------------
 function parsePgTimestamptz(value: unknown): Date | null {
   if (!value) return null;
 
@@ -92,7 +94,7 @@ function parsePgTimestamptz(value: unknown): Date | null {
     // validações básicas
     if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
 
-    // cria ao meio-dia pra evitar edge cases de DST/offset que podem “voltar” um dia em alguns fusos
+    // cria ao meio-dia pra evitar edge cases de DST/offset que podem "voltar" um dia em alguns fusos
     const d = new Date(yyyy, mm - 1, dd, 12, 0, 0, 0);
 
     // garante que não houve overflow (ex: 31/02 vira março)
@@ -144,7 +146,7 @@ function formatDatePtBrShort(d: Date) {
   });
 }
 
-// ─── Tour refs ────────────────────────────────────────────────────────────────
+// --- Tour refs ----------------------------------------------------------------
 export interface EngTourRefs {
   heroRef: RefObject<View>;
   diaryButtonRef: RefObject<View>;
@@ -155,7 +157,7 @@ export interface EngTourRefs {
   reportButtonRef: RefObject<View>;
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// --- Props --------------------------------------------------------------------
 interface ObraViewEngProps {
   obra: ObraDetalhe;
   expenseReceiptDocuments?: DocumentAttachment[];
@@ -171,6 +173,9 @@ interface ObraViewEngProps {
   onAddStage: () => void;
   onEditStage: (etapa: Etapa) => void;
   onDeleteStage: (stageId: string) => void;
+  onSetStageStatus?: (etapa: Etapa, status: StageStatus) => void;
+  onCompleteStageActivities?: (etapa: Etapa) => Promise<void> | void;
+  onReorderStages?: (orderedIds: string[]) => void;
   onAddExpense: () => void;
   onEditExpense: (expense: Gasto) => void;
   onDeleteExpense: (expenseId: string) => void;
@@ -199,7 +204,7 @@ interface ObraViewEngProps {
   creatingExpenseId?: string | null;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// --- Component ----------------------------------------------------------------
 export function ObraViewEng({
   obra,
   expenseReceiptDocuments = [],
@@ -210,6 +215,9 @@ export function ObraViewEng({
   onAddStage,
   onEditStage,
   onDeleteStage,
+  onSetStageStatus,
+  onCompleteStageActivities,
+  onReorderStages,
   onAddExpense,
   onEditExpense,
   onDeleteExpense,
@@ -271,6 +279,17 @@ export function ObraViewEng({
       })),
     [obra.gastos, docCounts],
   );
+  const completedStages = useMemo(
+    () => obra.etapas.filter((e) => e.status === "COMPLETED").length,
+    [obra.etapas],
+  );
+  const stagesProgress = useMemo(
+    () => stageCompletionProgress(obra.etapas),
+    [obra.etapas],
+  );
+  // Progresso da obra = etapas concluídas / total de etapas (mesma regra da aba
+  // de etapas e do card de etapas), não atividades.
+  const stagesPercent = Math.round((stagesProgress ?? 0) * 100);
 
   const handleRefresh = useCallback(async () => {
     if (!onRefresh) return;
@@ -294,7 +313,7 @@ export function ObraViewEng({
     [onTabChange, obra.id],
   );
 
-  // Tour-driven tab override — keeps a stable ref so the effect doesn't re-run on changeTab identity changes
+  // Tour-driven tab override - keeps a stable ref so the effect doesn't re-run on changeTab identity changes
   const changeTabRef = useRef(changeTab);
   changeTabRef.current = changeTab;
   useEffect(() => {
@@ -325,7 +344,7 @@ export function ObraViewEng({
     [navigation],
   );
 
-  // ── Tab-aware back: secondary tabs → projetos; projetos → home ────────────
+  // -- Tab-aware back: secondary tabs -> projetos; projetos -> home ------------
   const handleBack = useCallback(() => {
     if (activeTab !== "projetos") {
       changeTab("projetos");
@@ -364,7 +383,7 @@ export function ObraViewEng({
     ),
   );
 
-  // ── Edge swipe (left-to-right) on secondary tabs → go to projetos ─────────
+  // -- Edge swipe (left-to-right) on secondary tabs -> go to projetos ---------
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   // changeTabRef already declared above (shared with activeTabOverride effect)
@@ -385,7 +404,8 @@ export function ObraViewEng({
   const isReadOnly = obra.status === "concluida" || obra.status === "pausada";
   const canManageDocuments = !isReadOnly && canManageMembers(projectRole);
   const showCompletionBanner =
-    obra.progresso >= 100 &&
+    stagesProgress != null &&
+    stagesProgress >= 1 &&
     obra.status !== "concluida" &&
     obra.status !== "pausada" &&
     !!onConcludeProject;
@@ -442,18 +462,22 @@ export function ObraViewEng({
         />
       </View>
 
-      {/* Etapas tab — lista de etapas com navegação para o detalhe da etapa */}
+      {/* Etapas tab - lista de etapas com navegação para o detalhe da etapa */}
       {activeTab === "etapas" && (
         <View style={[styles.scroll, colStyle]}>
           <EngStagesList
             etapas={obra.etapas}
-            obraProgress={obra.progress}
             totalActivities={obra.totalActivities}
             completedActivities={obra.completedActivities}
             onOpenStage={onOpenStage}
             onAddStage={isReadOnly || stageLimitReached ? undefined : onAddStage}
             onEditStage={isReadOnly ? undefined : onEditStage}
             onDeleteStage={isReadOnly ? undefined : onDeleteStage}
+            onSetStageStatus={isReadOnly ? undefined : onSetStageStatus}
+            onCompleteStageActivities={
+              isReadOnly ? undefined : onCompleteStageActivities
+            }
+            onReorder={isReadOnly ? undefined : onReorderStages}
             readOnly={isReadOnly}
             readOnlyReason={readOnlyReason}
             limitReached={stageLimitReached}
@@ -513,7 +537,7 @@ export function ObraViewEng({
           <>
             <View ref={tourRefs?.heroRef} collapsable={false}>
               <EngHeroSection
-                progresso={obra.progresso}
+                progresso={stagesPercent}
                 etapaAtual={obra.etapaAtual}
                 endereco={obra.endereco}
                 dataPrevisaoEntrega={entregaLabel}
@@ -540,7 +564,7 @@ export function ObraViewEng({
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.completionTitle}>
-                      Todas as atividades concluídas!
+                      Todas as etapas concluídas!
                     </Text>
                     <Text style={styles.completionSub}>
                       Pronto para marcar a obra como concluída?
@@ -627,9 +651,9 @@ export function ObraViewEng({
                   <Text style={styles.stagesOverviewTitle}>Etapas</Text>
                 </View>
                 <Text style={styles.stagesOverviewPct}>
-                  {obra.progress != null
-                    ? `${Math.round(obra.progress * 100)}%`
-                    : "Sem atividades"}
+                  {stagesProgress != null
+                    ? `${Math.round(stagesProgress * 100)}%`
+                    : "Sem etapas"}
                 </Text>
               </View>
 
@@ -638,9 +662,9 @@ export function ObraViewEng({
                   style={[
                     styles.stagesOverviewFill,
                     {
-                      width: `${Math.round((obra.progress ?? 0) * 100)}%` as any,
+                      width: `${Math.round((stagesProgress ?? 0) * 100)}%` as any,
                       backgroundColor:
-                        obra.progress != null && obra.progress >= 1
+                        stagesProgress != null && stagesProgress >= 1
                           ? colors.success
                           : colors.primary,
                     },
@@ -650,7 +674,7 @@ export function ObraViewEng({
 
               <View style={styles.stagesOverviewFooter}>
                 <Text style={styles.stagesOverviewMeta}>
-                  {obra.totalStages} etapa{obra.totalStages !== 1 ? "s" : ""}
+                  {completedStages}/{obra.totalStages} etapa{obra.totalStages !== 1 ? "s" : ""}
                   {obra.totalActivities > 0
                     ? ` · ${obra.completedActivities}/${obra.totalActivities} atividades`
                     : ""}
@@ -675,7 +699,7 @@ export function ObraViewEng({
         {activeTab === "gastos" && (
           <EngExpensesList
             gastos={gastosMerged}
-            tarefas={obra.tarefas}
+            etapas={obra.etapas}
             projectId={obra.id}
             onEdit={onEditExpense}
             onDelete={onDeleteExpense}
@@ -733,7 +757,7 @@ export function ObraViewEng({
         </View>
       </View>
 
-      {/* Edge swipe zone — captures left-to-right swipe on secondary tabs */}
+      {/* Edge swipe zone - captures left-to-right swipe on secondary tabs */}
       {activeTab !== "projetos" && (
         <View
           {...edgeSwipe.panHandlers}
@@ -793,7 +817,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  // ── Etapas overview (PROJETO tab) ──────────────────────────────────────────
+  // -- Etapas overview (PROJETO tab) ------------------------------------------
   stagesOverview: {
     backgroundColor: colors.white,
     borderRadius: radius.lg,
@@ -887,7 +911,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
 
-  // ── Financial off CTA (PROJETO tab) ────────────────────────────────────────
+  // -- Financial off CTA (PROJETO tab) ----------------------------------------
   financialOffCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -931,3 +955,4 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 });
+

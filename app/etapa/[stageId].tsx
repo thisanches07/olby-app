@@ -1,33 +1,51 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Swipeable } from "react-native-gesture-handler";
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from "react-native-draggable-flatlist";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
+import { useToast } from "@/components/obra/toast";
 import { ActivityFormModal } from "@/components/projeto/activity-form-modal";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { FadeSlideIn } from "@/components/ui/fade-slide-in";
-import type { ActivityStatus, Atividade, Etapa, StageStatus } from "@/data/obras";
+import type {
+  ActivityStatus,
+  Atividade,
+  Etapa,
+  StageStatus,
+} from "@/data/obras";
 import { useStageActivities } from "@/hooks/use-stage-activities";
 import { getErrorMessage } from "@/services/api";
 import { stagesService } from "@/services/stages.service";
+import { colors } from "@/theme/colors";
 import { tapMedium } from "@/utils/haptics";
 import { mapStage } from "@/utils/stage-mappers";
 import {
@@ -35,9 +53,8 @@ import {
   STAGE_STATUS_CONFIG,
   progressBarColor,
 } from "@/utils/stage-ui";
-import { colors } from "@/theme/colors";
 
-// ─── Progress bar ─────────────────────────────────────────────────────────────
+// --- Progress bar -------------------------------------------------------------
 function ProgressBar({
   progress,
   color,
@@ -62,7 +79,7 @@ function ProgressBar({
   );
 }
 
-// ─── Tri-state checkbox ───────────────────────────────────────────────────────
+// --- Tri-state checkbox -------------------------------------------------------
 function StatusCheckbox({
   status,
   readOnly,
@@ -88,8 +105,12 @@ function StatusCheckbox({
       <Animated.View
         style={[
           styles.checkbox,
-          status === "DONE" && { backgroundColor: cfg.dot, borderColor: cfg.dot },
+          status === "DONE" && {
+            backgroundColor: cfg.dot,
+            borderColor: cfg.dot,
+          },
           status === "IN_PROGRESS" && { borderColor: cfg.dot },
+          readOnly && status !== "DONE" && styles.checkboxReadOnly,
           animStyle,
         ]}
       >
@@ -104,28 +125,40 @@ function StatusCheckbox({
   );
 }
 
-// ─── Activity row ─────────────────────────────────────────────────────────────
+// --- Activity row -------------------------------------------------------------
 function ActivityRow({
   atividade,
   index,
   readOnly,
+  toggleReadOnly,
   onToggle,
   onMorePress,
+  drag,
+  isActive,
 }: {
   atividade: Atividade;
   index: number;
   readOnly: boolean;
+  toggleReadOnly?: boolean;
   onToggle: () => void;
   onMorePress?: () => void;
+  drag?: () => void;
+  isActive?: boolean;
 }) {
   const cfg = ACTIVITY_STATUS_CONFIG[atividade.status];
   const done = atividade.status === "DONE";
   return (
     <FadeSlideIn index={index}>
-      <View style={[styles.activityCard, done && styles.activityCardDone]}>
+      <View
+        style={[
+          styles.activityCard,
+          done && styles.activityCardDone,
+          isActive && styles.activityCardDragging,
+        ]}
+      >
         <StatusCheckbox
           status={atividade.status}
-          readOnly={readOnly}
+          readOnly={toggleReadOnly ?? readOnly}
           onPress={onToggle}
         />
         <View style={styles.activityInfo}>
@@ -140,7 +173,9 @@ function ActivityRow({
               {atividade.descricao}
             </Text>
           )}
-          <View style={[styles.activityStatusChip, { backgroundColor: cfg.bg }]}>
+          <View
+            style={[styles.activityStatusChip, { backgroundColor: cfg.bg }]}
+          >
             <Text style={[styles.activityStatusText, { color: cfg.color }]}>
               {cfg.label}
             </Text>
@@ -156,14 +191,29 @@ function ActivityRow({
             <MaterialIcons name="more-vert" size={20} color="#C4C9D4" />
           </TouchableOpacity>
         )}
+        {drag && (
+          <TouchableOpacity
+            onLongPress={() => {
+              tapMedium();
+              drag();
+            }}
+            delayLongPress={150}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            activeOpacity={0.4}
+            style={styles.dragHandle}
+          >
+            <MaterialIcons name="drag-indicator" size={22} color="#C4C9D4" />
+          </TouchableOpacity>
+        )}
       </View>
     </FadeSlideIn>
   );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+// --- Screen -------------------------------------------------------------------
 export default function StageDetailScreen() {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const params = useLocalSearchParams<{
     stageId: string;
     projectId?: string;
@@ -175,6 +225,27 @@ export default function StageDetailScreen() {
 
   const [stage, setStage] = useState<Etapa | null>(null);
   const [stageStatus, setStageStatus] = useState<StageStatus>("NOT_STARTED");
+  // Espelha o status atual para comparar na derivação sem recriar callbacks.
+  const stageStatusRef = useRef<StageStatus>("NOT_STARTED");
+  useEffect(() => {
+    stageStatusRef.current = stageStatus;
+  }, [stageStatus]);
+
+  // Aplica o status derivado das atividades (PATCH + feedback), evitando writes
+  // redundantes quando já está no mesmo status.
+  const applyDerivedStatus = useCallback(
+    (derived: StageStatus) => {
+      if (stageStatusRef.current === derived) return;
+      const wasCompleted = stageStatusRef.current === "COMPLETED";
+      stageStatusRef.current = derived;
+      setStageStatus(derived);
+      stagesService.update(stageId, { status: derived }).catch(() => {});
+      if (derived === "COMPLETED" && !wasCompleted) {
+        showToast({ title: "Etapa concluída", tone: "success" });
+      }
+    },
+    [stageId, showToast],
+  );
 
   const {
     atividades,
@@ -188,13 +259,16 @@ export default function StageDetailScreen() {
     updateActivity,
     setActivityStatus,
     deleteActivity,
-  } = useStageActivities(stageId);
+    reorderActivities,
+    completeAllActivities,
+  } = useStageActivities(stageId, { onStatusDerived: applyDerivedStatus });
 
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [editing, setEditing] = useState<Atividade | undefined>(undefined);
   const [actionActivity, setActionActivity] = useState<Atividade | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const openRowRef = useRef<Swipeable | null>(null);
+  const [confirmCompleteAll, setConfirmCompleteAll] = useState(false);
+  const [availableHeight, setAvailableHeight] = useState(0);
 
   // Carrega a etapa para cabeçalho/status. Usa o nome passado por param como
   // placeholder instantâneo enquanto carrega.
@@ -207,6 +281,7 @@ export default function StageDetailScreen() {
         const mapped = mapStage(dto);
         setStage(mapped);
         setStageStatus(mapped.status);
+        stageStatusRef.current = mapped.status;
       })
       .catch(() => {});
     return () => {
@@ -216,38 +291,75 @@ export default function StageDetailScreen() {
 
   const headerName = stage?.nome ?? params.name ?? "Etapa";
   const statusCfg = STAGE_STATUS_CONFIG[stageStatus];
-  const pendingDeleteActivity = atividades.find((a) => a.id === pendingDeleteId);
+  const pendingDeleteActivity = atividades.find(
+    (a) => a.id === pendingDeleteId,
+  );
+
+  const isLocked = stageStatus === "COMPLETED";
+  const actionReadOnly = !canEdit || isLocked;
+  const dragEnabled = !actionReadOnly && atividades.length > 1;
 
   const STATUSES: StageStatus[] = useMemo(
     () => ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"],
     [],
   );
 
-  const handleToggle = useCallback(
-    (atividade: Atividade) => {
-      const next: ActivityStatus =
-        atividade.status === "DONE" ? "PENDING" : "DONE";
-      tapMedium();
-      setActivityStatus(atividade.id, next).catch(() => {
-        Alert.alert("Erro", "Não foi possível atualizar a atividade.");
-      });
-    },
-    [setActivityStatus],
-  );
-
-  const handleChangeStageStatus = useCallback(
+  const setStatusManual = useCallback(
     async (next: StageStatus) => {
-      if (next === stageStatus) return;
-      const prev = stageStatus;
+      stageStatusRef.current = next;
       setStageStatus(next);
       try {
         await stagesService.update(stageId, { status: next });
       } catch (e) {
-        setStageStatus(prev);
-        Alert.alert("Erro", getErrorMessage(e, "Não foi possível alterar o status."));
+        Alert.alert(
+          "Erro",
+          getErrorMessage(e, "Não foi possível alterar o status."),
+        );
       }
     },
-    [stageId, stageStatus],
+    [stageId],
+  );
+
+  const handleChangeStageStatus = useCallback(
+    (target: StageStatus) => {
+      if (target === stageStatus) return;
+      if (target === "COMPLETED") {
+        const hasPending = atividades.some((a) => a.status !== "DONE");
+        if (atividades.length > 0 && hasPending) {
+          // Pergunta antes de concluir tudo em cascata.
+          setConfirmCompleteAll(true);
+          return;
+        }
+        // Sem atividades (ou já todas concluídas) -> conclui direto.
+        void setStatusManual("COMPLETED");
+        return;
+      }
+      // Em andamento / Não iniciada -> ajuste manual (reabre/destrava).
+      void setStatusManual(target);
+    },
+    [stageStatus, atividades, setStatusManual],
+  );
+
+  const handleToggle = useCallback(
+    (atividade: Atividade) => {
+      const next: ActivityStatus =
+        isLocked && atividade.status === "DONE"
+          ? "PENDING"
+          : atividade.status === "DONE"
+            ? "PENDING"
+            : "DONE";
+      tapMedium();
+      setActivityStatus(atividade.id, next)
+        .then(() => {
+          if (isLocked && atividade.status === "DONE") {
+            void setStatusManual("IN_PROGRESS");
+          }
+        })
+        .catch(() => {
+          Alert.alert("Erro", "Não foi possível atualizar a atividade.");
+        });
+    },
+    [isLocked, setActivityStatus, setStatusManual],
   );
 
   const handleSaveActivity = useCallback(
@@ -258,27 +370,176 @@ export default function StageDetailScreen() {
         setShowActivityModal(false);
         setEditing(undefined);
       } catch (e) {
-        Alert.alert("Erro", getErrorMessage(e, "Não foi possível salvar a atividade."));
+        Alert.alert(
+          "Erro",
+          getErrorMessage(e, "Não foi possível salvar a atividade."),
+        );
         throw e;
       }
     },
     [editing, addActivity, updateActivity],
   );
 
-  const renderRightActions = (atividade: Atividade) => (
-    <View style={styles.rightActionsWrap}>
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={() => setPendingDeleteId(atividade.id)}
-        style={styles.deleteAction}
-      >
-        <MaterialIcons name="delete-outline" size={20} color="#FFFFFF" />
-        <Text style={styles.deleteText}>Excluir</Text>
-      </TouchableOpacity>
+  const bottomPad = insets.bottom + (actionReadOnly ? 24 : 96);
+
+  // -- Cabeçalho da lista (hero + controle de status + título "Atividades") ------
+  const listHeader = (
+    <View>
+      <View style={styles.hero}>
+        <View style={[styles.statusChip, { backgroundColor: statusCfg.bg }]}>
+          <View
+            style={[styles.statusDot, { backgroundColor: statusCfg.dot }]}
+          />
+          <Text style={[styles.statusChipText, { color: statusCfg.color }]}>
+            {statusCfg.label}
+          </Text>
+        </View>
+
+        <Text style={styles.heroTitle}>{headerName}</Text>
+        {!!stage?.descricao && (
+          <Text style={styles.heroDesc}>{stage.descricao}</Text>
+        )}
+
+        <View style={styles.heroProgressRow}>
+          <ProgressBar progress={progress} color={progressBarColor(progress)} />
+          <Text
+            style={[
+              styles.heroProgressLabel,
+              progress == null && styles.heroProgressMuted,
+            ]}
+          >
+            {progress == null
+              ? "Sem atividades"
+              : `${completed}/${total} Atividades concluídas · ${Math.round(progress * 100)}%`}
+          </Text>
+        </View>
+
+        {/* Controle manual de status (continua disponível mesmo concluída,
+            para reabrir/destravar as atividades). */}
+        {canEdit && (
+          <View style={styles.statusControl}>
+            {STATUSES.map((s) => {
+              const cfg = STAGE_STATUS_CONFIG[s];
+              const selected = stageStatus === s;
+              return (
+                <TouchableOpacity
+                  key={s}
+                  style={[
+                    styles.statusSegment,
+                    selected && {
+                      backgroundColor: cfg.bg,
+                      borderColor: cfg.dot,
+                    },
+                  ]}
+                  onPress={() => handleChangeStageStatus(s)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.statusSegmentText,
+                      selected && { color: cfg.color, fontWeight: "700" },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {cfg.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {false && (
+          <View style={styles.lockHint}>
+            <MaterialIcons name="lock-outline" size={14} color="#6B7280" />
+            <Text style={styles.lockHintText}>
+              Etapa concluída - atividades bloqueadas. Mude o status para
+              reabrir.
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Atividades</Text>
+        {total > 0 && (
+          <Text style={styles.sectionCount}>
+            {completed} de {total} concluída{total !== 1 ? "s" : ""}
+          </Text>
+        )}
+      </View>
+
+      {dragEnabled && (
+        <View style={styles.dragHint}>
+          <MaterialIcons name="drag-indicator" size={14} color="#9CA3AF" />
+          <Text style={styles.dragHintText}>
+            Segure â‰¡ para reordenar as atividades
+          </Text>
+        </View>
+      )}
     </View>
   );
 
-  const bottomPad = insets.bottom + (canEdit ? 96 : 24);
+  const emptyNode = loading ? (
+    <View style={styles.centerBox}>
+      <Text style={styles.mutedText}>Carregando atividades...</Text>
+    </View>
+  ) : error ? (
+    <View style={styles.centerBox}>
+      <MaterialIcons name="error-outline" size={32} color="#D1D5DB" />
+      <Text style={styles.mutedText}>{error}</Text>
+      <TouchableOpacity onPress={refresh} style={styles.retryBtn}>
+        <Text style={styles.retryText}>Tentar novamente</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIconWrap}>
+        <MaterialIcons name="playlist-add" size={34} color="#D1D5DB" />
+      </View>
+      <Text style={styles.emptyTitle}>Nenhuma atividade</Text>
+      <Text style={styles.emptySubtitle}>
+        {actionReadOnly
+          ? "As atividades desta etapa aparecerão aqui."
+          : "Adicione atividades para acompanhar o progresso desta etapa."}
+      </Text>
+      {!actionReadOnly && (
+        <TouchableOpacity
+          style={styles.emptyCta}
+          onPress={() => {
+            setEditing(undefined);
+            setShowActivityModal(true);
+          }}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="add" size={18} color="#FFFFFF" />
+          <Text style={styles.emptyCtaText}>Adicionar atividade</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderItem = useCallback(
+    ({ item, drag, isActive, getIndex }: RenderItemParams<Atividade>) => {
+      const idx = typeof getIndex === "function" ? (getIndex() ?? 0) : 0;
+      return (
+        <ScaleDecorator activeScale={1.02}>
+          <ActivityRow
+            atividade={item}
+            index={idx}
+            readOnly={actionReadOnly}
+            toggleReadOnly={!canEdit || (isLocked && item.status !== "DONE")}
+            onToggle={() => handleToggle(item)}
+            onMorePress={() => setActionActivity(item)}
+            drag={dragEnabled ? drag : undefined}
+            isActive={isActive}
+          />
+        </ScaleDecorator>
+      );
+    },
+
+    [actionReadOnly, canEdit, dragEnabled, handleToggle, isLocked],
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -301,156 +562,31 @@ export default function StageDetailScreen() {
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
-        showsVerticalScrollIndicator={false}
+      <View
+        style={styles.list}
+        onLayout={(e) => setAvailableHeight(e.nativeEvent.layout.height)}
       >
-        {/* Stage hero */}
-        <View style={styles.hero}>
-          <View style={[styles.statusChip, { backgroundColor: statusCfg.bg }]}>
-            <View style={[styles.statusDot, { backgroundColor: statusCfg.dot }]} />
-            <Text style={[styles.statusChipText, { color: statusCfg.color }]}>
-              {statusCfg.label}
-            </Text>
-          </View>
-
-          <Text style={styles.heroTitle}>{headerName}</Text>
-          {!!stage?.descricao && (
-            <Text style={styles.heroDesc}>{stage.descricao}</Text>
-          )}
-
-          <View style={styles.heroProgressRow}>
-            <ProgressBar progress={progress} color={progressBarColor(progress)} />
-            <Text
-              style={[
-                styles.heroProgressLabel,
-                progress == null && styles.heroProgressMuted,
-              ]}
-            >
-              {progress == null
-                ? "Sem atividades"
-                : `${completed}/${total} · ${Math.round(progress * 100)}%`}
-            </Text>
-          </View>
-
-          {/* Stage status control */}
-          {canEdit && (
-            <View style={styles.statusControl}>
-              {STATUSES.map((s) => {
-                const cfg = STAGE_STATUS_CONFIG[s];
-                const selected = stageStatus === s;
-                return (
-                  <TouchableOpacity
-                    key={s}
-                    style={[
-                      styles.statusSegment,
-                      selected && {
-                        backgroundColor: cfg.bg,
-                        borderColor: cfg.dot,
-                      },
-                    ]}
-                    onPress={() => handleChangeStageStatus(s)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.statusSegmentText,
-                        selected && { color: cfg.color, fontWeight: "700" },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {cfg.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        {/* Activities */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Atividades</Text>
-          {total > 0 && (
-            <Text style={styles.sectionCount}>
-              {completed} de {total} concluída{total !== 1 ? "s" : ""}
-            </Text>
-          )}
-        </View>
-
-        {loading ? (
-          <View style={styles.centerBox}>
-            <Text style={styles.mutedText}>Carregando atividades…</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.centerBox}>
-            <MaterialIcons name="error-outline" size={32} color="#D1D5DB" />
-            <Text style={styles.mutedText}>{error}</Text>
-            <TouchableOpacity onPress={refresh} style={styles.retryBtn}>
-              <Text style={styles.retryText}>Tentar novamente</Text>
-            </TouchableOpacity>
-          </View>
-        ) : atividades.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <MaterialIcons name="playlist-add" size={34} color="#D1D5DB" />
-            </View>
-            <Text style={styles.emptyTitle}>Nenhuma atividade</Text>
-            <Text style={styles.emptySubtitle}>
-              {canEdit
-                ? "Adicione atividades para acompanhar o progresso desta etapa."
-                : "As atividades desta etapa aparecerão aqui."}
-            </Text>
-            {canEdit && (
-              <TouchableOpacity
-                style={styles.emptyCta}
-                onPress={() => {
-                  setEditing(undefined);
-                  setShowActivityModal(true);
-                }}
-                activeOpacity={0.85}
-              >
-                <MaterialIcons name="add" size={18} color="#FFFFFF" />
-                <Text style={styles.emptyCtaText}>Adicionar atividade</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          atividades.map((atividade, index) => {
-            const row = (
-              <ActivityRow
-                atividade={atividade}
-                index={index}
-                readOnly={!canEdit}
-                onToggle={() => handleToggle(atividade)}
-                onMorePress={() => setActionActivity(atividade)}
-              />
-            );
-            if (!canEdit) return <View key={atividade.id}>{row}</View>;
-            return (
-              <Swipeable
-                key={atividade.id}
-                overshootRight={false}
-                friction={2}
-                rightThreshold={24}
-                renderRightActions={() => renderRightActions(atividade)}
-                onSwipeableWillOpen={() => {
-                  if (openRowRef.current) openRowRef.current.close();
-                }}
-                onSwipeableOpen={(_, swipeable) => {
-                  openRowRef.current = swipeable ?? null;
-                }}
-              >
-                {row}
-              </Swipeable>
-            );
-          })
-        )}
-      </ScrollView>
+        <DraggableFlatList
+          data={atividades}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          onDragEnd={({ data }) => reorderActivities(data.map((a) => a.id))}
+          activationDistance={12}
+          style={
+            availableHeight > 0 ? { height: availableHeight } : styles.list
+          }
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: bottomPad },
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={emptyNode}
+        />
+      </View>
 
       {/* FAB add */}
-      {canEdit && atividades.length > 0 && (
+      {!actionReadOnly && atividades.length > 0 && (
         <TouchableOpacity
           style={[styles.fab, { bottom: insets.bottom + 20 }]}
           activeOpacity={0.9}
@@ -494,9 +630,38 @@ export default function StageDetailScreen() {
                     });
                   }}
                 >
-                  <MaterialIcons name="hourglass-top" size={20} color="#B45309" />
+                  <MaterialIcons
+                    name="hourglass-top"
+                    size={20}
+                    color="#B45309"
+                  />
                   <Text style={styles.actionSheetItemText}>
                     Marcar em andamento
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {actionActivity && actionActivity.status !== "PENDING" && (
+              <>
+                <View style={styles.actionSheetDivider} />
+                <TouchableOpacity
+                  style={styles.actionSheetItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const a = actionActivity;
+                    setActionActivity(null);
+                    setActivityStatus(a.id, "PENDING").catch(() => {
+                      Alert.alert("Erro", "Não foi possível atualizar.");
+                    });
+                  }}
+                >
+                  <MaterialIcons
+                    name="radio-button-unchecked"
+                    size={20}
+                    color="#6B7280"
+                  />
+                  <Text style={styles.actionSheetItemText}>
+                    Marcar como não iniciada
                   </Text>
                 </TouchableOpacity>
               </>
@@ -563,6 +728,23 @@ export default function StageDetailScreen() {
         }}
         onClose={() => setPendingDeleteId(null)}
       />
+
+      <ConfirmSheet
+        visible={confirmCompleteAll}
+        icon="check-circle-outline"
+        iconColor="#22C55E"
+        title="Concluir todas as atividades desta etapa?"
+        message="Todas as atividades serão marcadas como concluídas e a etapa será finalizada."
+        confirmLabel="Concluir tudo"
+        confirmVariant="primary"
+        onConfirm={() => {
+          setConfirmCompleteAll(false);
+          completeAllActivities().catch(() => {
+            Alert.alert("Erro", "Não foi possível concluir as atividades.");
+          });
+        }}
+        onClose={() => setConfirmCompleteAll(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -592,8 +774,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
   },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: 20, paddingTop: 16 },
 
   // Hero
   hero: {
@@ -651,6 +833,23 @@ const styles = StyleSheet.create({
   },
   statusSegmentText: { fontSize: 11.5, color: "#6B7280", fontWeight: "500" },
 
+  lockHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lockHintText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+
   progressTrack: {
     height: 7,
     backgroundColor: "#E5E7EB",
@@ -674,6 +873,15 @@ const styles = StyleSheet.create({
   },
   sectionCount: { fontSize: 12.5, fontWeight: "600", color: "#6B7280" },
 
+  dragHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 10,
+    marginTop: -2,
+  },
+  dragHintText: { fontSize: 11, color: "#9CA3AF", fontWeight: "500" },
+
   // Activity card
   activityCard: {
     flexDirection: "row",
@@ -690,6 +898,13 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   activityCardDone: { opacity: 0.62 },
+  activityCardDragging: {
+    borderWidth: 1.5,
+    borderColor: colors.primary + "40",
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 6,
+  },
   checkbox: {
     width: 24,
     height: 24,
@@ -701,6 +916,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
     flexShrink: 0,
   },
+  checkboxReadOnly: { backgroundColor: "#F3F4F6", borderColor: "#E5E7EB" },
   halfDot: { width: 10, height: 10, borderRadius: 3 },
   activityInfo: { flex: 1, gap: 6 },
   activityTitle: { fontSize: 15, fontWeight: "600", color: "#111827" },
@@ -717,28 +933,11 @@ const styles = StyleSheet.create({
   },
   activityStatusText: { fontSize: 10.5, fontWeight: "700", letterSpacing: 0.2 },
   moreBtn: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
-
-  // Swipe delete
-  rightActionsWrap: {
-    justifyContent: "center",
-    alignItems: "flex-end",
-    marginBottom: 10,
-  },
-  deleteAction: {
-    height: "100%",
-    minWidth: 104,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: "#EF4444",
+  dragHandle: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-  },
-  deleteText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.2,
+    flexShrink: 0,
+    marginLeft: -2,
   },
 
   // States

@@ -2,7 +2,7 @@ import { ExpenseItem, ExpenseSkeletonCard } from "@/components/projeto/expense-i
 import { DocumentViewerModal } from "@/components/projeto/document-viewer-modal";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { FadeSlideIn } from "@/components/ui/fade-slide-in";
-import type { DocumentAttachment, Gasto, Tarefa } from "@/data/obras";
+import type { DocumentAttachment, Etapa, Gasto } from "@/data/obras";
 import { documentsService } from "@/services/documents.service";
 import { PRIMARY } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -28,7 +28,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER: "outros",
 };
 
-// Converte "YYYY-MM-DD" ou "DD/MM/YYYY" → string ISO para comparação
+// Converte "YYYY-MM-DD" ou "DD/MM/YYYY" -> string ISO para comparação
 function toSortableDate(data: string): string {
   if (!data) return "";
   if (/^\d{4}-\d{2}-\d{2}/.test(data)) return data.slice(0, 10);
@@ -48,7 +48,7 @@ function toDisplayDate(data: string): string {
 
 interface EngExpensesListProps {
   gastos: Gasto[];
-  tarefas: Tarefa[];
+  etapas: Etapa[];
   projectId?: string;
   onEdit: (expense: Gasto) => void;
   onDelete: (id: string) => void;
@@ -65,7 +65,7 @@ interface EngExpensesListProps {
 
 export function EngExpensesList({
   gastos,
-  tarefas,
+  etapas,
   projectId,
   onEdit,
   onDelete,
@@ -90,7 +90,7 @@ export function EngExpensesList({
           const doc = await documentsService.getById(projectId, expense.receiptDocumentId);
           setViewingReceipt(doc);
         } catch {
-          // silently ignore — user can still tap "ver documentos" via the action sheet
+          // silently ignore - user can still tap "ver documentos" via the action sheet
         }
       }
     : undefined;
@@ -127,7 +127,7 @@ export function EngExpensesList({
   const hasHeaderMenuItems =
     !readOnly && ((gastos.length > 0 && !!onDeleteAll) || !!onDisableTracking);
 
-  // ── Acompanhamento desativado ──────────────────────────────────────────────
+  // -- Acompanhamento desativado ----------------------------------------------
   if (!trackFinancial) {
     return (
       <View style={styles.disabledContainer}>
@@ -154,10 +154,10 @@ export function EngExpensesList({
     );
   }
 
-  // ── Estado normal ──────────────────────────────────────────────────────────
+  // -- Estado normal ----------------------------------------------------------
   return (
     <>
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* -- Header ------------------------------------------------------------ */}
       <View style={styles.engSectionHeader}>
         <Text style={styles.engSectionTitle}>Gastos Registrados</Text>
         <View style={styles.headerRight}>
@@ -181,7 +181,7 @@ export function EngExpensesList({
         </View>
       </View>
 
-      {/* ── Barra de busca ──────────────────────────────────────────────────── */}
+      {/* -- Barra de busca ---------------------------------------------------- */}
       <View style={styles.searchBar}>
         <MaterialIcons name="search" size={18} color="#9CA3AF" />
         <TextInput
@@ -207,7 +207,7 @@ export function EngExpensesList({
         <View style={styles.readOnlyBanner}>
           <MaterialIcons name={readOnlyIcon} size={15} color="#6B7280" />
           <Text style={styles.readOnlyBannerText}>
-            {readOnlyLabel} — gastos somente leitura
+            {readOnlyLabel} - gastos somente leitura
           </Text>
         </View>
       )}
@@ -232,7 +232,7 @@ export function EngExpensesList({
           <FadeSlideIn key={expense.id} index={index}>
             <ExpenseItem
               expense={expense}
-              tarefas={tarefas}
+              etapas={etapas}
               onEdit={readOnly ? undefined : onEdit}
               onMorePress={() => setActionExpense(expense)}
               onDocumentsPress={onDocumentsPress}
@@ -244,7 +244,7 @@ export function EngExpensesList({
         ))
       )}
 
-      {/* ── Action sheet — gasto individual ──────────────────────────────────── */}
+      {/* -- Action sheet - gasto individual ------------------------------------ */}
       <Modal
         visible={!!actionExpense}
         transparent
@@ -328,7 +328,7 @@ export function EngExpensesList({
         </TouchableOpacity>
       </Modal>
 
-      {/* ── Confirmação de exclusão de gasto ─────────────────────────────────── */}
+      {/* -- Confirmação de exclusão de gasto ----------------------------------- */}
       <ConfirmSheet
         visible={!!deleteConfirmExpense}
         icon="delete-outline"
@@ -346,7 +346,7 @@ export function EngExpensesList({
         onClose={() => setDeleteConfirmExpense(null)}
       />
 
-      {/* ── Action sheet — menu do header (ações destrutivas) ────────────────── */}
+      {/* -- Action sheet - menu do header (ações destrutivas) ------------------ */}
       <Modal
         visible={showHeaderMenu}
         transparent
@@ -428,7 +428,7 @@ export function EngExpensesList({
 }
 
 const styles = StyleSheet.create({
-  // ── Disabled state ──────────────────────────────────────────────────────────
+  // -- Disabled state ----------------------------------------------------------
   disabledContainer: {
     alignItems: "center",
     paddingVertical: 48,
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  // ── Normal state ────────────────────────────────────────────────────────────
+  // -- Normal state ------------------------------------------------------------
   engSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Action sheet ────────────────────────────────────────────────────────────
+  // -- Action sheet ------------------------------------------------------------
   actionSheetBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -581,3 +581,4 @@ const styles = StyleSheet.create({
     color: "#EF4444",
   },
 });
+

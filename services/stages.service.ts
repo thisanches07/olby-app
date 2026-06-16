@@ -36,6 +36,23 @@ export interface UpdateStageDto {
   position?: number;
 }
 
+export interface CreateStageBatchActivitiesDto {
+  names: string[];
+}
+
+export interface CreateStageBatchItemDto {
+  name: string;
+  description?: string;
+  status?: StageStatus;
+  priority?: StagePriority;
+  position?: number;
+  activities?: CreateStageBatchActivitiesDto;
+}
+
+export interface CreateStagesBatchDto {
+  stages: CreateStageBatchItemDto[];
+}
+
 export const stagesService = {
   listByProject: (projectId: string) =>
     api.get<StageResponseDto[]>(`/projects/${projectId}/stages`),
@@ -44,6 +61,9 @@ export const stagesService = {
 
   create: (projectId: string, dto: CreateStageDto) =>
     api.post<StageResponseDto>(`/projects/${projectId}/stages`, dto),
+
+  batchCreate: (projectId: string, dto: CreateStagesBatchDto) =>
+    api.post<StageResponseDto[]>(`/projects/${projectId}/stages/batch`, dto),
 
   update: (id: string, dto: UpdateStageDto) =>
     api.patch<StageResponseDto>(`/stages/${id}`, dto),
