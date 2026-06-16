@@ -32,7 +32,8 @@ import {
   getProjectItemLimitMessage,
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
-import type { DocumentSource, Gasto, Tarefa } from "@/data/obras";
+import type { DocumentSource, Etapa, Gasto } from "@/data/obras";
+import type { StageFormValues } from "@/components/projeto/stage-form-modal";
 import { useAuth } from "@/hooks/use-auth";
 import { useObraData } from "@/hooks/use-obra-data";
 import { useResponsive } from "@/hooks/use-responsive";
@@ -53,7 +54,7 @@ import { ExpenseDocumentSheet } from "@/components/projeto/expense-document-shee
 import { ExpenseFormModal } from "@/components/projeto/expense-form-modal";
 import { HoursAdjustmentModal } from "@/components/projeto/hours-adjustment-modal";
 import { ProjectSettingsModal } from "@/components/projeto/project-settings-modal";
-import { TaskFormModal } from "@/components/projeto/task-form-modal";
+import { StageFormModal } from "@/components/projeto/stage-form-modal";
 
 import {
   ObraViewCliente,
@@ -209,12 +210,12 @@ export default function ObraDetalheScreen() {
 
   // Modals state
   const [showProjectSettings, setShowProjectSettings] = useState(false);
-  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showStageModal, setShowStageModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
 
-  const [editingTask, setEditingTask] = useState<Tarefa | undefined>(undefined);
+  const [editingStage, setEditingStage] = useState<Etapa | undefined>(undefined);
   const [editingExpense, setEditingExpense] = useState<Gasto | undefined>(
     undefined,
   );
@@ -245,12 +246,9 @@ export default function ObraDetalheScreen() {
     loading,
     error,
     refresh,
-    addTask,
-    updateTask,
-    deleteTask,
-    toggleTask,
-    deleteAllTasks,
-    reorderTasks,
+    addStage,
+    updateStage,
+    deleteStage,
     addExpense,
     updateExpense,
     setExpenseReceiptState,
@@ -492,7 +490,8 @@ export default function ObraDetalheScreen() {
   const isCliente = currentIsCliente;
   const isEng = !isCliente;
   const canEdit = canEditProject(projectRole);
-  const taskLimitReached = (obraView?.tarefas?.length ?? 0) >= PROJECT_ITEM_LIMIT;
+  const stageLimitReached =
+    (obraView?.etapas?.length ?? 0) >= PROJECT_ITEM_LIMIT;
   const expenseLimitReached =
     (obraView?.gastos?.length ?? 0) >= PROJECT_ITEM_LIMIT;
 
@@ -502,50 +501,65 @@ export default function ObraDetalheScreen() {
   const handleViewDiary = () =>
     router.push({ pathname: "/diario/[id]", params: { id: obraView.id } });
 
-  // Tasks
-  const handleAddTask = () => {
-    if (taskLimitReached) {
-      Alert.alert("Limite atingido", getProjectItemLimitMessage("tarefas"));
+  // Etapas
+  const handleAddStage = () => {
+    if (stageLimitReached) {
+      Alert.alert("Limite atingido", getProjectItemLimitMessage("etapas"));
       return;
     }
-
-    setEditingTask(undefined);
-    setShowTaskModal(true);
+    setEditingStage(undefined);
+    setShowStageModal(true);
   };
 
-  const handleEditTask = (task: Tarefa) => {
-    setEditingTask(task);
-    setShowTaskModal(true);
+  const handleEditStage = (etapa: Etapa) => {
+    setEditingStage(etapa);
+    setShowStageModal(true);
   };
 
-  const handleSaveTask = async (task: Omit<Tarefa, "id">) => {
+  const handleSaveStage = async (values: StageFormValues) => {
     try {
-      if (editingTask) await updateTask(editingTask.id, task);
-      else {
-        if (taskLimitReached) {
-          Alert.alert("Limite atingido", getProjectItemLimitMessage("tarefas"));
+      if (editingStage) {
+        await updateStage(editingStage.id, {
+          nome: values.nome,
+          descricao: values.descricao,
+          prioridade: values.prioridade,
+          status: values.status,
+        });
+      } else {
+        if (stageLimitReached) {
+          Alert.alert("Limite atingido", getProjectItemLimitMessage("etapas"));
           return;
         }
-        await addTask(task);
+        await addStage({
+          nome: values.nome,
+          descricao: values.descricao,
+          prioridade: values.prioridade,
+          status: values.status,
+        });
       }
-
-      setShowTaskModal(false);
-      setEditingTask(undefined);
+      setShowStageModal(false);
+      setEditingStage(undefined);
     } catch (e: unknown) {
-      Alert.alert("Erro", getErrorMessage(e, "Não foi possível salvar a tarefa."));
+      Alert.alert("Erro", getErrorMessage(e, "Não foi possível salvar a etapa."));
       throw e;
     }
   };
 
-  const handleToggleTask = (taskId: string) => {
-    toggleTask(taskId).catch(() => {
-      Alert.alert("Erro", "Não foi possível atualizar a tarefa.");
+  const handleDeleteStage = (stageId: string) => {
+    deleteStage(stageId).catch(() => {
+      Alert.alert("Erro", "Não foi possível remover a etapa.");
     });
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    deleteTask(taskId).catch(() => {
-      Alert.alert("Erro", "Não foi possível remover a tarefa.");
+  const handleOpenStage = (etapa: Etapa) => {
+    router.push({
+      pathname: "/etapa/[stageId]" as any,
+      params: {
+        stageId: etapa.id,
+        projectId: obraView.id,
+        name: etapa.nome,
+        canEdit: canEdit ? "1" : "0",
+      },
     });
   };
 
@@ -651,29 +665,6 @@ export default function ObraDetalheScreen() {
                 "Não foi possível desativar o acompanhamento.",
               );
               await refresh();
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // Deleta todas as tarefas
-  const handleDeleteAllTasks = () => {
-    const count = obraView.tarefas?.length ?? 0;
-    Alert.alert(
-      "Excluir todas as tarefas",
-      `Isso irá excluir ${count} tarefa${count !== 1 ? "s" : ""}. Esta ação não pode ser desfeita.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir todas",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteAllTasks();
-            } catch {
-              Alert.alert("Erro", "Não foi possível excluir as tarefas.");
             }
           },
         },
@@ -792,12 +783,10 @@ export default function ObraDetalheScreen() {
           projectRole={projectRole}
           onTabChange={(isPrimary) => setIsOnPrimaryTab(isPrimary)}
           onRefresh={refresh}
-          onAddTask={handleAddTask}
-          onEditTask={handleEditTask}
-          onDeleteTask={handleDeleteTask}
-          onToggleTask={handleToggleTask}
-          onDeleteAllTasks={handleDeleteAllTasks}
-          onReorderTasks={reorderTasks}
+          onOpenStage={handleOpenStage}
+          onAddStage={handleAddStage}
+          onEditStage={handleEditStage}
+          onDeleteStage={handleDeleteStage}
           onAddExpense={handleAddExpense}
           onEditExpense={handleEditExpense}
           onDeleteExpense={handleDeleteExpense}
@@ -808,7 +797,7 @@ export default function ObraDetalheScreen() {
           onConcludeProject={canEdit ? handleConcludeProject : undefined}
           isConcluding={isConcluding}
           onViewDiary={handleViewDiary}
-          taskLimitReached={taskLimitReached}
+          stageLimitReached={stageLimitReached}
           expenseLimitReached={expenseLimitReached}
           onEnableFinancial={handleEnableFinancial}
           onDisableFinancial={handleDisableFinancial}
@@ -843,13 +832,13 @@ export default function ObraDetalheScreen() {
 
       {/* ─── Modals ─────────────────────────────────────────────────────────── */}
 
-      <TaskFormModal
-        visible={showTaskModal}
-        task={editingTask}
-        onSave={handleSaveTask}
+      <StageFormModal
+        visible={showStageModal}
+        stage={editingStage}
+        onSave={handleSaveStage}
         onClose={() => {
-          setShowTaskModal(false);
-          setEditingTask(undefined);
+          setShowStageModal(false);
+          setEditingStage(undefined);
         }}
       />
 

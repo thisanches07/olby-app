@@ -17,7 +17,12 @@ import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useResponsive } from "@/hooks/use-responsive";
-import type { DocumentAttachment, Gasto, ObraDetalhe, Tarefa } from "@/data/obras";
+import type {
+  DocumentAttachment,
+  Etapa,
+  Gasto,
+  ObraDetalhe,
+} from "@/data/obras";
 import { PROJECT_ITEM_LIMIT } from "@/constants/creation-limits";
 import { track } from "@/services/analytics";
 import { AnalyticsEvents } from "@/types/analytics-events";
@@ -36,14 +41,14 @@ import { EngFinancialCompactCard } from "@/components/obra/eng-financial-compact
 import { EngFinancialSummary } from "@/components/obra/eng-financial-summary";
 import { EngHeroSection } from "@/components/obra/eng-hero-section";
 import { EngHoursCompactCard } from "@/components/obra/eng-hours-compact-card";
-import { EngTasksList } from "@/components/obra/eng-tasks-list";
+import { EngStagesList } from "@/components/obra/eng-stages-list";
 import { ObraHeader } from "@/components/obra/obra-header";
 import { QuotesTab } from "@/components/orcamentos/quotes-tab";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 type EngTabId =
   | "projetos"
-  | "tarefas"
+  | "etapas"
   | "gastos"
   | "orcamentos"
   | "documentos"
@@ -51,7 +56,7 @@ type EngTabId =
 
 const ENG_TABS: TabDefinition[] = [
   { id: "projetos", label: "PROJETO", icon: "folder" },
-  { id: "tarefas", label: "TAREFAS", icon: "check-circle-outline" },
+  { id: "etapas", label: "ETAPAS", icon: "layers" },
   { id: "gastos", label: "GASTOS", icon: "receipt" },
   { id: "orcamentos", label: "ORÇAM.", icon: "request-quote" },
   { id: "documentos", label: "DOCUMENTOS", icon: "folder-open" },
@@ -162,12 +167,10 @@ interface ObraViewEngProps {
     viewUrl?: string;
   }>) => void;
   onProjectDocumentRemoved?: (document: DocumentAttachment) => void;
-  onAddTask: () => void;
-  onEditTask: (task: Tarefa) => void;
-  onDeleteTask: (taskId: string) => void;
-  onToggleTask: (taskId: string) => void;
-  onDeleteAllTasks: () => void;
-  onReorderTasks?: (orderedIds: string[]) => void;
+  onOpenStage: (etapa: Etapa) => void;
+  onAddStage: () => void;
+  onEditStage: (etapa: Etapa) => void;
+  onDeleteStage: (stageId: string) => void;
   onAddExpense: () => void;
   onEditExpense: (expense: Gasto) => void;
   onDeleteExpense: (expenseId: string) => void;
@@ -178,7 +181,7 @@ interface ObraViewEngProps {
   onConcludeProject?: () => void;
   isConcluding?: boolean;
   onViewDiary: () => void;
-  taskLimitReached?: boolean;
+  stageLimitReached?: boolean;
   expenseLimitReached?: boolean;
   onEnableFinancial: () => void;
   onDisableFinancial: () => void;
@@ -203,12 +206,10 @@ export function ObraViewEng({
   projectMembers = [],
   onProjectDocumentsChanged,
   onProjectDocumentRemoved,
-  onAddTask,
-  onEditTask,
-  onDeleteTask,
-  onToggleTask,
-  onDeleteAllTasks,
-  onReorderTasks,
+  onOpenStage,
+  onAddStage,
+  onEditStage,
+  onDeleteStage,
   onAddExpense,
   onEditExpense,
   onDeleteExpense,
@@ -219,7 +220,7 @@ export function ObraViewEng({
   onConcludeProject,
   isConcluding,
   onViewDiary,
-  taskLimitReached = false,
+  stageLimitReached = false,
   expenseLimitReached = false,
   onEnableFinancial,
   onDisableFinancial,
@@ -394,13 +395,13 @@ export function ObraViewEng({
 
   // CTA "+" só aparece no gastos quando o acompanhamento está ativo
   const showCTA =
-    (activeTab === "tarefas" && !isReadOnly) ||
+    (activeTab === "etapas" && !isReadOnly && !stageLimitReached) ||
     (activeTab === "gastos" && !isReadOnly && obra.trackFinancial) ||
     (activeTab === "orcamentos" && !isReadOnly) ||
     (activeTab === "documentos" && canManageDocuments);
   const activeLimitMessage =
-    activeTab === "tarefas" && taskLimitReached
-      ? `Limite de ${PROJECT_ITEM_LIMIT} tarefas atingido`
+    activeTab === "etapas" && stageLimitReached
+      ? `Limite de ${PROJECT_ITEM_LIMIT} etapas atingido`
       : activeTab === "gastos" && expenseLimitReached
         ? `Limite de ${PROJECT_ITEM_LIMIT} gastos atingido`
         : null;
@@ -441,22 +442,22 @@ export function ObraViewEng({
         />
       </View>
 
-      {/* Tarefas tab rendered outside ScrollView — DraggableFlatList manages its own scroll */}
-      {activeTab === "tarefas" && (
+      {/* Etapas tab — lista de etapas com navegação para o detalhe da etapa */}
+      {activeTab === "etapas" && (
         <View style={[styles.scroll, colStyle]}>
-          <EngTasksList
-            tarefas={obra.tarefas}
-            onToggle={onToggleTask}
-            onEdit={onEditTask}
-            onDelete={onDeleteTask}
-            onDeleteAll={isReadOnly ? undefined : onDeleteAllTasks}
-            onReorder={isReadOnly ? undefined : onReorderTasks}
-            showActions
-            emptyMessage="Nenhuma tarefa"
+          <EngStagesList
+            etapas={obra.etapas}
+            obraProgress={obra.progress}
+            totalActivities={obra.totalActivities}
+            completedActivities={obra.completedActivities}
+            onOpenStage={onOpenStage}
+            onAddStage={isReadOnly || stageLimitReached ? undefined : onAddStage}
+            onEditStage={isReadOnly ? undefined : onEditStage}
+            onDeleteStage={isReadOnly ? undefined : onDeleteStage}
             readOnly={isReadOnly}
             readOnlyReason={readOnlyReason}
+            limitReached={stageLimitReached}
             scrollPadBottom={scrollPadBottom}
-            limitReached={taskLimitReached}
           />
         </View>
       )}
@@ -487,7 +488,7 @@ export function ObraViewEng({
       <ScrollView
         style={[
           styles.scroll,
-          (activeTab === "tarefas" || activeTab === "documentos") && {
+          (activeTab === "etapas" || activeTab === "documentos") && {
             display: "none",
           },
         ]}
@@ -539,7 +540,7 @@ export function ObraViewEng({
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.completionTitle}>
-                      Todas as tarefas concluídas!
+                      Todas as atividades concluídas!
                     </Text>
                     <Text style={styles.completionSub}>
                       Pronto para marcar a obra como concluída?
@@ -615,15 +616,59 @@ export function ObraViewEng({
               </TouchableOpacity>
             ) : null}
 
-            <EngTasksList
-              tarefas={obra.tarefas}
-              onToggle={onToggleTask}
-              onDelete={onDeleteTask}
-              onAddTask={isReadOnly || taskLimitReached ? undefined : onAddTask}
-              readOnly={isReadOnly}
-              readOnlyReason={readOnlyReason}
-              limitReached={taskLimitReached}
-            />
+            <TouchableOpacity
+              style={styles.stagesOverview}
+              onPress={() => changeTab("etapas")}
+              activeOpacity={0.85}
+            >
+              <View style={styles.stagesOverviewHeader}>
+                <View style={styles.stagesOverviewTitleRow}>
+                  <MaterialIcons name="layers" size={18} color={colors.primary} />
+                  <Text style={styles.stagesOverviewTitle}>Etapas</Text>
+                </View>
+                <Text style={styles.stagesOverviewPct}>
+                  {obra.progress != null
+                    ? `${Math.round(obra.progress * 100)}%`
+                    : "Sem atividades"}
+                </Text>
+              </View>
+
+              <View style={styles.stagesOverviewTrack}>
+                <View
+                  style={[
+                    styles.stagesOverviewFill,
+                    {
+                      width: `${Math.round((obra.progress ?? 0) * 100)}%` as any,
+                      backgroundColor:
+                        obra.progress != null && obra.progress >= 1
+                          ? colors.success
+                          : colors.primary,
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.stagesOverviewFooter}>
+                <Text style={styles.stagesOverviewMeta}>
+                  {obra.totalStages} etapa{obra.totalStages !== 1 ? "s" : ""}
+                  {obra.totalActivities > 0
+                    ? ` · ${obra.completedActivities}/${obra.totalActivities} atividades`
+                    : ""}
+                </Text>
+                <View style={styles.stagesOverviewCta}>
+                  <Text style={styles.stagesOverviewCtaText}>
+                    {obra.totalStages === 0 && !isReadOnly
+                      ? "Criar etapas"
+                      : "Ver etapas"}
+                  </Text>
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={18}
+                    color={colors.primary}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
           </>
         )}
 
@@ -662,7 +707,7 @@ export function ObraViewEng({
         {showCTA && (
           <EngCTARow
             activeTab={activeTab}
-            onAddTask={taskLimitReached ? undefined : onAddTask}
+            onAddStage={stageLimitReached ? undefined : onAddStage}
             onAddExpense={expenseLimitReached ? undefined : onAddExpense}
             onAddDemand={() => setQuotesComposerSignal((prev) => prev + 1)}
             onAddDocument={
@@ -680,7 +725,7 @@ export function ObraViewEng({
           activeTab={activeTab}
           onTabChange={(tabId) => changeTab(tabId as EngTabId)}
           tabRefs={tourRefs ? {
-            tarefas: tourRefs.tasksTabRef,
+            etapas: tourRefs.tasksTabRef,
             gastos: tourRefs.gastosTabRef,
             documentos: tourRefs.documentosTabRef,
           } : undefined}
@@ -746,6 +791,68 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+
+  // ── Etapas overview (PROJETO tab) ──────────────────────────────────────────
+  stagesOverview: {
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing[16],
+    marginTop: spacing[14],
+    marginBottom: spacing[4],
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  stagesOverviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing[12],
+  },
+  stagesOverviewTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[8],
+  },
+  stagesOverviewTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  stagesOverviewPct: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.primary,
+    letterSpacing: -0.3,
+  },
+  stagesOverviewTrack: {
+    height: 6,
+    backgroundColor: colors.gray200,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  stagesOverviewFill: { height: 6, borderRadius: 3 },
+  stagesOverviewFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing[12],
+  },
+  stagesOverviewMeta: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  stagesOverviewCta: { flexDirection: "row", alignItems: "center", gap: 2 },
+  stagesOverviewCtaText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
   },
 
   diarioBtn: {

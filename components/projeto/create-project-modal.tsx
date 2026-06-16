@@ -604,6 +604,12 @@ export function CreateProjectModal({
         etapaAtual: formState.tarefas[0]?.titulo || "—",
         proximaEtapa: formState.tarefas[1]?.titulo || "—",
         tarefas: trackActivities ? formState.tarefas : [],
+        etapas: [],
+        progress: null,
+        totalStages: 0,
+        totalActivities: 0,
+        completedActivities: 0,
+        nextActivities: [],
         gastos: formState.gastos,
         horasContratadas:
           typeof created.hoursContracted === "number"

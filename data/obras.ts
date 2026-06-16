@@ -11,6 +11,38 @@ export interface Tarefa {
   order: number;
 }
 
+// ─── Modelo Obra → Etapas → Atividades ───────────────────────────────────────
+
+export type StageStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+export type ActivityStatus = "PENDING" | "IN_PROGRESS" | "DONE";
+
+export interface Atividade {
+  id: string;
+  stageId: string;
+  projectId: string;
+  nome: string;
+  descricao: string;
+  status: ActivityStatus;
+  order: number;
+  startDate: string | null;
+  dueDate: string | null;
+  assignedUserId: string | null;
+}
+
+export interface Etapa {
+  id: string;
+  projectId: string;
+  nome: string;
+  descricao: string;
+  status: StageStatus;
+  prioridade: "ALTA" | "MEDIA" | "BAIXA" | null;
+  order: number;
+  totalActivities: number;
+  completedActivities: number;
+  /** Razão 0..1 ou null quando a etapa não tem atividades ("sem atividades"). */
+  progress: number | null;
+}
+
 export interface Gasto {
   id: string;
   descricao: string;
@@ -83,6 +115,15 @@ export interface ObraDetalhe extends Obra {
   etapaAtual: string;
   proximaEtapa: string;
   tarefas: Tarefa[];
+  // Novo modelo Obra → Etapas → Atividades
+  etapas: Etapa[];
+  /** Progresso agregado da obra (razão 0..1) ou null quando não há atividades. */
+  progress: number | null;
+  totalStages: number;
+  totalActivities: number;
+  completedActivities: number;
+  /** Próximas atividades pendentes (do agregado /progress) para o cabeçalho. */
+  nextActivities: Atividade[];
   gastos: Gasto[];
   horasContratadas: number;
   horasRealizadas: number;

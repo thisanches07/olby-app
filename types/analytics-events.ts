@@ -40,6 +40,12 @@ export const AnalyticsEvents = {
   TASK_REOPENED: "task_reopened",
   DOCUMENT_UPLOADED: "document_uploaded",
 
+  // Etapas & Atividades (substitui o modelo plano de tarefas)
+  STAGE_CREATED: "stage_created",
+  ACTIVITY_CREATED: "activity_created",
+  ACTIVITY_COMPLETED: "activity_completed",
+  ACTIVITY_REOPENED: "activity_reopened",
+
   // Fase 3 — Compartilhar obra + Gerar relatório
   PROJECT_SHARED: "project_shared",
   PROJECT_MEMBER_REMOVED: "project_member_removed",
@@ -58,6 +64,7 @@ export type IapFailureStage = "request" | "verify";
 /** Tabs internas da tela /obra/[id] — mantém alinhado com EngTabId em components/obra/obra-view-eng.tsx. */
 export type ObraTabId =
   | "projetos"
+  | "etapas"
   | "tarefas"
   | "gastos"
   | "orcamentos"
@@ -119,6 +126,26 @@ export type EventProps = {
     project_id: string;
     document_id: string;
     kind: string;
+  };
+
+  [AnalyticsEvents.STAGE_CREATED]: {
+    project_id: string;
+    stage_id: string;
+  };
+  [AnalyticsEvents.ACTIVITY_CREATED]: {
+    project_id: string;
+    stage_id: string;
+    activity_id: string;
+  };
+  [AnalyticsEvents.ACTIVITY_COMPLETED]: {
+    project_id: string;
+    stage_id: string;
+    activity_id: string;
+  };
+  [AnalyticsEvents.ACTIVITY_REOPENED]: {
+    project_id: string;
+    stage_id: string;
+    activity_id: string;
   };
 
   [AnalyticsEvents.PROJECT_SHARED]: {

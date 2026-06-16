@@ -6,8 +6,10 @@ import {
   PROJECT_ITEM_LIMIT,
 } from "@/constants/creation-limits";
 import type {
+  Atividade,
   DocumentAttachment,
   DocumentSource,
+  Etapa,
   Gasto,
   ObraDetalhe,
   Tarefa,
@@ -24,9 +26,22 @@ import {
 } from "@/services/expenses.service";
 import {
   projectsService,
+  type ProjectProgressDto,
   type ProjectResponseDto,
 } from "@/services/projects.service";
+import {
+  stagesService,
+  type StageResponseDto,
+} from "@/services/stages.service";
 import { tasksService, type TaskResponseDto } from "@/services/tasks.service";
+import {
+  currentStageLabel,
+  mapActivity,
+  mapStage,
+  progressRatio,
+  stagePriorityToApi,
+  type LocalPriority as StageLocalPriority,
+} from "@/utils/stage-mappers";
 import { track } from "@/services/analytics";
 import { AnalyticsEvents } from "@/types/analytics-events";
 import {
@@ -130,6 +145,8 @@ function apiDateToBR(d: string): string {
 function buildObraDetalhe(
   project: ProjectResponseDto,
   apiTasks: TaskResponseDto[],
+  apiStages: StageResponseDto[],
+  progressAgg: ProjectProgressDto | null,
   apiExpenses: ExpenseResponseDto[],
   diaryEntries: DailyLogEntryResponseDto[],
 ): ObraDetalhe {
@@ -144,6 +161,23 @@ function buildObraDetalhe(
       order: t.position,
     }));
 
+  const etapas: Etapa[] = [...apiStages]
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map(mapStage);
+
+  const totalStages = progressAgg?.totalStages ?? etapas.length;
+  const totalActivities =
+    progressAgg?.totalActivities ??
+    etapas.reduce((sum, e) => sum + e.totalActivities, 0);
+  const completedActivities =
+    progressAgg?.completedActivities ??
+    etapas.reduce((sum, e) => sum + e.completedActivities, 0);
+  const obraProgress =
+    progressAgg?.progress ?? progressRatio(completedActivities, totalActivities);
+  const nextActivities: Atividade[] = (
+    progressAgg?.nextPendingActivities ?? []
+  ).map(mapActivity);
+
   const gastos: Gasto[] = apiExpenses.map((e) => ({
     id: e.id,
     descricao: e.description ?? "",
@@ -156,9 +190,15 @@ function buildObraDetalhe(
     documentCount: e.receiptDocumentId || e.receiptDocument?.id ? 1 : 0,
   }));
 
-  const concluidas = tarefas.filter((t) => t.concluida).length;
+  // Progresso vem das atividades (novo modelo). Fallback para tarefas legadas
+  // só enquanto não há etapas — obras migradas têm etapas (talvez sem atividades).
+  const concluidasTarefas = tarefas.filter((t) => t.concluida).length;
   const progresso =
-    tarefas.length > 0 ? Math.round((concluidas / tarefas.length) * 100) : 0;
+    obraProgress != null
+      ? Math.round(obraProgress * 100)
+      : etapas.length === 0 && tarefas.length > 0
+        ? Math.round((concluidasTarefas / tarefas.length) * 100)
+        : 0;
 
   const totalInvestido = gastos.reduce((sum, g) => sum + g.valor, 0);
 
@@ -184,9 +224,18 @@ function buildObraDetalhe(
     totalInvestido,
     orcamento: project.budgetCents != null ? project.budgetCents / 100 : 0,
     proximoPagamento: { valor: 0, diasRestantes: 0 },
-    etapaAtual: statusToEtapaLabel(project.status),
+    etapaAtual:
+      etapas.length > 0
+        ? currentStageLabel(etapas)
+        : statusToEtapaLabel(project.status),
     proximaEtapa: "",
     tarefas,
+    etapas,
+    progress: obraProgress,
+    totalStages,
+    totalActivities,
+    completedActivities,
+    nextActivities,
     gastos,
     horasContratadas: project.hoursContracted ?? 0,
     horasRealizadas:
@@ -213,6 +262,26 @@ export interface UseObraDataReturn {
   toggleTask: (id: string) => Promise<void>;
   deleteAllTasks: () => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
+  // Etapas
+  refreshStages: () => Promise<void>;
+  addStage: (input: {
+    nome: string;
+    descricao?: string;
+    prioridade?: StageLocalPriority | null;
+    status?: Etapa["status"];
+  }) => Promise<void>;
+  updateStage: (
+    id: string,
+    updates: {
+      nome?: string;
+      descricao?: string | null;
+      prioridade?: StageLocalPriority | null;
+      status?: Etapa["status"];
+      order?: number;
+    },
+  ) => Promise<void>;
+  deleteStage: (id: string) => Promise<void>;
+  reorderStages: (orderedIds: string[]) => Promise<void>;
   addExpense: (
     expense: Omit<Gasto, "id">,
     pendingDoc?: { asset: LocalDocumentAsset; source: DocumentSource },
@@ -244,6 +313,10 @@ export function useObraData(projectId: string): UseObraDataReturn {
   const { user } = useAuth();
   const [project, setProject] = useState<ProjectResponseDto | null>(null);
   const [tasks, setTasks] = useState<TaskResponseDto[]>([]);
+  const [stages, setStages] = useState<StageResponseDto[]>([]);
+  const [progressAgg, setProgressAgg] = useState<ProjectProgressDto | null>(
+    null,
+  );
   const [expenses, setExpenses] = useState<ExpenseResponseDto[]>([]);
   const [diaryEntries, setDiaryEntries] = useState<DailyLogEntryResponseDto[]>(
     [],
@@ -268,14 +341,21 @@ export function useObraData(projectId: string): UseObraDataReturn {
     try {
       setLoading(true);
       setError(null);
-      const [proj, taskList, expenseList, entryList] = await Promise.all([
-        fetchProject(projectId),
-        tasksService.listByProject(projectId),
-        expensesService.listByProject(projectId),
-        dailyLogEntriesService.listByProject(projectId).catch(() => []),
-      ]);
+      const [proj, taskList, stageList, progress, expenseList, entryList] =
+        await Promise.all([
+          fetchProject(projectId),
+          tasksService.listByProject(projectId).catch(() => []),
+          stagesService.listByProject(projectId).catch(() => []),
+          projectsService
+            .getProgress(projectId)
+            .catch((): ProjectProgressDto | null => null),
+          expensesService.listByProject(projectId),
+          dailyLogEntriesService.listByProject(projectId).catch(() => []),
+        ]);
       setProject(proj);
       setTasks(taskList);
+      setStages(stageList);
+      setProgressAgg(progress);
       setExpenses(expenseList);
       setDiaryEntries(entryList);
     } catch {
@@ -288,6 +368,8 @@ export function useObraData(projectId: string): UseObraDataReturn {
   useEffect(() => {
     setProject(null);
     setTasks([]);
+    setStages([]);
+    setProgressAgg(null);
     setExpenses([]);
     setDiaryEntries([]);
     setError(null);
@@ -304,8 +386,15 @@ export function useObraData(projectId: string): UseObraDataReturn {
 
   const obra = useMemo<ObraDetalhe | null>(() => {
     if (!project) return null;
-    return buildObraDetalhe(project, tasks, expenses, diaryEntries);
-  }, [project, tasks, expenses, diaryEntries]);
+    return buildObraDetalhe(
+      project,
+      tasks,
+      stages,
+      progressAgg,
+      expenses,
+      diaryEntries,
+    );
+  }, [project, tasks, stages, progressAgg, expenses, diaryEntries]);
 
   const expenseReceiptDocuments = useMemo<DocumentAttachment[]>(() => {
     return expenses.flatMap((expense) => {
@@ -710,6 +799,117 @@ export function useObraData(projectId: string): UseObraDataReturn {
     [tasks],
   );
 
+  // ─── Etapas (stages) ────────────────────────────────────────────────────────
+
+  const refreshStages = useCallback(async () => {
+    const [stageList, progress] = await Promise.all([
+      stagesService.listByProject(projectId).catch((): StageResponseDto[] => []),
+      projectsService
+        .getProgress(projectId)
+        .catch((): ProjectProgressDto | null => null),
+    ]);
+    setStages(stageList);
+    setProgressAgg(progress);
+  }, [projectId]);
+
+  const addStage = useCallback(
+    async (input: {
+      nome: string;
+      descricao?: string;
+      prioridade?: StageLocalPriority | null;
+      status?: Etapa["status"];
+    }) => {
+      if (stages.length >= PROJECT_ITEM_LIMIT) {
+        throw new Error(getProjectItemLimitMessage("etapas"));
+      }
+      const created = await stagesService.create(projectId, {
+        name: input.nome,
+        description: input.descricao || undefined,
+        priority: stagePriorityToApi(input.prioridade),
+        status: input.status,
+        position: stages.length,
+      });
+      setStages((prev) => [...prev, created]);
+      void refreshStages();
+    },
+    [projectId, stages.length, refreshStages],
+  );
+
+  const updateStage = useCallback(
+    async (
+      id: string,
+      updates: {
+        nome?: string;
+        descricao?: string | null;
+        prioridade?: StageLocalPriority | null;
+        status?: Etapa["status"];
+        order?: number;
+      },
+    ) => {
+      const dto: Record<string, unknown> = {};
+      if (updates.nome !== undefined) dto.name = updates.nome;
+      if (updates.descricao !== undefined)
+        dto.description = updates.descricao || null;
+      if (updates.prioridade !== undefined)
+        dto.priority = stagePriorityToApi(updates.prioridade) ?? null;
+      if (updates.status !== undefined) dto.status = updates.status;
+      if (updates.order !== undefined) dto.position = updates.order;
+
+      const updated = await stagesService.update(id, dto);
+      setStages((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    },
+    [],
+  );
+
+  const deleteStage = useCallback(
+    async (id: string) => {
+      const previous = stages;
+      setStages((prev) => prev.filter((s) => s.id !== id));
+      try {
+        await stagesService.delete(id);
+        void refreshStages();
+      } catch (e) {
+        setStages(previous);
+        throw e;
+      }
+    },
+    [stages, refreshStages],
+  );
+
+  const reorderStages = useCallback(
+    async (orderedIds: string[]) => {
+      const previous = stages;
+      setStages(
+        orderedIds
+          .map((id, idx) => {
+            const s = previous.find((item) => item.id === id);
+            return s ? { ...s, position: idx } : null;
+          })
+          .filter((s): s is StageResponseDto => s !== null),
+      );
+
+      const changed = orderedIds
+        .map((id, newIdx) => {
+          const oldIdx = previous.findIndex((s) => s.id === id);
+          return oldIdx !== newIdx ? { id, position: newIdx } : null;
+        })
+        .filter((x): x is { id: string; position: number } => x !== null);
+
+      if (changed.length === 0) return;
+
+      try {
+        await Promise.all(
+          changed.map(({ id, position }) =>
+            stagesService.update(id, { position }),
+          ),
+        );
+      } catch {
+        setStages(previous);
+      }
+    },
+    [stages],
+  );
+
   const deleteAllExpenses = useCallback(async () => {
     await expensesService.deleteByProject(projectId);
     setExpenses([]);
@@ -764,6 +964,11 @@ export function useObraData(projectId: string): UseObraDataReturn {
     toggleTask,
     deleteAllTasks,
     reorderTasks,
+    refreshStages,
+    addStage,
+    updateStage,
+    deleteStage,
+    reorderStages,
     addExpense,
     updateExpense,
     setExpenseReceiptState,

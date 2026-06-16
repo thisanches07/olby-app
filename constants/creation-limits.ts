@@ -1,10 +1,17 @@
 export const PROJECT_ITEM_LIMIT = 500;
 export const CREATE_PROJECT_TASK_LIMIT = 100;
 
-export type LimitedProjectItem = "tarefas" | "gastos" | "registros";
+export type LimitedProjectItem =
+  | "tarefas"
+  | "etapas"
+  | "atividades"
+  | "gastos"
+  | "registros";
 
 const ITEM_LABELS: Record<LimitedProjectItem, string> = {
   tarefas: "tarefas",
+  etapas: "etapas",
+  atividades: "atividades",
   gastos: "gastos",
   registros: "registros do diário de obra",
 };

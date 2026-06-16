@@ -27,10 +27,19 @@ export function mapSummaryToObra(s: ProjectSummaryDto): ObraDetalhe {
           ? "planejamento"
           : "em_andamento";
 
-  const progresso =
-    s.taskCount > 0
-      ? Math.round((s.completedTaskCount / s.taskCount) * 100)
-      : 0;
+  // Progresso vem do agregado de atividades (novo modelo). Fallback para os
+  // campos legados de tarefas só quando o summary ainda não trouxe `progress`.
+  const totalActivities = s.totalActivities ?? 0;
+  const completedActivities = s.completedActivities ?? 0;
+  const progressRatio =
+    s.progress != null
+      ? s.progress
+      : totalActivities > 0
+        ? completedActivities / totalActivities
+        : s.taskCount > 0
+          ? s.completedTaskCount / s.taskCount
+          : null;
+  const progresso = progressRatio != null ? Math.round(progressRatio * 100) : 0;
 
   const createdAtBR = s.createdAt
     ? new Date(s.createdAt).toLocaleDateString("pt-BR")
@@ -59,6 +68,12 @@ export function mapSummaryToObra(s: ProjectSummaryDto): ObraDetalhe {
     etapaAtual: "—",
     proximaEtapa: "—",
     tarefas: [],
+    etapas: [],
+    progress: s.progress ?? (totalActivities > 0 ? progressRatio : null),
+    totalStages: s.totalStages ?? 0,
+    totalActivities,
+    completedActivities,
+    nextActivities: [],
     gastos: [],
     horasContratadas: s.hoursContracted ?? 0,
     horasRealizadas: 0,

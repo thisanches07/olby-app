@@ -31,6 +31,9 @@ export interface InlineReceiptDocumentResponseDto {
 export interface ExpenseResponseDto {
   id: string;
   projectId: string;
+  /** Etapa vinculada (novo modelo). Null quando o gasto não tem etapa. */
+  stageId?: string | null;
+  /** @deprecated Use stageId. Mantido para compat durante a migração. */
   taskId: string | null;
   category: ExpenseCategory;
   description: string | null;
@@ -46,6 +49,8 @@ export interface ExpenseResponseDto {
 
 export interface CreateExpenseDto {
   projectId: string;
+  stageId?: string | null;
+  /** @deprecated Use stageId. */
   taskId?: string | null;
   category: ExpenseCategory;
   description?: string;
@@ -58,6 +63,8 @@ export interface CreateExpenseDto {
 }
 
 export interface UpdateExpenseDto {
+  stageId?: string | null;
+  /** @deprecated Use stageId. */
   taskId?: string | null;
   category?: ExpenseCategory;
   description?: string | null;

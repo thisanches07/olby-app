@@ -5,7 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type EngTabId =
   | "projetos"
-  | "tarefas"
+  | "etapas"
   | "gastos"
   | "orcamentos"
   | "documentos"
@@ -13,7 +13,7 @@ type EngTabId =
 
 interface EngCTARowProps {
   activeTab: EngTabId;
-  onAddTask?: () => void;
+  onAddStage?: () => void;
   onAddExpense?: () => void;
   onAddDemand?: () => void;
   onAddDocument?: () => void;
@@ -23,34 +23,34 @@ interface EngCTARowProps {
 
 export function EngCTARow({
   activeTab,
-  onAddTask,
+  onAddStage,
   onAddExpense,
   onAddDemand,
   onAddDocument,
   onDefault,
   disabledMessage,
 }: EngCTARowProps) {
-  const isTaskTab = activeTab === "tarefas";
+  const isStageTab = activeTab === "etapas";
   const isExpenseTab = activeTab === "gastos";
   const isDemandTab = activeTab === "orcamentos";
   const isDocumentTab = activeTab === "documentos";
   const isDisabled =
-    (isTaskTab && !onAddTask) ||
+    (isStageTab && !onAddStage) ||
     (isExpenseTab && !onAddExpense) ||
     (isDemandTab && !onAddDemand) ||
     (isDocumentTab && !onAddDocument);
 
   return (
     <View style={styles.ctaWrap}>
-      {isTaskTab ? (
+      {isStageTab ? (
         <TouchableOpacity
           style={[styles.ctaBtn, isDisabled && styles.ctaBtnDisabled]}
-          onPress={onAddTask}
+          onPress={onAddStage}
           activeOpacity={isDisabled ? 1 : 0.85}
           disabled={isDisabled}
         >
           <MaterialIcons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.ctaBtnText}>Adicionar Tarefa</Text>
+          <Text style={styles.ctaBtnText}>Adicionar Etapa</Text>
         </TouchableOpacity>
       ) : isExpenseTab ? (
         <TouchableOpacity
