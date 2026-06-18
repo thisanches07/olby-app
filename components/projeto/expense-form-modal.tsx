@@ -7,6 +7,7 @@ import { Etapa, Gasto } from "@/data/obras";
 import { ApiError } from "@/services/api";
 import { documentsService } from "@/services/documents.service";
 import { expensesService } from "@/services/expenses.service";
+import { quotesService } from "@/services/quotes.service";
 import { stagesService } from "@/services/stages.service";
 import { mapStage } from "@/utils/stage-mappers";
 import { STAGE_STATUS_CONFIG } from "@/utils/stage-ui";
@@ -204,6 +205,12 @@ export function ExpenseFormModal({
   onClose,
 }: ExpenseFormModalProps) {
   const { showToast } = useToast();
+  const quoteGroupId = expense?.quoteGroupId ?? null;
+  const isGenerated = !!quoteGroupId;
+  const [generatedFromTitle, setGeneratedFromTitle] = useState<string | null>(
+    null,
+  );
+  const [confirmDetachVisible, setConfirmDetachVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [descricao, setDescricao] = useState("");
   const [descricaoError, setDescricaoError] = useState(false);
@@ -273,6 +280,27 @@ export function ExpenseFormModal({
     lastInitKeyRef.current = key;
     initFromExpense();
   }, [visible, expense?.id, initFromExpense]);
+
+  // Resolve o título da demanda que gerou esta despesa (para banner/confirmação).
+  useEffect(() => {
+    if (!visible || !quoteGroupId) {
+      setGeneratedFromTitle(null);
+      return;
+    }
+    let active = true;
+    quotesService
+      .listByProject(projectId)
+      .then((groups) => {
+        if (!active) return;
+        setGeneratedFromTitle(
+          groups.find((g) => g.id === quoteGroupId)?.title ?? null,
+        );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [visible, quoteGroupId, projectId]);
 
   useEffect(() => {
     if (!visible) return;
@@ -470,7 +498,7 @@ export function ExpenseFormModal({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = (detachConfirmed = false) => {
     const trimmedDescricao = descricao.trim();
     const rawDate = dateText.trim();
 
@@ -530,11 +558,28 @@ export function ExpenseFormModal({
       return;
     }
 
+    const newDateIso = `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`;
+
+    // Despesa gerada por orçamento: editar conteúdo a desvincula. Confirma antes.
+    // (Editar só o comprovante não conta — o comprovante salva por PATCH à parte.)
+    if (isGenerated && expense && !detachConfirmed) {
+      const contentChanged =
+        trimmedDescricao !== (expense.descricao ?? "") ||
+        Math.round(parsedValor * 100) !== Math.round(expense.valor * 100) ||
+        newDateIso !== expense.data ||
+        categoria !== expense.categoria ||
+        (stageId ?? null) !== (expense.stageId ?? null);
+      if (contentChanged) {
+        setConfirmDetachVisible(true);
+        return;
+      }
+    }
+
     onSave(
       {
         descricao: trimmedDescricao,
         valor: parsedValor,
-        data: `${parsedDate.getFullYear()}-${pad2(parsedDate.getMonth() + 1)}-${pad2(parsedDate.getDate())}`,
+        data: newDateIso,
         categoria,
         stageId,
         receiptDocumentId: pendingReceiptId,
@@ -596,6 +641,19 @@ export function ExpenseFormModal({
               <ActivityIndicator size="small" color={PRIMARY} />
               <Text style={styles.uploadNoticeText}>
                 Enviando comprovante. Aguarde para fechar ou excluir este gasto.
+              </Text>
+            </View>
+          )}
+
+          {isGenerated && (
+            <View style={styles.generatedBanner}>
+              <MaterialIcons name="link" size={16} color="#6D28D9" />
+              <Text style={styles.generatedBannerText}>
+                Gerada pelo orçamento
+                {generatedFromTitle ? ` "${generatedFromTitle}"` : ""}. Editar o
+                valor, a etapa ou outros dados vai{" "}
+                <Text style={styles.generatedBannerStrong}>desvinculá-la</Text>{" "}
+                do orçamento.
               </Text>
             </View>
           )}
@@ -929,7 +987,7 @@ export function ExpenseFormModal({
 
           <TouchableOpacity
             style={styles.saveBtn}
-            onPress={handleSave}
+            onPress={() => handleSave()}
             activeOpacity={0.85}
           >
             <MaterialIcons
@@ -943,6 +1001,23 @@ export function ExpenseFormModal({
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      <ConfirmSheet
+        visible={confirmDetachVisible}
+        icon="link-off"
+        iconColor={PRIMARY}
+        confirmVariant="primary"
+        title="Desvincular do orçamento?"
+        message={`Esta despesa foi gerada por um orçamento. Ao alterá-la, ela será desvinculada e deixará de ser atualizada ou removida pelo orçamento${
+          generatedFromTitle ? ` "${generatedFromTitle}"` : ""
+        }.`}
+        confirmLabel="Desvincular e salvar"
+        onConfirm={() => {
+          setConfirmDetachVisible(false);
+          handleSave(true);
+        }}
+        onClose={() => setConfirmDetachVisible(false)}
+      />
 
       <ConfirmSheet
         visible={deleteConfirmVisible}
@@ -1040,6 +1115,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: PRIMARY,
   },
+  generatedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#EDE9FE",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  generatedBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#5B21B6",
+  },
+  generatedBannerStrong: { fontWeight: "800" },
 
   field: { marginBottom: 20 },
   row: { flexDirection: "row", gap: 12 },

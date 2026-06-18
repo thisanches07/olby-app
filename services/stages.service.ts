@@ -10,6 +10,8 @@ export interface StageResponseDto {
   description: string | null;
   status: StageStatus;
   priority: StagePriority | null;
+  /** Custo orçado da etapa em centavos. null = sem orçamento. */
+  budgetCents: number | null;
   position: number;
   createdByUserId: string;
   totalActivities: number;
@@ -25,6 +27,8 @@ export interface CreateStageDto {
   description?: string;
   status?: StageStatus;
   priority?: StagePriority;
+  /** Custo orçado da etapa em centavos. null/omitido = sem orçamento. */
+  budgetCents?: number | null;
   position?: number;
 }
 
@@ -33,11 +37,18 @@ export interface UpdateStageDto {
   description?: string | null;
   status?: StageStatus;
   priority?: StagePriority | null;
+  /** null limpa o orçamento. */
+  budgetCents?: number | null;
   position?: number;
 }
 
 export interface CreateStageBatchActivitiesDto {
-  names: string[];
+  names?: string[];
+  activities?: {
+    name: string;
+    startDate?: string | null;
+    dueDate?: string | null;
+  }[];
 }
 
 export interface CreateStageBatchItemDto {
@@ -45,6 +56,7 @@ export interface CreateStageBatchItemDto {
   description?: string;
   status?: StageStatus;
   priority?: StagePriority;
+  budgetCents?: number | null;
   position?: number;
   activities?: CreateStageBatchActivitiesDto;
 }

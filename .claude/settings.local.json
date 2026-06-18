@@ -45,7 +45,9 @@
       "Bash(Select-Object -First 20)",
       "Bash(Format-Table FullName)",
       "PowerShell(npx eslint \"components/projeto/create-stages-chooser-sheet.tsx\" \"components/projeto/stage-flow-batch-modal.tsx\" \"services/stages.service.ts\" \"hooks/use-obra-data.ts\" \"app/obra/[id].tsx\")",
-      "PowerShell(npx eslint \"components/obra/stage-action-sheets.tsx\" \"components/obra/eng-stages-list.tsx\" \"components/obra/obra-view-eng.tsx\" \"hooks/use-obra-data.ts\" \"app/obra/[id].tsx\")"
+      "PowerShell(npx eslint \"components/obra/stage-action-sheets.tsx\" \"components/obra/eng-stages-list.tsx\" \"components/obra/obra-view-eng.tsx\" \"hooks/use-obra-data.ts\" \"app/obra/[id].tsx\")",
+      "Bash(cd \"/c/Users/tsanc/Desktop/novo app/obra-app\" && cat package.json | sed -n '/\"scripts\"/,/}/p')",
+      "Read(//c/c/Users/tsanc/Desktop/novo app/obra-app/**)"
     ]
   }
 }

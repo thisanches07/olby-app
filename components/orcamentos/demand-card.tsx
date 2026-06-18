@@ -21,10 +21,12 @@ const WHATSAPP = "#25D366";
 
 export function DemandCard({
   demand,
+  stageName,
   onPress,
   onMore,
 }: {
   demand: QuoteGroupResponse;
+  stageName?: string | null;
   onPress: () => void;
   onMore?: () => void;
 }) {
@@ -64,6 +66,15 @@ export function DemandCard({
           </TouchableOpacity>
         )}
       </View>
+
+      {!!stageName && (
+        <View style={styles.stageBadge}>
+          <MaterialIcons name="layers" size={11} color="#6D28D9" />
+          <Text style={styles.stageBadgeText} numberOfLines={1}>
+            {stageName}
+          </Text>
+        </View>
+      )}
 
       {!!demand.description && (
         <Text style={styles.desc} numberOfLines={2}>
@@ -207,6 +218,23 @@ const styles = StyleSheet.create({
     borderRadius: 99,
   },
   statusText: { fontSize: 11, fontWeight: "700" },
+  stageBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: "#EDE9FE",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 99,
+    maxWidth: "100%",
+  },
+  stageBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#6D28D9",
+    flexShrink: 1,
+  },
   desc: { fontSize: 13, color: "#6B7280", lineHeight: 18 },
 
   // ── Decisão ──

@@ -203,7 +203,7 @@ export function EngExpensesList({
         )}
       </View>
 
-      {readOnly && (
+      {readOnly && readOnlyReason && (
         <View style={styles.readOnlyBanner}>
           <MaterialIcons name={readOnlyIcon} size={15} color="#6B7280" />
           <Text style={styles.readOnlyBannerText}>

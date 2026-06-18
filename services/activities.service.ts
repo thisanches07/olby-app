@@ -30,8 +30,15 @@ export interface CreateActivityDto {
   assignedUserId?: string | null;
 }
 
+export interface BatchCreateActivityItemDto {
+  name: string;
+  startDate?: string | null;
+  dueDate?: string | null;
+}
+
 export interface BatchCreateActivitiesDto {
-  names: string[];
+  names?: string[];
+  activities?: BatchCreateActivityItemDto[];
 }
 
 export interface UpdateActivityDto {

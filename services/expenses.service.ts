@@ -33,6 +33,8 @@ export interface ExpenseResponseDto {
   projectId: string;
   /** Etapa vinculada (novo modelo). Null quando o gasto não tem etapa. */
   stageId?: string | null;
+  /** Demanda que gerou a despesa (leitura). Null = despesa independente. */
+  quoteGroupId?: string | null;
   /** @deprecated Use stageId. Mantido para compat durante a migração. */
   taskId: string | null;
   category: ExpenseCategory;

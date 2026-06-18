@@ -22,6 +22,8 @@ export interface QuoteGroupResponse {
   projectId: string;
   title: string;
   description: string | null;
+  /** Etapa (centro de custo) a que a demanda se refere. null = sem vínculo. */
+  stageId: string | null;
   status: QuoteGroupStatus;
   chosenQuoteId: string | null;
   generatedExpenseId: string | null;
@@ -43,11 +45,14 @@ export interface CreateQuoteGroupInput {
   projectId: string;
   title: string;
   description?: string | null;
+  /** Etapa (centro de custo). null = sem vínculo. */
+  stageId?: string | null;
 }
 
 export interface UpdateQuoteGroupInput {
   title?: string;
   description?: string | null;
+  stageId?: string | null;
 }
 
 export interface CreateQuoteInput {

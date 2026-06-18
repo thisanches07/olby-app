@@ -32,7 +32,11 @@ import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
 import { stageCompletionProgress } from "@/utils/stage-mappers";
 import type { ProjectAccessMember } from "@/utils/project-members";
-import { canManageMembers, type ProjectApiRole } from "@/utils/project-role";
+import {
+  canEditProject,
+  canManageMembers,
+  type ProjectApiRole,
+} from "@/utils/project-role";
 
 import { BottomTabs, type TabDefinition } from "@/components/obra/bottom-tabs";
 import type { ShareProjectButtonControl } from "@/components/projeto/share-project-button";
@@ -59,7 +63,7 @@ type EngTabId =
 const ENG_TABS: TabDefinition[] = [
   { id: "projetos", label: "PROJETO", icon: "folder" },
   { id: "etapas", label: "ETAPAS", icon: "layers" },
-  { id: "gastos", label: "GASTOS", icon: "receipt" },
+  { id: "gastos", label: "DESPESAS", icon: "receipt" },
   { id: "orcamentos", label: "ORÇAM.", icon: "request-quote" },
   { id: "documentos", label: "DOCUMENTOS", icon: "folder-open" },
   // { id: "financeiro", label: "FINANCEIRO", icon: "insights" },
@@ -401,15 +405,21 @@ export function ObraViewEng({
     }),
   ).current;
 
-  const isReadOnly = obra.status === "concluida" || obra.status === "pausada";
-  const canManageDocuments = !isReadOnly && canManageMembers(projectRole);
+  // Escrita só para OWNER em obra PLANNING/ACTIVE (espelha canEditProject da web).
+  // PRO/não-owner e obras COMPLETED/ARCHIVED ficam em leitura.
+  const statusReadOnly =
+    obra.status === "concluida" || obra.status === "pausada";
+  const canWrite = canEditProject(projectRole, obra.status);
+  const isReadOnly = !canWrite;
+  const canManageDocuments = canWrite && canManageMembers(projectRole);
   const showCompletionBanner =
     stagesProgress != null &&
     stagesProgress >= 1 &&
     obra.status !== "concluida" &&
     obra.status !== "pausada" &&
     !!onConcludeProject;
-  const readOnlyReason: "concluida" | "pausada" | undefined = isReadOnly
+  // Só rotula motivo de leitura quando é por status (concluída/arquivada).
+  const readOnlyReason: "concluida" | "pausada" | undefined = statusReadOnly
     ? (obra.status as "concluida" | "pausada")
     : undefined;
 
@@ -469,6 +479,7 @@ export function ObraViewEng({
             etapas={obra.etapas}
             totalActivities={obra.totalActivities}
             completedActivities={obra.completedActivities}
+            gastos={obra.gastos}
             onOpenStage={onOpenStage}
             onAddStage={isReadOnly || stageLimitReached ? undefined : onAddStage}
             onEditStage={isReadOnly ? undefined : onEditStage}
@@ -719,6 +730,7 @@ export function ObraViewEng({
           <QuotesTab
             projectId={obra.id}
             readOnly={isReadOnly}
+            trackFinancial={obra.trackFinancial}
             openCreateSignal={quotesComposerSignal}
           />
         )}

@@ -48,6 +48,7 @@ import { colors } from "@/theme/colors";
 
 const FILTROS: { label: string; value: StatusType | "todas" }[] = [
   { label: "Todas", value: "todas" },
+  { label: "Em planejamento", value: "planejamento" },
   { label: "Em Andamento", value: "em_andamento" },
   { label: "Concluídas", value: "concluida" },
   { label: "Arquivadas", value: "pausada" },

@@ -184,6 +184,8 @@ type CreateProjectDto = {
   hoursContracted?: number;
   trackActivities?: boolean;
   trackFinancial?: boolean;
+  /** Obra nova nasce "Em planejamento". */
+  status?: "PLANNING" | "ACTIVE" | "COMPLETED" | "ARCHIVED";
   tasks?: CreateProjectTaskDto[];
 };
 
@@ -586,6 +588,8 @@ export function CreateProjectModal({
           : undefined,
         trackActivities,
         trackFinancial,
+        // Obra nova nasce em planejamento (paridade com a web).
+        status: "PLANNING",
         tasks: tasks.length > 0 ? tasks : undefined,
       };
 

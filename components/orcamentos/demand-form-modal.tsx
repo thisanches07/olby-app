@@ -2,6 +2,7 @@ import { AppModal } from "@/components/ui/app-modal";
 import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import { useToast } from "@/components/obra/toast";
 import { getErrorMessage } from "@/services/api";
+import { stagesService } from "@/services/stages.service";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
 import {
@@ -24,11 +25,23 @@ const MAX_DESC = 50;
 export interface DemandFormData {
   title: string;
   description: string;
+  /** Etapa vinculada (centro de custo). null = sem vínculo. */
+  stageId: string | null;
+}
+
+interface StageOption {
+  id: string;
+  name: string;
 }
 
 interface Props {
   visible: boolean;
-  initial?: { title: string; description: string | null } | null;
+  projectId: string;
+  initial?: {
+    title: string;
+    description: string | null;
+    stageId?: string | null;
+  } | null;
   isSaving?: boolean;
   onClose: () => void;
   onSave: (data: DemandFormData) => Promise<void>;
@@ -36,6 +49,7 @@ interface Props {
 
 export function DemandFormModal({
   visible,
+  projectId,
   initial,
   isSaving = false,
   onClose,
@@ -44,15 +58,44 @@ export function DemandFormModal({
   const { showToast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [stageId, setStageId] = useState<string | null>(null);
   const [titleError, setTitleError] = useState(false);
+  const [stages, setStages] = useState<StageOption[]>([]);
+  const [loadingStages, setLoadingStages] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setTitle(initial?.title ?? "");
       setDescription(initial?.description ?? "");
+      setStageId(initial?.stageId ?? null);
       setTitleError(false);
     }
   }, [visible, initial]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let active = true;
+    setLoadingStages(true);
+    stagesService
+      .listByProject(projectId)
+      .then((items) => {
+        if (!active) return;
+        setStages(
+          [...items]
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+            .map((s) => ({ id: s.id, name: s.name })),
+        );
+      })
+      .catch(() => {
+        if (active) setStages([]);
+      })
+      .finally(() => {
+        if (active) setLoadingStages(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [visible, projectId]);
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -67,6 +110,7 @@ export function DemandFormModal({
           .replace(/\n{3,}/g, "\n\n")
           .trim()
           .slice(0, MAX_DESC),
+        stageId,
       });
     } catch (e: unknown) {
       showToast({
@@ -140,6 +184,98 @@ export function DemandFormModal({
                 current={description.length}
                 max={MAX_DESC}
               />
+            </View>
+
+            {/* Etapa vinculada */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Etapa vinculada</Text>
+              <View style={styles.stageList}>
+                <TouchableOpacity
+                  style={[
+                    styles.stageRow,
+                    stageId === null && styles.stageRowActive,
+                  ]}
+                  onPress={() => setStageId(null)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.radio,
+                      stageId === null && styles.radioActive,
+                    ]}
+                  >
+                    {stageId === null && <View style={styles.radioDot} />}
+                  </View>
+                  <MaterialIcons
+                    name="block"
+                    size={16}
+                    color={stageId === null ? PRIMARY : "#9CA3AF"}
+                  />
+                  <Text
+                    style={[
+                      styles.stageName,
+                      stageId === null && styles.stageNameActive,
+                    ]}
+                  >
+                    Sem vínculo
+                  </Text>
+                </TouchableOpacity>
+
+                {loadingStages && (
+                  <>
+                    <View style={styles.stageDivider} />
+                    <View style={styles.stageRow}>
+                      <MaterialIcons
+                        name="hourglass-empty"
+                        size={16}
+                        color="#9CA3AF"
+                      />
+                      <Text style={styles.stageName}>Carregando etapas...</Text>
+                    </View>
+                  </>
+                )}
+
+                {!loadingStages &&
+                  stages.map((s) => {
+                    const selected = stageId === s.id;
+                    return (
+                      <React.Fragment key={s.id}>
+                        <View style={styles.stageDivider} />
+                        <TouchableOpacity
+                          style={[
+                            styles.stageRow,
+                            selected && styles.stageRowActive,
+                          ]}
+                          onPress={() => setStageId(s.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[styles.radio, selected && styles.radioActive]}
+                          >
+                            {selected && <View style={styles.radioDot} />}
+                          </View>
+                          <MaterialIcons
+                            name="layers"
+                            size={16}
+                            color={selected ? PRIMARY : "#9CA3AF"}
+                          />
+                          <Text
+                            style={[
+                              styles.stageName,
+                              selected && styles.stageNameActive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {s.name}
+                          </Text>
+                        </TouchableOpacity>
+                      </React.Fragment>
+                    );
+                  })}
+              </View>
+              <Text style={styles.helpText}>
+                Ao decidir, o gasto gerado entra no custo desta etapa.
+              </Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -217,6 +353,42 @@ const styles = StyleSheet.create({
   },
   inputMultiline: { minHeight: 110, paddingTop: 12 },
   inputError: { borderColor: "#EF4444", backgroundColor: "#FFF1F2" },
+  helpText: {
+    marginTop: 8,
+    fontSize: 11.5,
+    color: "#9CA3AF",
+    lineHeight: 16,
+  },
+  stageList: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "#FFFFFF",
+  },
+  stageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    backgroundColor: "#FFFFFF",
+  },
+  stageRowActive: { backgroundColor: PRIMARY + "08" },
+  stageDivider: { height: 1, backgroundColor: "#F3F4F6", marginHorizontal: 14 },
+  stageName: { flex: 1, fontSize: 14, fontWeight: "500", color: "#374151" },
+  stageNameActive: { color: PRIMARY, fontWeight: "700" },
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: "#D1D5DB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioActive: { borderColor: PRIMARY },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: PRIMARY },
   footer: {
     flexDirection: "row",
     gap: 10,

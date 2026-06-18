@@ -41,6 +41,8 @@ export interface Etapa {
   completedActivities: number;
   /** Razão 0..1 ou null quando a etapa não tem atividades ("sem atividades"). */
   progress: number | null;
+  /** Custo orçado da etapa em centavos. null = sem orçamento. */
+  budgetCents: number | null;
 }
 
 export interface Gasto {
@@ -58,6 +60,8 @@ export interface Gasto {
     | "CONTINGENCY"
     | "OTHER";
   stageId?: string;
+  /** Demanda que gerou a despesa (leitura). undefined = independente. */
+  quoteGroupId?: string | null;
   /** @deprecated Use stageId. */
   tarefaId?: string;
   documentCount?: number;

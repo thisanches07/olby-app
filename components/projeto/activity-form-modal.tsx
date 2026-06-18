@@ -16,6 +16,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityDateRangeFields,
+  validateActivityDateRange,
+} from "./activity-date-range-fields";
 
 const PRIMARY = "#2563EB";
 const ACTIVITY_NAME_MAX = 80;
@@ -41,6 +45,8 @@ export function ActivityFormModal({
   const [nomeError, setNomeError] = useState(false);
   const [descricao, setDescricao] = useState("");
   const [status, setStatus] = useState<ActivityStatus>("PENDING");
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -48,6 +54,8 @@ export function ActivityFormModal({
       setNome(activity.nome);
       setDescricao(activity.descricao);
       setStatus(activity.status);
+      setStartDate(activity.startDate);
+      setDueDate(activity.dueDate);
       setNomeError(false);
       setIsSaving(false);
     } else {
@@ -60,6 +68,8 @@ export function ActivityFormModal({
     setNomeError(false);
     setDescricao("");
     setStatus("PENDING");
+    setStartDate(null);
+    setDueDate(null);
     setIsSaving(false);
   };
 
@@ -70,6 +80,11 @@ export function ActivityFormModal({
       showToast({ title: "Nome obrigatório", tone: "error" });
       return;
     }
+    const dateError = validateActivityDateRange({ startDate, dueDate });
+    if (dateError) {
+      showToast({ title: dateError, tone: "error" });
+      return;
+    }
     setNomeError(false);
     setIsSaving(true);
     try {
@@ -77,6 +92,8 @@ export function ActivityFormModal({
         nome: trimmedNome,
         descricao: descricao.trim().slice(0, ACTIVITY_DESCRIPTION_MAX),
         status,
+        startDate,
+        dueDate,
       });
       reset();
     } catch {
@@ -190,6 +207,17 @@ export function ActivityFormModal({
                 );
               })}
             </View>
+          </View>
+
+          <View style={styles.field}>
+            <ActivityDateRangeFields
+              value={{ startDate, dueDate }}
+              onChange={(next) => {
+                setStartDate(next.startDate ?? null);
+                setDueDate(next.dueDate ?? null);
+              }}
+              disabled={isSaving}
+            />
           </View>
         </ScrollView>
 

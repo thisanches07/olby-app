@@ -51,6 +51,7 @@ export function mapStage(dto: StageResponseDto): Etapa {
       dto.completedActivities ?? 0,
       dto.totalActivities ?? 0,
     ),
+    budgetCents: dto.budgetCents ?? null,
   };
 }
 

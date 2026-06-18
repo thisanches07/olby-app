@@ -1,6 +1,8 @@
 import { useToast } from "@/components/obra/toast";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
+import type { BatchCreateActivityItemDto } from "@/services/activities.service";
+import { isoDateToBRDate } from "@/utils/br-date";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -18,6 +20,10 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityDateRangeFields,
+  validateActivityDateRange,
+} from "./activity-date-range-fields";
 
 const PRIMARY = "#2563EB";
 const ACTIVITY_NAME_MAX = 80;
@@ -26,12 +32,14 @@ const BATCH_LIMIT = 100;
 type DraftActivity = {
   id: string;
   name: string;
+  startDate: string | null;
+  dueDate: string | null;
 };
 
 interface StageActivitiesBatchModalProps {
   visible: boolean;
   stageName: string;
-  onSave: (names: string[]) => Promise<void>;
+  onSave: (activities: BatchCreateActivityItemDto[]) => Promise<void>;
   onSkip: () => void;
   onClose: () => void;
 }
@@ -40,6 +48,8 @@ function createDraft(name = ""): DraftActivity {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name,
+    startDate: null,
+    dueDate: null,
   };
 }
 
@@ -54,6 +64,8 @@ export function StageActivitiesBatchModal({
   const inputRef = useRef<TextInput>(null);
   const [drafts, setDrafts] = useState<DraftActivity[]>([]);
   const [input, setInput] = useState("");
+  const [inputStartDate, setInputStartDate] = useState<string | null>(null);
+  const [inputDueDate, setInputDueDate] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [invalidIds, setInvalidIds] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
@@ -62,6 +74,8 @@ export function StageActivitiesBatchModal({
     if (!visible) {
       setDrafts([]);
       setInput("");
+      setInputStartDate(null);
+      setInputDueDate(null);
       setEditingDraftId(null);
       setInvalidIds(new Set());
       setIsSaving(false);
@@ -73,11 +87,15 @@ export function StageActivitiesBatchModal({
   const canAdd =
     trimmedInput.length > 0 && !isSaving && (!!editingDraftId || !limitReached);
 
-  const validNames = useMemo(
+  const validActivities = useMemo(
     () =>
       drafts
-        .map((draft) => draft.name.trim().slice(0, ACTIVITY_NAME_MAX))
-        .filter(Boolean),
+        .map((draft) => ({
+          name: draft.name.trim().slice(0, ACTIVITY_NAME_MAX),
+          startDate: draft.startDate,
+          dueDate: draft.dueDate,
+        }))
+        .filter((activity) => activity.name.length > 0),
     [drafts],
   );
 
@@ -91,11 +109,26 @@ export function StageActivitiesBatchModal({
       showToast({ title: "Limite de 100 atividades por lote", tone: "error" });
       return;
     }
+    const dateError = validateActivityDateRange({
+      startDate: inputStartDate,
+      dueDate: inputDueDate,
+    });
+    if (dateError) {
+      showToast({ title: dateError, tone: "error" });
+      return;
+    }
 
     if (editingDraftId) {
       setDrafts((prev) =>
         prev.map((draft) =>
-          draft.id === editingDraftId ? { ...draft, name } : draft,
+          draft.id === editingDraftId
+            ? {
+                ...draft,
+                name,
+                startDate: inputStartDate,
+                dueDate: inputDueDate,
+              }
+            : draft,
         ),
       );
       setInvalidIds((prev) => {
@@ -105,9 +138,18 @@ export function StageActivitiesBatchModal({
       });
       setEditingDraftId(null);
     } else {
-      setDrafts((prev) => [...prev, createDraft(name)]);
+      setDrafts((prev) => [
+        ...prev,
+        {
+          ...createDraft(name),
+          startDate: inputStartDate,
+          dueDate: inputDueDate,
+        },
+      ]);
     }
     setInput("");
+    setInputStartDate(null);
+    setInputDueDate(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -115,12 +157,16 @@ export function StageActivitiesBatchModal({
     if (isSaving) return;
     setEditingDraftId(draft.id);
     setInput(draft.name);
+    setInputStartDate(draft.startDate);
+    setInputDueDate(draft.dueDate);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const clearEditing = () => {
     setEditingDraftId(null);
     setInput("");
+    setInputStartDate(null);
+    setInputDueDate(null);
   };
 
   const handleSave = async () => {
@@ -142,9 +188,25 @@ export function StageActivitiesBatchModal({
 
     setIsSaving(true);
     try {
-      await onSave(validNames);
+      const dateError = drafts
+        .map((draft) =>
+          validateActivityDateRange({
+            startDate: draft.startDate,
+            dueDate: draft.dueDate,
+          }),
+        )
+        .find(Boolean);
+      if (dateError) {
+        showToast({ title: dateError, tone: "error" });
+        setIsSaving(false);
+        return;
+      }
+
+      await onSave(validActivities);
       setDrafts([]);
       setInput("");
+      setInputStartDate(null);
+      setInputDueDate(null);
       setEditingDraftId(null);
       setInvalidIds(new Set());
     } catch {
@@ -190,9 +252,17 @@ export function StageActivitiesBatchModal({
             disabled={isSaving || isActive}
             activeOpacity={0.65}
           >
-            <Text style={styles.itemTitle} numberOfLines={1}>
-              {item.name.trim() || "Nome da atividade"}
-            </Text>
+            <View style={styles.itemTextBlock}>
+              <Text style={styles.itemTitle} numberOfLines={1}>
+                {item.name.trim() || "Nome da atividade"}
+              </Text>
+              {(item.startDate || item.dueDate) && (
+                <Text style={styles.itemDates} numberOfLines={1}>
+                  {isoDateToBRDate(item.startDate) || "Sem início"} -{" "}
+                  {isoDateToBRDate(item.dueDate) || "Sem fim"}
+                </Text>
+              )}
+            </View>
             <MaterialIcons name="edit" size={16} color="#9CA3AF" />
           </TouchableOpacity>
 
@@ -281,6 +351,17 @@ export function StageActivitiesBatchModal({
               current={input.length}
               max={ACTIVITY_NAME_MAX}
             />
+            <View style={styles.dateFieldsWrap}>
+              <ActivityDateRangeFields
+                value={{ startDate: inputStartDate, dueDate: inputDueDate }}
+                onChange={(next) => {
+                  setInputStartDate(next.startDate ?? null);
+                  setInputDueDate(next.dueDate ?? null);
+                }}
+                disabled={isSaving}
+                compact
+              />
+            </View>
           </View>
 
           {drafts.length > 0 && (
@@ -432,6 +513,7 @@ const styles = StyleSheet.create({
   },
   cancelEditText: { fontSize: 12, fontWeight: "800", color: PRIMARY },
   addRow: { flexDirection: "row", gap: 10, marginTop: 10 },
+  dateFieldsWrap: { marginTop: 10 },
   input: {
     flex: 1,
     backgroundColor: "#F9FAFB",
@@ -522,11 +604,17 @@ const styles = StyleSheet.create({
   },
   itemContentError: { borderColor: "#EF4444", backgroundColor: "#FFF1F2" },
   itemContentEditing: { borderColor: "#BFDBFE", backgroundColor: "#EFF6FF" },
+  itemTextBlock: { flex: 1 },
   itemTitle: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "600",
     color: "#111827",
+  },
+  itemDates: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#6B7280",
   },
   placeholderInput: {
     flex: 1,

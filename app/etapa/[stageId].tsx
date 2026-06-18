@@ -46,6 +46,7 @@ import { useStageActivities } from "@/hooks/use-stage-activities";
 import { getErrorMessage } from "@/services/api";
 import { stagesService } from "@/services/stages.service";
 import { colors } from "@/theme/colors";
+import { isoDateToBRDate } from "@/utils/br-date";
 import { tapMedium } from "@/utils/haptics";
 import { mapStage } from "@/utils/stage-mappers";
 import {
@@ -147,6 +148,12 @@ function ActivityRow({
 }) {
   const cfg = ACTIVITY_STATUS_CONFIG[atividade.status];
   const done = atividade.status === "DONE";
+  const periodLabel =
+    atividade.startDate || atividade.dueDate
+      ? `${isoDateToBRDate(atividade.startDate) || "Sem início"} - ${
+          isoDateToBRDate(atividade.dueDate) || "Sem fim"
+        }`
+      : null;
   return (
     <FadeSlideIn index={index}>
       <View
@@ -172,6 +179,12 @@ function ActivityRow({
             <Text style={styles.activityDesc} numberOfLines={2}>
               {atividade.descricao}
             </Text>
+          )}
+          {!!periodLabel && (
+            <View style={styles.activityPeriod}>
+              <MaterialIcons name="event" size={12} color="#6B7280" />
+              <Text style={styles.activityPeriodText}>{periodLabel}</Text>
+            </View>
           )}
           <View
             style={[styles.activityStatusChip, { backgroundColor: cfg.bg }]}
@@ -925,6 +938,17 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
   activityDesc: { fontSize: 12.5, color: "#9CA3AF", lineHeight: 17 },
+  activityPeriod: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
+  },
+  activityPeriodText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#6B7280",
+  },
   activityStatusChip: {
     alignSelf: "flex-start",
     paddingHorizontal: 8,

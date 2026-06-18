@@ -187,6 +187,7 @@ function buildObraDetalhe(
     data: e.date,
     categoria: fromApiCategory(e.category),
     stageId: e.stageId ?? undefined,
+    quoteGroupId: e.quoteGroupId ?? null,
     tarefaId: e.taskId ?? undefined,
     receiptDocumentId: e.receiptDocumentId ?? e.receiptDocument?.id ?? null,
     receiptUrl: e.receiptUrl ?? null,
@@ -271,6 +272,7 @@ export interface UseObraDataReturn {
     nome: string;
     descricao?: string;
     prioridade?: StageLocalPriority | null;
+    budgetCents?: number | null;
   }) => Promise<Etapa>;
   addStagesBatch: (stages: CreateStageBatchItemDto[]) => Promise<Etapa[]>;
   updateStage: (
@@ -281,6 +283,7 @@ export interface UseObraDataReturn {
       prioridade?: StageLocalPriority | null;
       status?: Etapa["status"];
       order?: number;
+      budgetCents?: number | null;
     },
   ) => Promise<void>;
   completeStageActivities: (stageId: string) => Promise<void>;
@@ -823,6 +826,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
       nome: string;
       descricao?: string;
       prioridade?: StageLocalPriority | null;
+      budgetCents?: number | null;
     }) => {
       if (stages.length >= PROJECT_ITEM_LIMIT) {
         throw new Error(getProjectItemLimitMessage("etapas"));
@@ -833,6 +837,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         name: input.nome,
         description: input.descricao || undefined,
         priority: stagePriorityToApi(input.prioridade),
+        budgetCents: input.budgetCents ?? null,
         status: "NOT_STARTED",
         position: stages.length,
       });
@@ -865,6 +870,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         prioridade?: StageLocalPriority | null;
         status?: Etapa["status"];
         order?: number;
+        budgetCents?: number | null;
       },
     ) => {
       const dto: Record<string, unknown> = {};
@@ -875,6 +881,7 @@ export function useObraData(projectId: string): UseObraDataReturn {
         dto.priority = stagePriorityToApi(updates.prioridade) ?? null;
       if (updates.status !== undefined) dto.status = updates.status;
       if (updates.order !== undefined) dto.position = updates.order;
+      if ("budgetCents" in updates) dto.budgetCents = updates.budgetCents ?? null;
 
       const updated = await stagesService.update(id, dto);
       setStages((prev) => prev.map((s) => (s.id === id ? updated : s)));

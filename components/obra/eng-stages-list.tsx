@@ -6,10 +6,12 @@ import {
   StageCompletePendingSheet,
   StageStatusPickerSheet,
 } from "@/components/obra/stage-action-sheets";
-import type { Etapa, StageStatus } from "@/data/obras";
+import type { Etapa, Gasto, StageStatus } from "@/data/obras";
 import { PRIMARY } from "@/utils/obra-utils";
 import { STAGE_STATUS_CONFIG, progressBarColor } from "@/utils/stage-ui";
 import { stageCompletionProgress } from "@/utils/stage-mappers";
+import { buildStageBudgetRollup, spentByStage } from "@/utils/stage-costs";
+import { formatCentsBRL } from "@/constants/quote-status";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -109,11 +111,61 @@ function StageStatusCheck({
   );
 }
 
+// --- Stage budget rollup ------------------------------------------------------
+/**
+ * Consolidado de custo das etapas (orçado × realizado). Aparece quando há
+ * orçamento em alguma etapa ou já há gastos.
+ * Portado de obra-web/src/components/obra-detail/panels/etapas-panel.tsx.
+ */
+function StageBudgetRollup({
+  rollup,
+}: {
+  rollup: ReturnType<typeof buildStageBudgetRollup>;
+}) {
+  const { budgetedCents, spentOnStagesCents, stagesWithBudget } = rollup;
+  if (stagesWithBudget === 0 && spentOnStagesCents <= 0) return null;
+
+  const hasBudget = budgetedCents > 0;
+  const balance = budgetedCents - spentOnStagesCents;
+  const over = hasBudget && balance < 0;
+  return (
+    <View style={styles.rollupCard}>
+      <View style={styles.rollupRow}>
+        <View style={styles.rollupStat}>
+          <Text style={styles.rollupLabel}>Orçado (etapas)</Text>
+          <Text style={styles.rollupValue}>
+            {hasBudget ? formatCentsBRL(budgetedCents) : "—"}
+          </Text>
+        </View>
+        <View style={styles.rollupStat}>
+          <Text style={styles.rollupLabel}>Realizado</Text>
+          <Text style={styles.rollupValue}>
+            {formatCentsBRL(spentOnStagesCents)}
+          </Text>
+        </View>
+        <View style={styles.rollupStat}>
+          <Text style={styles.rollupLabel}>Saldo</Text>
+          <Text
+            style={[
+              styles.rollupValue,
+              hasBudget && (over ? styles.rollupOver : styles.rollupOk),
+            ]}
+          >
+            {hasBudget ? formatCentsBRL(balance) : "—"}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // --- Stage card ---------------------------------------------------------------
 interface StageCardProps {
   etapa: Etapa;
   index: number;
   readOnly: boolean;
+  /** Realizado (centavos) das despesas vinculadas a esta etapa. */
+  spentCents?: number;
   onPress: () => void;
   onMorePress?: (etapa: Etapa) => void;
   onToggleStatus?: () => void;
@@ -126,6 +178,7 @@ function StageCard({
   etapa,
   index,
   readOnly,
+  spentCents = 0,
   onPress,
   onMorePress,
   onToggleStatus,
@@ -138,6 +191,10 @@ function StageCard({
   const hasActivities = etapa.totalActivities > 0;
   const done = etapa.status === "COMPLETED";
   const pct = Math.round((etapa.progress ?? 0) * 100);
+  const hasBudget =
+    typeof etapa.budgetCents === "number" && etapa.budgetCents > 0;
+  const overBudget = hasBudget && spentCents > etapa.budgetCents!;
+  const showCost = hasBudget || spentCents > 0;
 
   return (
     <FadeSlideIn index={index}>
@@ -195,6 +252,20 @@ function StageCard({
               </View>
             )}
           </View>
+
+          {showCost && (
+            <Text style={styles.costLine}>
+              <Text style={overBudget ? styles.costOver : undefined}>
+                {formatCentsBRL(spentCents)}
+              </Text>
+              {hasBudget && (
+                <Text style={styles.costBudget}>
+                  {" "}
+                  / {formatCentsBRL(etapa.budgetCents)}
+                </Text>
+              )}
+            </Text>
+          )}
         </View>
 
         <View style={styles.cardTrailing}>
@@ -232,6 +303,8 @@ interface EngStagesListProps {
   etapas: Etapa[];
   totalActivities: number;
   completedActivities: number;
+  /** Gastos da obra (para derivar "realizado por etapa"). */
+  gastos?: Gasto[];
   onOpenStage: (etapa: Etapa) => void;
   onAddStage?: () => void;
   onEditStage?: (etapa: Etapa) => void;
@@ -249,6 +322,7 @@ export function EngStagesList({
   etapas,
   totalActivities,
   completedActivities,
+  gastos = [],
   onOpenStage,
   onAddStage,
   onEditStage,
@@ -320,6 +394,12 @@ export function EngStagesList({
     [etapas],
   );
 
+  const spentMap = useMemo(() => spentByStage(gastos), [gastos]);
+  const rollup = useMemo(
+    () => buildStageBudgetRollup(ordered, gastos),
+    [ordered, gastos],
+  );
+
   const filtered = useMemo(() => {
     if (!query.trim()) return ordered;
     const q = query.toLowerCase();
@@ -351,6 +431,7 @@ export function EngStagesList({
             etapa={item}
             index={idx}
             readOnly={readOnly}
+            spentCents={spentMap.get(item.id) ?? 0}
             onPress={() => onOpenStage(item)}
             onMorePress={
               onEditStage || onDeleteStage ? setActionStage : undefined
@@ -367,7 +448,7 @@ export function EngStagesList({
         </ScaleDecorator>
       );
     },
-    [readOnly, onEditStage, onDeleteStage, onOpenStage, canChangeStatus, handleToggleStatus],
+    [readOnly, onEditStage, onDeleteStage, onOpenStage, canChangeStatus, handleToggleStatus, spentMap],
   );
 
   const renderRightActions = (etapa: Etapa) => (
@@ -439,6 +520,10 @@ export function EngStagesList({
         </View>
       )}
 
+      {ordered.length > 0 && !query && (
+        <StageBudgetRollup rollup={rollup} />
+      )}
+
       {ordered.length > 3 && (
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={18} color="#9CA3AF" />
@@ -462,7 +547,7 @@ export function EngStagesList({
         </View>
       )}
 
-      {readOnly && (
+      {readOnly && readOnlyReason && (
         <View style={styles.readOnlyBanner}>
           <MaterialIcons
             name={readOnlyReason === "concluida" ? "check-circle" : "archive"}
@@ -528,6 +613,7 @@ export function EngStagesList({
         etapa={etapa}
         index={index}
         readOnly={readOnly}
+        spentCents={spentMap.get(etapa.id) ?? 0}
         onPress={() => onOpenStage(etapa)}
         onMorePress={onEditStage || onDeleteStage ? setActionStage : undefined}
         onToggleStatus={
@@ -774,6 +860,44 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   summaryChipText: { fontSize: 12, fontWeight: "600", color: "#6B7280" },
+
+  // Rollup (orçado × realizado × saldo)
+  rollupCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#EEF0F3",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+    marginTop: -4,
+  },
+  rollupRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  rollupStat: { flex: 1 },
+  rollupLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#9CA3AF",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  rollupValue: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  rollupOver: { color: "#EF4444" },
+  rollupOk: { color: "#16A34A" },
+
+  // Linha de custo por etapa
+  costLine: { fontSize: 12, fontWeight: "600", color: "#9CA3AF" },
+  costOver: { color: "#EF4444", fontWeight: "700" },
+  costBudget: { color: "#9CA3AF" },
 
   // Card (minimalista)
   card: {
@@ -1039,4 +1163,3 @@ const skeletonStyles = StyleSheet.create({
   },
   body: { flex: 1, gap: 8 },
 });
-

@@ -79,7 +79,10 @@ import {
 import { colors } from "@/theme/colors";
 import { radius } from "@/theme/radius";
 import { spacing } from "@/theme/spacing";
-import { activitiesService } from "@/services/activities.service";
+import {
+  activitiesService,
+  type BatchCreateActivityItemDto,
+} from "@/services/activities.service";
 import type { CreateStageBatchItemDto } from "@/services/stages.service";
 import { useToast } from "@/components/obra/toast";
 
@@ -508,7 +511,7 @@ export default function ObraDetalheScreen() {
 
   const isCliente = currentIsCliente;
   const isEng = !isCliente;
-  const canEdit = canEditProject(projectRole);
+  const canEdit = canEditProject(projectRole, obra.status);
   const stageLimitReached =
     (obraView?.etapas?.length ?? 0) >= PROJECT_ITEM_LIMIT;
   const expenseLimitReached =
@@ -570,6 +573,7 @@ export default function ObraDetalheScreen() {
           nome: values.nome,
           descricao: values.descricao,
           prioridade: values.prioridade,
+          budgetCents: values.budgetCents,
         });
       } else {
         if (stageLimitReached) {
@@ -580,6 +584,7 @@ export default function ObraDetalheScreen() {
           nome: values.nome,
           descricao: values.descricao,
           prioridade: values.prioridade,
+          budgetCents: values.budgetCents,
         });
       }
       setShowStageModal(false);
@@ -600,6 +605,7 @@ export default function ObraDetalheScreen() {
         nome: values.nome,
         descricao: values.descricao,
         prioridade: values.prioridade,
+        budgetCents: values.budgetCents,
       });
       setShowStageModal(false);
       setEditingStage(undefined);
@@ -613,12 +619,14 @@ export default function ObraDetalheScreen() {
     }
   };
 
-  const handleSaveInitialActivities = async (names: string[]) => {
+  const handleSaveInitialActivities = async (
+    activities: BatchCreateActivityItemDto[],
+  ) => {
     if (!stageForInitialActivities) return;
     try {
       const created = await activitiesService.batchCreate(
         stageForInitialActivities.id,
-        { names },
+        { activities },
       );
       setStageForInitialActivities(null);
       await refresh();

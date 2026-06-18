@@ -19,6 +19,8 @@ import type {
   QuoteGroupResponse,
   QuoteGroupStatus,
 } from "@/services/quotes.service";
+import { quotesService } from "@/services/quotes.service";
+import { stagesService } from "@/services/stages.service";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -43,11 +45,17 @@ const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
 export function QuotesTab({
   projectId,
   readOnly = false,
+  trackFinancial = true,
   openCreateSignal = 0,
+  onProjectDataChanged,
 }: {
   projectId: string;
   readOnly?: boolean;
+  trackFinancial?: boolean;
   openCreateSignal?: number;
+  /** Dispara reload da obra (despesas/etapas) quando uma ação na demanda
+   *  propaga para o gasto vinculado (renomear/mover etapa, decidir, reabrir). */
+  onProjectDataChanged?: () => void;
 }) {
   const { showToast } = useToast();
   const {
@@ -68,6 +76,23 @@ export function QuotesTab({
   const [menuDemand, setMenuDemand] = useState<QuoteGroupResponse | null>(null);
   const [pendingDelete, setPendingDelete] =
     useState<QuoteGroupResponse | null>(null);
+  const [regenGroup, setRegenGroup] = useState<QuoteGroupResponse | null>(null);
+  const [stageNames, setStageNames] = useState<Map<string, string>>(new Map());
+
+  // Mapa id→nome das etapas, para o selo de etapa nos cards de demanda.
+  useEffect(() => {
+    let active = true;
+    stagesService
+      .listByProject(projectId)
+      .then((items) => {
+        if (!active) return;
+        setStageNames(new Map(items.map((s) => [s.id, s.name])));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [projectId, groups]);
 
   // ── Refresh ao voltar do detalhe (pula o 1º foco — mount já busca) ──────────
   const firstFocusDone = useRef(false);
@@ -90,7 +115,10 @@ export function QuotesTab({
   }, [openCreateSignal]);
 
   const openDemand = (id: string) =>
-    router.push({ pathname: "/orcamentos/[id]", params: { id } });
+    router.push({
+      pathname: "/orcamentos/[id]",
+      params: { id, tf: trackFinancial ? "1" : "0" },
+    });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -105,17 +133,29 @@ export function QuotesTab({
     setIsSaving(true);
     try {
       if (editing) {
+        const prevStageId = editing.stageId ?? null;
+        const stageChanged = (data.stageId ?? null) !== prevStageId;
+        const detachedDecided =
+          editing.status === "DECIDED" &&
+          !editing.generatedExpenseId &&
+          !!editing.chosenQuoteId;
         await updateGroup(editing.id, {
           title: data.title,
           description: data.description || null,
+          stageId: data.stageId,
         });
         setShowForm(false);
+        const justEdited = editing;
         setEditing(null);
+        if (detachedDecided && stageChanged) {
+          setRegenGroup(justEdited);
+        }
       } else {
         const created = await createGroup({
           projectId,
           title: data.title,
           description: data.description || null,
+          stageId: data.stageId,
         });
         setShowForm(false);
         openDemand(created.id);
@@ -139,7 +179,18 @@ export function QuotesTab({
           label: "Excluir demanda",
           icon: "delete-outline",
           variant: "destructive",
-          onPress: () => setPendingDelete(menuDemand),
+          onPress: () => {
+            if (menuDemand.generatedExpenseId) {
+              showToast({
+                title: "Não é possível excluir",
+                message:
+                  "Reabra a decisão antes de apagar — esta demanda gerou uma despesa.",
+                tone: "error",
+              });
+              return;
+            }
+            setPendingDelete(menuDemand);
+          },
         },
       ]
     : [];
@@ -222,6 +273,7 @@ export function QuotesTab({
             <FadeSlideIn key={g.id} index={index}>
               <DemandCard
                 demand={g}
+                stageName={g.stageId ? (stageNames.get(g.stageId) ?? null) : null}
                 onPress={() => openDemand(g.id)}
                 onMore={readOnly ? undefined : () => setMenuDemand(g)}
               />
@@ -232,9 +284,14 @@ export function QuotesTab({
 
       <DemandFormModal
         visible={showForm}
+        projectId={projectId}
         initial={
           editing
-            ? { title: editing.title, description: editing.description }
+            ? {
+                title: editing.title,
+                description: editing.description,
+                stageId: editing.stageId,
+              }
             : null
         }
         isSaving={isSaving}
@@ -274,6 +331,39 @@ export function QuotesTab({
             );
         }}
         onClose={() => setPendingDelete(null)}
+      />
+
+      <ConfirmSheet
+        visible={regenGroup !== null}
+        icon="add"
+        iconColor={PRIMARY}
+        confirmVariant="primary"
+        title="Gerar um novo gasto?"
+        message="O gasto deste orçamento foi desvinculado (editado à parte). Deseja gerar um novo gasto com a etapa atualizada?"
+        confirmLabel="Gerar novo gasto"
+        onConfirm={() => {
+          const g = regenGroup;
+          setRegenGroup(null);
+          if (!g?.chosenQuoteId) return;
+          quotesService
+            .choose(g.id, g.chosenQuoteId)
+            .then(() => {
+              void refresh();
+              showToast({
+                title: "Gasto gerado",
+                message: "Um novo gasto foi lançado com a etapa atualizada.",
+                tone: "success",
+              });
+            })
+            .catch((e) =>
+              showToast({
+                title: "Erro",
+                message: getErrorMessage(e, "Não foi possível gerar o gasto."),
+                tone: "error",
+              }),
+            );
+        }}
+        onClose={() => setRegenGroup(null)}
       />
     </View>
   );

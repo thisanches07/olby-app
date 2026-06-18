@@ -35,10 +35,15 @@ const PRIMARY = "#2563EB";
 const SUCCESS = "#16A34A";
 
 export default function DemandDetailScreen() {
-  const { id, ro } = useLocalSearchParams<{ id: string; ro?: string }>();
+  const { id, ro, tf } = useLocalSearchParams<{
+    id: string;
+    ro?: string;
+    tf?: string;
+  }>();
   const { isTablet, contentColumn } = useResponsive();
   const colStyle = isTablet ? contentColumn("default") : null;
   const canEdit = ro !== "1";
+  const tracksFinancial = tf !== "0";
   const { showToast } = useToast();
   const {
     group,
@@ -68,6 +73,7 @@ export default function DemandDetailScreen() {
   const [showDemandMenu, setShowDemandMenu] = useState(false);
   const [confirmDeleteDemand, setConfirmDeleteDemand] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
+  const [askRegenerate, setAskRegenerate] = useState(false);
 
   const fail = (e: unknown, fallback: string) =>
     showToast({
@@ -87,6 +93,42 @@ export default function DemandDetailScreen() {
   };
 
   const isDecided = group?.status === "DECIDED";
+
+  // Mensagem de confirmação ao escolher cotação (espelha ChooseQuoteDialog da web).
+  const buildChooseMessage = (quote: QuoteResponse): string => {
+    const max = group
+      ? group.quotes.reduce((m, q) => (q.amountCents > m ? q.amountCents : m), 0)
+      : 0;
+    const savings = max - quote.amountCents;
+    const pct = max > 0 ? Math.round((savings / max) * 100) : 0;
+    let msg =
+      "Esta demanda será marcada como decidida e as outras cotações ficarão arquivadas.";
+    if (savings > 0) {
+      msg += `\n\nEconomia ${formatCentsBRL(savings)} (${pct}%) vs maior.`;
+    }
+    if (tracksFinancial) {
+      msg += `\n\nUma despesa em Serviços será lançada automaticamente em Despesas com data de hoje no valor de ${formatCentsBRL(
+        quote.amountCents,
+      )}.`;
+    }
+    return msg;
+  };
+
+  // Mensagem de confirmação ao reabrir (espelha ReopenGroupDialog da web).
+  const buildReopenMessage = (): string => {
+    let msg =
+      "A demanda voltará ao status em cotação e a escolha atual será desmarcada.";
+    const chosen = group?.chosenQuote;
+    if (chosen) {
+      msg += `\n\n• ${chosen.supplierName} (${formatCentsBRL(
+        chosen.amountCents,
+      )}) deixará de estar marcada como escolhida.`;
+    }
+    if (group?.generatedExpenseId) {
+      msg += `\n• A despesa lançada em Despesas será removida.`;
+    }
+    return msg;
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -217,7 +259,7 @@ export default function DemandDetailScreen() {
                   decided={isDecided}
                   canEdit={canEdit}
                   onChoose={() => setPendingChoose(q)}
-                  onMore={() => setMenuQuote(q)}
+                  onMore={isDecided ? undefined : () => setMenuQuote(q)}
                 />
               ))}
             </View>
@@ -253,19 +295,37 @@ export default function DemandDetailScreen() {
 
       <DemandFormModal
         visible={showDemandForm}
+        projectId={group?.projectId ?? ""}
         initial={
           group
-            ? { title: group.title, description: group.description }
+            ? {
+                title: group.title,
+                description: group.description,
+                stageId: group.stageId,
+              }
             : null
         }
         isSaving={isSaving}
         onClose={() => setShowDemandForm(false)}
         onSave={async (data) => {
+          const prevStageId = group?.stageId ?? null;
+          const stageChanged = (data.stageId ?? null) !== prevStageId;
+          // Demanda decidida mas com o gasto já desvinculado (editado à parte):
+          // mudar a etapa aqui não tem gasto para acompanhar → oferecer recriar.
+          const detachedDecided =
+            !!group &&
+            group.status === "DECIDED" &&
+            !group.generatedExpenseId &&
+            !!group.chosenQuoteId;
           await updateGroup({
             title: data.title,
             description: data.description || null,
+            stageId: data.stageId,
           });
           setShowDemandForm(false);
+          if (detachedDecided && stageChanged) {
+            setAskRegenerate(true);
+          }
         }}
       />
 
@@ -283,7 +343,18 @@ export default function DemandDetailScreen() {
               label: "Excluir demanda",
               icon: "delete-outline",
               variant: "destructive",
-              onPress: () => setConfirmDeleteDemand(true),
+              onPress: () => {
+                if (group?.generatedExpenseId) {
+                  showToast({
+                    title: "Não é possível excluir",
+                    message:
+                      "Reabra a decisão antes de apagar — esta demanda gerou uma despesa.",
+                    tone: "error",
+                  });
+                  return;
+                }
+                setConfirmDeleteDemand(true);
+              },
             },
           ] as ActionMenuItem[]
         }
@@ -338,15 +409,11 @@ export default function DemandDetailScreen() {
         icon="check-circle"
         iconColor={SUCCESS}
         confirmVariant="primary"
-        title="Escolher este orçamento?"
+        title="Escolher esta cotação"
         message={
-          pendingChoose
-            ? `${pendingChoose.supplierName} · ${formatCentsBRL(
-                pendingChoose.amountCents,
-              )}. Se o financeiro estiver ativo, será lançado como gasto da obra.`
-            : undefined
+          pendingChoose ? buildChooseMessage(pendingChoose) : undefined
         }
-        confirmLabel="Confirmar escolha"
+        confirmLabel="Escolher cotação"
         onConfirm={() => {
           const q = pendingChoose;
           setPendingChoose(null);
@@ -389,9 +456,9 @@ export default function DemandDetailScreen() {
         icon="lock-open"
         iconColor={PRIMARY}
         confirmVariant="primary"
-        title="Reabrir decisão?"
-        message="A demanda volta a ficar em cotação. O gasto lançado a partir desta decisão será removido."
-        confirmLabel="Reabrir"
+        title="Reabrir cotação"
+        message={buildReopenMessage()}
+        confirmLabel="Reabrir cotação"
         onConfirm={() => {
           setConfirmReopen(false);
           reopen()
@@ -408,6 +475,31 @@ export default function DemandDetailScreen() {
             );
         }}
         onClose={() => setConfirmReopen(false)}
+      />
+
+      <ConfirmSheet
+        visible={askRegenerate}
+        icon="add"
+        iconColor={PRIMARY}
+        confirmVariant="primary"
+        title="Gerar um novo gasto?"
+        message="O gasto deste orçamento foi desvinculado (editado à parte). Deseja gerar um novo gasto com a etapa atualizada?"
+        confirmLabel="Gerar novo gasto"
+        onConfirm={() => {
+          setAskRegenerate(false);
+          const quoteId = group?.chosenQuoteId;
+          if (!quoteId) return;
+          choose(quoteId)
+            .then(() => {
+              showToast({
+                title: "Gasto gerado",
+                message: "Um novo gasto foi lançado com a etapa atualizada.",
+                tone: "success",
+              });
+            })
+            .catch((e) => fail(e, "Não foi possível gerar o gasto."));
+        }}
+        onClose={() => setAskRegenerate(false)}
       />
     </SafeAreaView>
   );

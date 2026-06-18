@@ -3,7 +3,7 @@ import { formatCentsBRL } from "@/constants/quote-status";
 import type { QuoteResponse } from "@/services/quotes.service";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toWhatsAppUrl } from "@/utils/phone";
+import { formatBRPhone, toWhatsAppUrl } from "@/utils/phone";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
@@ -48,6 +48,7 @@ export function QuoteCard({
   };
 
   const dimmed = decided && !quote.isChosen;
+  const initial = quote.supplierName.trim().charAt(0).toUpperCase() || "?";
 
   return (
     <View
@@ -59,23 +60,54 @@ export function QuoteCard({
     >
       <View style={styles.topRow}>
         <View style={styles.supplierWrap}>
-          {waUrl && (
-            <TouchableOpacity
-              style={styles.waBtn}
-              onPress={openWhatsApp}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.85}
-            >
+          {/* Avatar: WhatsApp (se telefone) > check (se escolhida) > inicial */}
+          <TouchableOpacity
+            style={[
+              styles.avatar,
+              waUrl
+                ? styles.avatarWa
+                : quote.isChosen
+                  ? styles.avatarChosen
+                  : styles.avatarPlain,
+            ]}
+            onPress={waUrl ? openWhatsApp : undefined}
+            disabled={!waUrl}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.85}
+          >
+            {waUrl ? (
               <MaterialCommunityIcons
                 name="whatsapp"
                 size={17}
                 color="#FFFFFF"
               />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.supplier} numberOfLines={1}>
-            {quote.supplierName}
-          </Text>
+            ) : quote.isChosen ? (
+              <MaterialIcons name="check" size={17} color="#FFFFFF" />
+            ) : (
+              <Text style={styles.avatarInitial}>{initial}</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.supplierInfo}>
+            <Text style={styles.supplier} numberOfLines={1}>
+              {quote.supplierName}
+            </Text>
+            {waUrl ? (
+              <TouchableOpacity
+                onPress={openWhatsApp}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.phoneLink} numberOfLines={1}>
+                  {quote.supplierPhone
+                    ? formatBRPhone(quote.supplierPhone)
+                    : "WhatsApp"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.phoneMuted}>Sem WhatsApp</Text>
+            )}
+          </View>
         </View>
 
         {canEdit && onMore && (
@@ -101,7 +133,7 @@ export function QuoteCard({
             <View style={[styles.badge, { backgroundColor: "#ECFDF5" }]}>
               <MaterialIcons name="verified" size={12} color={SUCCESS} />
               <Text style={[styles.badgeText, { color: SUCCESS }]}>
-                Escolhido
+                Escolhida
               </Text>
             </View>
           )}
@@ -109,7 +141,7 @@ export function QuoteCard({
             <View style={[styles.badge, { backgroundColor: "#EFF6FF" }]}>
               <MaterialIcons name="trending-down" size={12} color={PRIMARY} />
               <Text style={[styles.badgeText, { color: PRIMARY }]}>
-                Menor preço
+                Melhor valor
               </Text>
             </View>
           )}
@@ -183,20 +215,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  waBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: WHATSAPP,
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
+  avatarWa: { backgroundColor: WHATSAPP, borderColor: "#1FB855" },
+  avatarChosen: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  avatarPlain: { backgroundColor: "#F3F4F6", borderColor: "#E5E7EB" },
+  avatarInitial: { fontSize: 14, fontWeight: "800", color: "#6B7280" },
+  supplierInfo: { flex: 1, gap: 2 },
   supplier: {
-    flex: 1,
     fontSize: 15,
     fontWeight: "800",
     color: "#111827",
   },
+  phoneLink: { fontSize: 12, fontWeight: "600", color: SUCCESS },
+  phoneMuted: { fontSize: 12, fontWeight: "500", color: "#9CA3AF" },
   moreBtn: {
     width: 28,
     height: 28,

@@ -16,6 +16,10 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ActivityDateRangeFields,
+  validateActivityDateRange,
+} from "./activity-date-range-fields";
 
 const PRIMARY = "#2563EB";
 const STAGE_NAME_MAX = 60;
@@ -23,7 +27,12 @@ const ACTIVITY_NAME_MAX = 80;
 const STAGE_BATCH_MAX = 100;
 const ACTIVITY_BATCH_MAX = 100;
 
-type DraftActivity = { id: string; name: string };
+type DraftActivity = {
+  id: string;
+  name: string;
+  startDate: string | null;
+  dueDate: string | null;
+};
 type DraftStage = {
   id: string;
   name: string;
@@ -46,7 +55,7 @@ function createStage(): DraftStage {
 }
 
 function createActivity(): DraftActivity {
-  return { id: uid("act"), name: "" };
+  return { id: uid("act"), name: "", startDate: null, dueDate: null };
 }
 
 export function StageFlowBatchModal({
@@ -148,6 +157,25 @@ export function StageFlowBatchModal({
     );
   };
 
+  const updateActivityDates = (
+    stageId: string,
+    activityId: string,
+    dates: { startDate?: string | null; dueDate?: string | null },
+  ) => {
+    setStages((prev) =>
+      prev.map((s) =>
+        s.id === stageId
+          ? {
+              ...s,
+              activities: s.activities.map((a) =>
+                a.id === activityId ? { ...a, ...dates } : a,
+              ),
+            }
+          : s,
+      ),
+    );
+  };
+
   const removeActivity = (stageId: string, activityId: string) => {
     setStages((prev) =>
       prev.map((s) =>
@@ -160,13 +188,34 @@ export function StageFlowBatchModal({
 
   // -- Save --------------------------------------------------------------------
   const handleSave = async () => {
+    const dateError = stages
+      .flatMap((s) => s.activities)
+      .map((activity) =>
+        validateActivityDateRange({
+          startDate: activity.startDate,
+          dueDate: activity.dueDate,
+        }),
+      )
+      .find(Boolean);
+    if (dateError) {
+      showToast({ title: dateError, tone: "error" });
+      return;
+    }
+
     const payload: CreateStageBatchItemDto[] = stages
       .map((s) => {
         const name = s.name.trim().slice(0, STAGE_NAME_MAX);
-        const names = s.activities
-          .map((a) => a.name.trim().slice(0, ACTIVITY_NAME_MAX))
-          .filter(Boolean);
-        return { name, activities: names.length ? { names } : undefined };
+        const activities = s.activities
+          .map((a) => ({
+            name: a.name.trim().slice(0, ACTIVITY_NAME_MAX),
+            startDate: a.startDate,
+            dueDate: a.dueDate,
+          }))
+          .filter((activity) => activity.name.length > 0);
+        return {
+          name,
+          activities: activities.length ? { activities } : undefined,
+        };
       })
       .filter((s) => s.name.length > 0);
 
@@ -263,7 +312,8 @@ export function StageFlowBatchModal({
           {item.expanded && (
             <View style={styles.activitiesBlock}>
               {item.activities.map((activity, actIndex) => (
-                <View key={activity.id} style={styles.activityRow}>
+                <View key={activity.id} style={styles.activityCard}>
+                  <View style={styles.activityRow}>
                   <View style={styles.activityDot}>
                     <Text style={styles.activityDotText}>{actIndex + 1}</Text>
                   </View>
@@ -288,6 +338,20 @@ export function StageFlowBatchModal({
                   >
                     <MaterialIcons name="close" size={18} color="#C4C9D4" />
                   </TouchableOpacity>
+                  </View>
+                  <View style={styles.activityDates}>
+                    <ActivityDateRangeFields
+                      value={{
+                        startDate: activity.startDate,
+                        dueDate: activity.dueDate,
+                      }}
+                      onChange={(next) =>
+                        updateActivityDates(item.id, activity.id, next)
+                      }
+                      disabled={isSaving}
+                      compact
+                    />
+                  </View>
                 </View>
               ))}
 
@@ -502,7 +566,13 @@ const styles = StyleSheet.create({
     borderTopColor: "#F3F4F6",
     gap: 8,
   },
+  activityCard: {
+    gap: 8,
+  },
   activityRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  activityDates: {
+    marginLeft: 30,
+  },
   activityDot: {
     width: 22,
     height: 22,

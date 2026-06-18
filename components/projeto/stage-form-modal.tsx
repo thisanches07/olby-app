@@ -2,6 +2,7 @@ import { useToast } from "@/components/obra/toast";
 import { AppModal as Modal } from "@/components/ui/app-modal";
 import { CharacterLimitHint } from "@/components/ui/character-limit-hint";
 import type { Etapa } from "@/data/obras";
+import { formatBRLInput } from "@/utils/obra-utils";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useState } from "react";
 import {
@@ -18,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const PRIMARY = "#2563EB";
 const STAGE_NAME_MAX = 60;
 const STAGE_DESCRIPTION_MAX = 160;
+const BUDGET_MAX_DIGITS = 12;
 
 type LocalPriority = "ALTA" | "MEDIA" | "BAIXA";
 
@@ -25,6 +27,8 @@ export interface StageFormValues {
   nome: string;
   descricao: string;
   prioridade: LocalPriority | null;
+  /** Orçamento da etapa em centavos. null = sem orçamento. */
+  budgetCents: number | null;
 }
 
 interface StageFormModalProps {
@@ -46,12 +50,14 @@ export function StageFormModal({
   const [nome, setNome] = useState("");
   const [nomeError, setNomeError] = useState(false);
   const [descricao, setDescricao] = useState("");
+  const [budgetDigits, setBudgetDigits] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (stage) {
       setNome(stage.nome);
       setDescricao(stage.descricao);
+      setBudgetDigits(stage.budgetCents ? String(stage.budgetCents) : "");
       setNomeError(false);
       setIsSaving(false);
     } else {
@@ -63,6 +69,7 @@ export function StageFormModal({
     setNome("");
     setNomeError(false);
     setDescricao("");
+    setBudgetDigits("");
     setIsSaving(false);
   };
 
@@ -76,10 +83,11 @@ export function StageFormModal({
     setNomeError(false);
     setIsSaving(true);
     try {
-      const values = {
+      const values: StageFormValues = {
         nome: trimmedNome,
         descricao: descricao.trim().slice(0, STAGE_DESCRIPTION_MAX),
         prioridade: null,
+        budgetCents: budgetDigits ? Number(budgetDigits) : null,
       };
       if (!stage && onSaveAndAddActivities) {
         await onSaveAndAddActivities(values);
@@ -163,6 +171,25 @@ export function StageFormModal({
               current={descricao.length}
               max={STAGE_DESCRIPTION_MAX}
             />
+          </View>
+
+          {/* Orçamento da etapa */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Orçamento da etapa</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="R$ 0,00"
+              placeholderTextColor="#9CA3AF"
+              value={formatBRLInput(budgetDigits)}
+              onChangeText={(t) =>
+                setBudgetDigits(t.replace(/\D/g, "").slice(0, BUDGET_MAX_DIGITS))
+              }
+              keyboardType="number-pad"
+              returnKeyType="done"
+            />
+            <Text style={styles.hint}>
+              Opcional — base do controle de custo por etapa.
+            </Text>
           </View>
         </ScrollView>
 
