@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmSheet } from "@/components/obra/confirm-sheet";
 import { useToast } from "@/components/obra/toast";
+import { useSubscriptionGate } from "@/contexts/subscription-gate";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/services/api";
 import { track } from "@/services/analytics";
@@ -125,6 +126,7 @@ export function ShareProjectModal({
   const { backendUserId } = useAuth();
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
+  const { requireSubscription } = useSubscriptionGate();
 
   // ── Bottom-sheet animation ──────────────────────────────────────────────────
   const [mounted, setMounted] = useState(visible);
@@ -400,6 +402,7 @@ export function ShareProjectModal({
   );
 
   const handleGenerateLink = useCallback(async () => {
+    if (!requireSubscription("gerar o link de compartilhamento")) return;
     if (isClientLimitReached) {
       setError(clientLimitMessage);
       showToast({
@@ -422,7 +425,13 @@ export function ShareProjectModal({
     } finally {
       setIsLoading(false);
     }
-  }, [clientLimitMessage, isClientLimitReached, projectId, showToast]);
+  }, [
+    clientLimitMessage,
+    isClientLimitReached,
+    projectId,
+    requireSubscription,
+    showToast,
+  ]);
 
   const handleCopy = useCallback(async () => {
     if (!inviteResult) return;

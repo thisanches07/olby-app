@@ -1,7 +1,9 @@
 import { getIdToken } from "./token";
 
 const RAW_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
-const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
+/** Base da API (sem barra final). Exportada para uploads multipart crus
+ *  (ex.: import de orçamento .xlsx) que não passam pelo helper `api`. */
+export const BASE_URL = RAW_BASE_URL.replace(/\/+$/, "");
 
 /** Erro da API com status HTTP acessivel para tratamento granular. */
 export class ApiError extends Error {

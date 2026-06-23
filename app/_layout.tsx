@@ -39,7 +39,7 @@ import {
 import { AppSessionProvider, useAppSession } from "@/hooks/use-app-session";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { PushNotificationsProvider } from "@/hooks/use-push-notifications";
-import { setPlanErrorHandler } from "@/services/api";
+import { SubscriptionGateProvider } from "@/contexts/subscription-gate";
 import { loginWithEmail } from "@/services/auth.service";
 import { pendingInviteToken } from "@/utils/pending-invite";
 
@@ -125,20 +125,6 @@ function SubscriptionLoader() {
       subscription.remove();
     };
   }, [authLoading, refresh, user]);
-
-  return null;
-}
-
-/** Registers the global 403 plan-error handler that redirects to paywall. */
-function PlanErrorInterceptor() {
-  const router = useRouter();
-
-  useEffect(() => {
-    setPlanErrorHandler(() => {
-      router.push("/subscription/plans");
-    });
-    return () => setPlanErrorHandler(null);
-  }, [router]);
 
   return null;
 }
@@ -275,6 +261,7 @@ export default function RootLayout() {
             >
             <AuthProvider>
               <SubscriptionProvider>
+                <SubscriptionGateProvider>
                 <AppSessionProvider>
                   {/* ✅ ToastProvider precisa ficar acima de qualquer provider que use useToast (ex: ProjectsProvider) */}
                   <ToastProvider>
@@ -287,7 +274,6 @@ export default function RootLayout() {
                             <ScreenTracker />
                             <RolePickerGate />
                             <SubscriptionLoader />
-                            <PlanErrorInterceptor />
 
                             <Stack>
                               <Stack.Screen
@@ -363,6 +349,7 @@ export default function RootLayout() {
                     </ProjectsProvider>
                   </ToastProvider>
                 </AppSessionProvider>
+                </SubscriptionGateProvider>
               </SubscriptionProvider>
             </AuthProvider>
             </PostHogProvider>

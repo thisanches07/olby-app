@@ -50,21 +50,28 @@ import { EngHoursCompactCard } from "@/components/obra/eng-hours-compact-card";
 import { EngStagesList } from "@/components/obra/eng-stages-list";
 import { ObraHeader } from "@/components/obra/obra-header";
 import { QuotesTab } from "@/components/orcamentos/quotes-tab";
+import { BudgetTab } from "@/components/orcamentos/budget-tab";
+import { SubTabToggle } from "@/components/obra/sub-tab-toggle";
+import { useSubscriptionGate } from "@/contexts/subscription-gate";
 
 // --- Tabs ---------------------------------------------------------------------
 type EngTabId =
   | "projetos"
   | "etapas"
+  | "orcamento"
   | "gastos"
   | "orcamentos"
   | "documentos"
   | "financeiro";
 
+/** Sub-aba dentro de Despesas. */
+type GastosSubTab = "despesas" | "cotacoes";
+
 const ENG_TABS: TabDefinition[] = [
   { id: "projetos", label: "PROJETO", icon: "folder" },
   { id: "etapas", label: "ETAPAS", icon: "layers" },
+  { id: "orcamento", label: "ORÇAM.", icon: "account-balance-wallet" },
   { id: "gastos", label: "DESPESAS", icon: "receipt" },
-  { id: "orcamentos", label: "ORÇAM.", icon: "request-quote" },
   { id: "documentos", label: "DOCUMENTOS", icon: "folder-open" },
   // { id: "financeiro", label: "FINANCEIRO", icon: "insights" },
 ];
@@ -254,6 +261,9 @@ export function ObraViewEng({
   const colStyle = isTablet ? contentColumn("default") : null;
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<EngTabId>("projetos");
+  // Sub-aba dentro de Despesas: gastos | cotações.
+  const [gastosSubTab, setGastosSubTab] = useState<GastosSubTab>("despesas");
+  const { requireSubscription } = useSubscriptionGate();
   const [headerBottom, setHeaderBottom] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [documentComposerSignal, setDocumentComposerSignal] = useState(0);
@@ -426,8 +436,11 @@ export function ObraViewEng({
   // CTA "+" só aparece no gastos quando o acompanhamento está ativo
   const showCTA =
     (activeTab === "etapas" && !isReadOnly && !stageLimitReached) ||
-    (activeTab === "gastos" && !isReadOnly && obra.trackFinancial) ||
-    (activeTab === "orcamentos" && !isReadOnly) ||
+    (activeTab === "gastos" &&
+      gastosSubTab === "despesas" &&
+      !isReadOnly &&
+      obra.trackFinancial) ||
+    (activeTab === "gastos" && gastosSubTab === "cotacoes" && !isReadOnly) ||
     (activeTab === "documentos" && canManageDocuments);
   const activeLimitMessage =
     activeTab === "etapas" && stageLimitReached
@@ -707,32 +720,50 @@ export function ObraViewEng({
           </>
         )}
 
-        {activeTab === "gastos" && (
-          <EngExpensesList
-            gastos={gastosMerged}
-            etapas={obra.etapas}
+        {activeTab === "orcamento" && (
+          <BudgetTab
             projectId={obra.id}
-            onEdit={onEditExpense}
-            onDelete={onDeleteExpense}
-            onDocumentsPress={onDocumentsPress}
-            isExpenseLoading={isExpenseLoading}
-            creatingExpenseId={creatingExpenseId}
+            etapas={obra.etapas}
             readOnly={isReadOnly}
-            readOnlyReason={readOnlyReason}
-            trackFinancial={obra.trackFinancial}
-            onEnableFinancial={isReadOnly ? undefined : onEnableFinancial}
-            onDeleteAll={isReadOnly ? undefined : onDeleteAllExpenses}
-            onDisableTracking={isReadOnly ? undefined : onDisableFinancial}
           />
         )}
 
-        {activeTab === "orcamentos" && (
-          <QuotesTab
-            projectId={obra.id}
-            readOnly={isReadOnly}
-            trackFinancial={obra.trackFinancial}
-            openCreateSignal={quotesComposerSignal}
-          />
+        {activeTab === "gastos" && (
+          <View>
+            <SubTabToggle
+              options={[
+                { id: "despesas", label: "Despesas" },
+                { id: "cotacoes", label: "Cotações" },
+              ]}
+              value={gastosSubTab}
+              onChange={setGastosSubTab}
+            />
+            {gastosSubTab === "despesas" ? (
+              <EngExpensesList
+                gastos={gastosMerged}
+                etapas={obra.etapas}
+                projectId={obra.id}
+                onEdit={onEditExpense}
+                onDelete={onDeleteExpense}
+                onDocumentsPress={onDocumentsPress}
+                isExpenseLoading={isExpenseLoading}
+                creatingExpenseId={creatingExpenseId}
+                readOnly={isReadOnly}
+                readOnlyReason={readOnlyReason}
+                trackFinancial={obra.trackFinancial}
+                onEnableFinancial={isReadOnly ? undefined : onEnableFinancial}
+                onDeleteAll={isReadOnly ? undefined : onDeleteAllExpenses}
+                onDisableTracking={isReadOnly ? undefined : onDisableFinancial}
+              />
+            ) : (
+              <QuotesTab
+                projectId={obra.id}
+                readOnly={isReadOnly}
+                trackFinancial={obra.trackFinancial}
+                openCreateSignal={quotesComposerSignal}
+              />
+            )}
+          </View>
         )}
 
         {activeTab === "financeiro" && <EngFinancialSummary obra={obra} />}
@@ -742,13 +773,35 @@ export function ObraViewEng({
         <View style={colStyle}>
         {showCTA && (
           <EngCTARow
-            activeTab={activeTab}
-            onAddStage={stageLimitReached ? undefined : onAddStage}
-            onAddExpense={expenseLimitReached ? undefined : onAddExpense}
-            onAddDemand={() => setQuotesComposerSignal((prev) => prev + 1)}
+            activeTab={
+              activeTab === "gastos" && gastosSubTab === "cotacoes"
+                ? "orcamentos"
+                : activeTab
+            }
+            onAddStage={
+              stageLimitReached
+                ? undefined
+                : () => {
+                    if (requireSubscription("criar etapas")) onAddStage();
+                  }
+            }
+            onAddExpense={
+              expenseLimitReached
+                ? undefined
+                : () => {
+                    if (requireSubscription("criar despesas")) onAddExpense();
+                  }
+            }
+            onAddDemand={() => {
+              if (requireSubscription("criar cotações"))
+                setQuotesComposerSignal((prev) => prev + 1);
+            }}
             onAddDocument={
               canManageDocuments
-                ? () => setDocumentComposerSignal((prev) => prev + 1)
+                ? () => {
+                    if (requireSubscription("adicionar documentos"))
+                      setDocumentComposerSignal((prev) => prev + 1);
+                  }
                 : undefined
             }
             onDefault={onViewDiary}

@@ -27,6 +27,7 @@ import {
 
 import { useProjects } from "@/contexts/projects-context";
 import { useSubscription } from "@/contexts/subscription-context";
+import { useSubscriptionGate } from "@/contexts/subscription-gate";
 import { useOnboarding } from "@/contexts/onboarding-context";
 import {
   getProjectItemLimitMessage,
@@ -60,6 +61,7 @@ import { ExpenseFormModal } from "@/components/projeto/expense-form-modal";
 import { HoursAdjustmentModal } from "@/components/projeto/hours-adjustment-modal";
 import { ProjectSettingsModal } from "@/components/projeto/project-settings-modal";
 import { CreateStagesChooserSheet } from "@/components/projeto/create-stages-chooser-sheet";
+import { MsProjectImportModal } from "@/components/projeto/ms-project-import-modal";
 import { StageActivitiesBatchModal } from "@/components/projeto/stage-activities-batch-modal";
 import { StageFlowBatchModal } from "@/components/projeto/stage-flow-batch-modal";
 import { StageFormModal } from "@/components/projeto/stage-form-modal";
@@ -228,6 +230,7 @@ export default function ObraDetalheScreen() {
   const [showStageModal, setShowStageModal] = useState(false);
   const [showStageChooser, setShowStageChooser] = useState(false);
   const [showStageFlow, setShowStageFlow] = useState(false);
+  const [showMsProjectImport, setShowMsProjectImport] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showHoursModal, setShowHoursModal] = useState(false);
@@ -258,6 +261,7 @@ export default function ObraDetalheScreen() {
 
   const { obras, updateObra, deleteObra } = useProjects();
   const { refresh: refreshSubscription } = useSubscription();
+  const { requireSubscription } = useSubscriptionGate();
 
   const {
     obra,
@@ -525,6 +529,7 @@ export default function ObraDetalheScreen() {
 
   // Etapas
   const handleAddStage = () => {
+    if (!requireSubscription("criar etapas")) return;
     if (stageLimitReached) {
       Alert.alert("Limite atingido", getProjectItemLimitMessage("etapas"));
       return;
@@ -543,6 +548,11 @@ export default function ObraDetalheScreen() {
     setShowStageFlow(true);
   };
 
+  const handlePickMsProjectImport = () => {
+    setShowStageChooser(false);
+    setShowMsProjectImport(true);
+  };
+
   const handleSaveStageFlow = async (stages: CreateStageBatchItemDto[]) => {
     try {
       const created = await addStagesBatch(stages);
@@ -559,6 +569,16 @@ export default function ObraDetalheScreen() {
       );
       throw e;
     }
+  };
+
+  const handleApplyMsProjectImport = async (stages: CreateStageBatchItemDto[]) => {
+    const stageCount = stages.length;
+    await addStagesBatch(stages);
+    await refresh();
+    showToast({
+      title: `${stageCount} etapa${stageCount !== 1 ? "s" : ""} importada${stageCount !== 1 ? "s" : ""}`,
+      tone: "success",
+    });
   };
 
   const handleEditStage = (etapa: Etapa) => {
@@ -758,6 +778,7 @@ export default function ObraDetalheScreen() {
 
   // Track financial - ativa flag via PATCH e abre modal de orçamento
   const handleEnableFinancial = async () => {
+    if (!requireSubscription("ativar o acompanhamento financeiro")) return;
     try {
       await updateTrackFinancial(true);
       setShowBudgetModal(true);
@@ -989,6 +1010,7 @@ export default function ObraDetalheScreen() {
         visible={showStageChooser}
         onPickSingle={handlePickSingleStage}
         onPickFlow={handlePickStageFlow}
+        onPickMsProject={handlePickMsProjectImport}
         onClose={() => setShowStageChooser(false)}
       />
 
@@ -996,6 +1018,13 @@ export default function ObraDetalheScreen() {
         visible={showStageFlow}
         onSave={handleSaveStageFlow}
         onClose={() => setShowStageFlow(false)}
+      />
+
+      <MsProjectImportModal
+        visible={showMsProjectImport}
+        projectId={obraView.id}
+        onApply={handleApplyMsProjectImport}
+        onClose={() => setShowMsProjectImport(false)}
       />
 
       <ExpenseFormModal

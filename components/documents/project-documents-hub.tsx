@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { useToast } from "@/components/obra/toast";
+import { useSubscriptionGate } from "@/contexts/subscription-gate";
 import { HomeEmptyState } from "@/components/home/home-empty-state";
 import { DocumentViewerModal } from "@/components/projeto/document-viewer-modal";
 import type { DocumentAttachment, DocumentKind } from "@/data/obras";
@@ -84,6 +85,7 @@ export function ProjectDocumentsHub({
 }: ProjectDocumentsHubProps) {
   const canManage = canManageMembers(projectRole);
   const { showToast } = useToast();
+  const { requireSubscription } = useSubscriptionGate();
   const {
     documents,
     loading,
@@ -288,6 +290,7 @@ export function ProjectDocumentsHub({
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={() => {
+                  if (!requireSubscription("adicionar documentos")) return;
                   if (uploading) {
                     showToast({ title: "Upload em andamento", message: "Aguarde o envio finalizar antes de adicionar outro documento.", tone: "info" });
                     return;
@@ -475,6 +478,7 @@ export function ProjectDocumentsHub({
                 ? {
                     label: "Adicionar documento",
                     onPress: () => {
+                      if (!requireSubscription("adicionar documentos")) return;
                       if (uploading) {
                         showToast({ title: "Upload em andamento", message: "Aguarde o envio finalizar antes de adicionar outro documento.", tone: "info" });
                         return;

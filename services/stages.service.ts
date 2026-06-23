@@ -46,6 +46,8 @@ export interface CreateStageBatchActivitiesDto {
   names?: string[];
   activities?: {
     name: string;
+    description?: string | null;
+    status?: "PENDING" | "IN_PROGRESS" | "DONE";
     startDate?: string | null;
     dueDate?: string | null;
   }[];

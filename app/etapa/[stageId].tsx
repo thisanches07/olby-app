@@ -34,6 +34,8 @@ import {
 
 import { useToast } from "@/components/obra/toast";
 import { ActivityFormModal } from "@/components/projeto/activity-form-modal";
+import { BudgetEditorModal } from "@/components/orcamentos/budget-editor-modal";
+import { BudgetStageCard } from "@/components/orcamentos/budget-stage-card";
 import { ConfirmSheet } from "@/components/ui/confirm-sheet";
 import { FadeSlideIn } from "@/components/ui/fade-slide-in";
 import type {
@@ -43,6 +45,7 @@ import type {
   StageStatus,
 } from "@/data/obras";
 import { useStageActivities } from "@/hooks/use-stage-activities";
+import { useStageBudget } from "@/hooks/use-budget-data";
 import { getErrorMessage } from "@/services/api";
 import { stagesService } from "@/services/stages.service";
 import { colors } from "@/theme/colors";
@@ -277,6 +280,9 @@ export default function StageDetailScreen() {
   } = useStageActivities(stageId, { onStatusDerived: applyDerivedStatus });
 
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showBudget, setShowBudget] = useState(false);
+  // Orçamento da etapa (endpoint budget-item) — fonte da verdade do orçado.
+  const budget = useStageBudget(params.projectId, stageId);
   const [editing, setEditing] = useState<Atividade | undefined>(undefined);
   const [actionActivity, setActionActivity] = useState<Atividade | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -472,6 +478,16 @@ export default function StageDetailScreen() {
           </View>
         )}
       </View>
+
+      {!!params.projectId && (
+        <BudgetStageCard
+          orcadoCents={budget.item?.totalCents ?? stage?.budgetCents ?? null}
+          detailsCount={budget.item?.details.length ?? 0}
+          isLoading={budget.isLoading}
+          canEdit={canEdit}
+          onPress={() => setShowBudget(true)}
+        />
+      )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Atividades</Text>
@@ -757,6 +773,16 @@ export default function StageDetailScreen() {
           });
         }}
         onClose={() => setConfirmCompleteAll(false)}
+      />
+
+      <BudgetEditorModal
+        visible={showBudget}
+        stageName={headerName}
+        item={budget.item}
+        isSaving={budget.isSaving}
+        onClose={() => setShowBudget(false)}
+        onSave={budget.save}
+        onDelete={budget.remove}
       />
     </SafeAreaView>
   );

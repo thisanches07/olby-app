@@ -12,6 +12,7 @@ interface CreateStagesChooserSheetProps {
   visible: boolean;
   onPickSingle: () => void;
   onPickFlow: () => void;
+  onPickMsProject?: () => void;
   onClose: () => void;
 }
 
@@ -50,6 +51,7 @@ export function CreateStagesChooserSheet({
   visible,
   onPickSingle,
   onPickFlow,
+  onPickMsProject,
   onClose,
 }: CreateStagesChooserSheetProps) {
   const insets = useSafeAreaInsets();
@@ -93,6 +95,16 @@ export function CreateStagesChooserSheet({
             description="Monte várias etapas e suas atividades de uma só vez."
             onPress={onPickFlow}
           />
+          {onPickMsProject && (
+            <OptionCard
+              icon="upload-file"
+              iconBg="#FFF7ED"
+              iconColor="#EA580C"
+              title="Importar MS Project"
+              description="Envie um .xml exportado do Microsoft Project e revise a prévia."
+              onPress={onPickMsProject}
+            />
+          )}
         </View>
 
         <PressableScale

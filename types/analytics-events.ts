@@ -66,6 +66,7 @@ export type ObraTabId =
   | "projetos"
   | "etapas"
   | "tarefas"
+  | "orcamento"
   | "gastos"
   | "orcamentos"
   | "documentos"
